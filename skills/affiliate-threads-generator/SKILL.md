@@ -169,7 +169,7 @@ for you when the skill loads.
 | --------------------------------- | -------------------------------------------------------------------------- |
 | Pick the next candidate           | `python3 ${HERMES_SKILL_DIR}/scripts/select_candidate.py`                  |
 | Set a status (hold/cancel/resume) | `python3 ${HERMES_SKILL_DIR}/scripts/set_status.py <PRODUCT_ID> <STATUS>`  |
-| Lint a draft before showing it    | `python3 ${HERMES_SKILL_DIR}/scripts/validate_thread.py --json draft.json` |
+| Lint a draft before showing it    | `python3 ${HERMES_SKILL_DIR}/scripts/validate_thread.py --file draft.json` |
 | Health check                      | `python3 ${HERMES_SKILL_DIR}/scripts/doctor.py`                            |
 | Threads token status / refresh    | `python3 ${HERMES_SKILL_DIR}/scripts/threads_token.py status`              |
 
@@ -355,7 +355,7 @@ Four passes on the draft, in this order:
 4. **Deterministic lint** — the same check the publish tool will run:
 
 ```bash
-python3 ${HERMES_SKILL_DIR}/scripts/validate_thread.py --json draft.json
+python3 ${HERMES_SKILL_DIR}/scripts/validate_thread.py --file draft.json
 ```
 
 Fix every `violation`. Read the `warnings` and decide — they are signals, not
