@@ -217,6 +217,39 @@ class TestSkillPointer:
     def test_unrelated_messages_are_left_alone(self, ctx, message: str) -> None:  # noqa: ANN001
         assert hooks.on_pre_llm_call(user_message=message) is None
 
+    @pytest.mark.parametrize(
+        "message",
+        [
+            # "threads" is an ordinary English word and a common programming
+            # concept. Matching it alone injects the pointer on turns that have
+            # nothing to do with this pipeline.
+            "Explain how Python threads work.",
+            "What is the Threads app?",
+            "Is threads still popular in 2026?",
+        ],
+    )
+    def test_a_bare_threads_mention_is_left_alone(self, ctx, message: str) -> None:  # noqa: ANN001
+        """The pointer is appended to the user message on every matching turn
+        for the rest of the session, so a false positive is a standing cost,
+        not a one-off."""
+        assert hooks.on_pre_llm_call(user_message=message) is None
+
+    @pytest.mark.parametrize(
+        "message",
+        [
+            # None of these hit _TRIGGERS directly — they only qualify through
+            # "threads" sitting next to the pipeline's own vocabulary.
+            "Post ke threads sekarang.",
+            "Publish ke threads.",
+            "Cek preview threads-nya dong.",
+            "Schedule the threads cron job.",
+        ],
+    )
+    def test_threads_beside_the_pipeline_work_gets_the_pointer(self, ctx, message: str) -> None:  # noqa: ANN001
+        result = hooks.on_pre_llm_call(user_message=message)
+        assert result is not None
+        assert hooks.SKILL_ID in result["context"]
+
     def test_the_pointer_stays_one_line(self, ctx) -> None:  # noqa: ANN001
         result = hooks.on_pre_llm_call(user_message="Buatkan content berikutnya.")
         assert set(result) == {"context"}

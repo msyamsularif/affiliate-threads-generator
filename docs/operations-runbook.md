@@ -240,11 +240,19 @@ and duration.
 ### Plugin state
 
 The last 50 entries are kept in plugin state under `publish_audit`, alongside the
-publish ledger under `publish_ledger`:
+publish ledger under `publish_ledger`, both inside `$HERMES_HOME/plugin-data/`:
 
 ```
-$HERMES_HOME/plugin-data/affiliate-threads-generator/
+$HERMES_HOME/plugin-data/
+├── agent-plugin-affiliate-threads-generator-<hash>/state.json   # at runtime
+└── affiliate-threads-generator/state.json                       # skill scripts
 ```
+
+Which of the two holds the current ledger depends on which writer ran last, and
+the directory is not derivable from the plugin name — Hermes namespaces
+`ctx.state` for native plugins. Read the payload, not the path (that is what
+`doctor.py` does), or ask `threads_check` / `/affiliate-threads status` for the
+live answer.
 
 ```json
 {

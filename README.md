@@ -172,6 +172,7 @@ uv run --no-project --with ruff ruff check .
 | `test_tools_publish.py`          | Every refusal path, and that a failed publish never writes the Sheet                |
 | `test_hooks.py`                  | The approval gate fires for `threads_publish` and nothing else                      |
 | `test_plugin_manifest.py`        | Declared tools/hooks match what `register()` registers; the skill is loadable       |
+| `test_skill_scripts.py`          | The doctor finds the publish ledger wherever Hermes filed it                        |
 | `test_integration_end_to_end.py` | The whole cycle through a real subprocess to a fake `google_api.py`                 |
 
 Before changing anything in `guardrails.py` or `tools.py`, run both commands.

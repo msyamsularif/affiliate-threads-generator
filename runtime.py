@@ -19,6 +19,11 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+#: The plugin's own id — the manifest's ``name``, the install directory, and the
+#: name this plugin's data is filed under. Defined here, the lowest layer, so
+#: every module that needs it reads one literal.
+PLUGIN_ID = "affiliate-threads-generator"
+
 _lock = threading.RLock()
 _ctx: Any = None
 _fallback_state_path: Path | None = None
@@ -110,11 +115,31 @@ def state_set(key: str, value: Any) -> None:  # noqa: ANN401
 
 
 def _fallback_state_file() -> Path:
+    """Where this plugin's state lives when there is no host context.
+
+    Inside Hermes, ``ctx.state`` is the writer and Hermes namespaces a native
+    plugin's state as ``plugin-data/agent-plugin-<slug>-<hash>/`` — a deliberate
+    choice on its side, Windows-safe and collision-proof, but not derivable from
+    the plugin id. This fallback therefore lands in a *sibling* directory, and
+    the two can legitimately disagree. Anything reading state from disk has to
+    key on the payload rather than the path; ``scripts/doctor.py`` scans the
+    whole ``plugin-data`` tree for exactly that reason.
+
+    ``plugins.plugin_storage.plugin_data_dir`` is the sanctioned helper and
+    resolves this same ``plugin-data/<plugin>/`` path, so it is preferred when
+    Hermes is importable. It is imported lazily because this module is also
+    loaded by the skill's scripts, which may run outside Hermes' venv.
+    """
     global _fallback_state_path
     if _fallback_state_path is None:
-        root = os.environ.get("HERMES_HOME")
-        base = Path(root) if root else Path.home() / ".hermes"
-        _fallback_state_path = base / "plugin-data" / "affiliate-threads-generator" / "state.json"
+        try:
+            from plugins.plugin_storage import plugin_data_dir
+
+            _fallback_state_path = plugin_data_dir(PLUGIN_ID) / "state.json"
+        except Exception:  # noqa: BLE001 - not importable outside Hermes
+            root = os.environ.get("HERMES_HOME")
+            base = Path(root) if root else Path.home() / ".hermes"
+            _fallback_state_path = base / "plugin-data" / PLUGIN_ID / "state.json"
     return _fallback_state_path
 
 

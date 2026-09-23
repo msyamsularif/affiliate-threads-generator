@@ -37,7 +37,7 @@ _AUDIT_LIMIT = 50
 _WATCHED_TOOLS = {"threads_publish", "threads_check"}
 
 #: The plugin's own namespace, which is also the bundled skill's directory name.
-PLUGIN_ID = "affiliate-threads-generator"
+PLUGIN_ID = runtime.PLUGIN_ID
 SKILL_ID = f"{PLUGIN_ID}:{PLUGIN_ID}"
 
 #: Phrases that mean "this turn is Affiliate Threads work", lowercased and
@@ -46,7 +46,6 @@ SKILL_ID = f"{PLUGIN_ID}:{PLUGIN_ID}"
 _TRIGGERS = (
     "affiliate",
     "afiliasi",
-    "threads",
     "buatkan content",
     "buat konten",
     "bikin konten",
@@ -57,6 +56,26 @@ _TRIGGERS = (
     "jangan dipublish",
     "saya approve",
     "post aja",
+)
+
+#: ``"threads"`` is deliberately not a trigger on its own: it is an ordinary
+#: English word, and a question about Python threads or about the Threads
+#: network in general is not this pipeline's work. The injected context is
+#: appended to the user message on every matching turn for the rest of the
+#: session, so a false positive is a standing tax on unrelated conversations,
+#: not a one-off. Paired with the pipeline's own vocabulary it is unambiguous.
+_THREADS = "threads"
+_THREADS_CONTEXT = (
+    "affiliate",
+    "afiliasi",
+    "konten",
+    "content",
+    "post",
+    "publish",
+    "preview",
+    "generate",
+    "schedule",
+    "cron",
 )
 
 _SKILL_POINTER = (
@@ -185,7 +204,9 @@ def _looks_like_our_work(user_message: str) -> bool:
     if not user_message:
         return False
     lowered = user_message.lower()
-    return any(trigger in lowered for trigger in _TRIGGERS)
+    if any(trigger in lowered for trigger in _TRIGGERS):
+        return True
+    return _THREADS in lowered and any(word in lowered for word in _THREADS_CONTEXT)
 
 
 def _parse(result: str) -> dict[str, Any]:

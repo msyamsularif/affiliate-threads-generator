@@ -332,12 +332,27 @@ def _cron_check() -> dict:
 
 
 def _unsynced_publishes() -> list[dict]:
-    """Best-effort read of the plugin's publish ledger, outside Hermes."""
-    data_dir = hermes_home() / "plugin-data" / PLUGIN_NAME
-    if not data_dir.is_dir():
+    """Best-effort read of the plugin's publish ledger, outside Hermes.
+
+    Which directory holds the ledger depends on who wrote it, and the two do
+    not agree. Inside Hermes the plugin writes through ``ctx.state``, and Hermes
+    namespaces a native plugin's state as
+    ``plugin-data/agent-plugin-<slug>-<hash>/`` rather than by the plugin id —
+    Windows-safe and collision-proof, but not derivable from this plugin's name.
+    Outside Hermes, ``runtime.py`` falls back to ``plugin-data/<plugin>/``, which
+    is also the ``plugin_data_dir()`` convention.
+
+    So do not derive the path. Walk ``plugin-data`` and key on the payload: any
+    ``state.json`` carrying a ``publish_ledger`` is this plugin's, wherever it
+    landed. A ledger that goes unfound here is a publish that went live without
+    its Sheet write going unnoticed, which is the one thing this check exists
+    for.
+    """
+    root = hermes_home() / "plugin-data"
+    if not root.is_dir():
         return []
     records: list[dict] = []
-    for path in sorted(data_dir.glob("*.json")):
+    for path in sorted(root.glob("*/state.json")):
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):

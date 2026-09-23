@@ -48,17 +48,35 @@ Hermes has **three** plugin-owned locations, and they are not interchangeable.
 
 | Location                                                        | Holds                                                  | Written by                                                 | Used by this plugin for                   |
 | --------------------------------------------------------------- | ------------------------------------------------------ | ---------------------------------------------------------- | ----------------------------------------- |
-| `~/.hermes/plugin-data/<plugin>/`                               | Writable runtime data — JSON, or an optional SQLite DB | The plugin, at runtime                                     | The publish ledger and the audit trail    |
+| `~/.hermes/plugin-data/<namespace>/state.json`                  | Writable runtime data — JSON, or an optional SQLite DB | The plugin, at runtime                                     | The publish ledger and the audit trail    |
 | `~/.hermes/config.yaml` → `plugins.entries.<id>.settings`       | Non-secret settings                                    | You, the Desktop form, `hermes config set`                 | Sheet tab, thread length, guardrail knobs |
 | Hermes credential store (`~/.hermes/.env`, or a secret manager) | **Secrets**                                            | You, via a prompt / `hermes config set` / the Desktop form | The Threads token                         |
 
-`plugin-data/<plugin>/` is the directory-per-plugin store — one folder per plugin,
+`plugin-data/` is the directory-per-plugin store — one folder per plugin,
 inspectable in one predictable place. It is where this project keeps its ledger:
 
 ```
-~/.hermes/plugin-data/affiliate-threads-generator/
-└── state.json        # publish_ledger + publish_audit
+~/.hermes/plugin-data/
+├── agent-plugin-affiliate-threads-generator-<hash>/
+│   └── state.json    # publish_ledger + publish_audit, written at runtime
+└── affiliate-threads-generator/
+    └── state.json    # the same keys, written by the skill's scripts
 ```
+
+The directory name is not the plugin id, and the two writers do not share a file.
+That is Hermes' design, not drift on this plugin's side:
+
+- Inside Hermes, state goes through `ctx.state`, and Hermes files a _native_
+  plugin's state under `agent-plugin-<slug>-<hash>/` — Windows-safe and
+  collision-proof, and deliberately not derivable from the plugin name.
+- Outside Hermes — the skill's scripts, `doctor.py`, a unit test — there is no
+  `ctx.state` to write through, so `runtime.py` falls back to the documented
+  `plugin_data_dir("<plugin-id>")` convention, `plugin-data/<plugin-id>/`.
+
+Both hold the same keys, so **read the payload, not the path**. `doctor.py` walks
+`plugin-data/*/state.json` and treats any file carrying a `publish_ledger` as this
+plugin's. Inside Hermes, prefer `threads_check` or `/affiliate-threads status` —
+they read the live record through the tool rather than guessing at a directory.
 
 **Secrets do not go there**, and that is a platform rule rather than a style
 preference. Hermes' own developer guide states it directly:
