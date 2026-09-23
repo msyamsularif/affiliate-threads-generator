@@ -1,0 +1,50 @@
+[project]
+name = "affiliate-threads-hermes-plugin"
+version = "1.0.0"
+description = "Hermes Agent plugin: AI-assisted affiliate content engine for Meta Threads"
+readme = "README.md"
+# Hermes itself requires 3.11+, but the plugin's modules are also imported by the
+# skill's scripts, which run under whatever `python3` the host provides — on macOS
+# that is often 3.9. The code is deliberately written to import cleanly there.
+requires-python = ">=3.9"
+license = { text = "MIT" }
+
+# Runtime dependencies are intentionally empty.
+#
+# The plugin reuses what Hermes already provides:
+#   - Google Sheets access  -> bundled `google-workspace` skill (google_api.py)
+#   - research + web        -> bundled web/browser tools
+#   - image generation      -> Hermes built-in image tool (FAL.ai)
+#   - scheduling            -> Hermes cron
+#   - memory / novelty      -> Hermes persistent memory
+#
+# The only network call the plugin makes itself is to graph.threads.net, using
+# the standard library so it can never be blocked by a dependency conflict.
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pyyaml>=6.0",
+    "ruff>=0.6",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4"]
+ignore = [
+    "E501",  # long lines in docstrings/prompts are fine
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["atg_plugin", "conftest"]
+
+[tool.ruff.lint.per-file-ignores]
+"plugins/affiliate-threads-generator/skills/**/scripts/*.py" = ["E402"]

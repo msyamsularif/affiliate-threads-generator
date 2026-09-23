@@ -1,0 +1,26 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+.venv/
+venv/
+env/
+
+.env
+.env.*
+!.env.example
+
+.DS_Store
+Thumbs.db
+
+# Local scratch state produced while testing the plugin
+.plugin-data/
+*.local.json

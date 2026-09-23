@@ -1,0 +1,289 @@
+# Hermes plugin manifest (v2) — Affiliate Threads
+#
+# Everything the model must never be trusted to get right lives in the Python
+# code beside this file. This manifest only declares what the plugin provides
+# and which user-visible settings it reads.
+
+manifest_version: 2
+api_version: 1
+
+name: affiliate-threads-generator
+version: 1.0.0
+
+description: >-
+  AI-assisted affiliate content engine for Meta Threads. Generates
+  research-backed, conversation-oriented threads from Google Sheets candidates
+  and publishes them through the official Threads Graph API — only after an
+  explicit human approval, and only after re-validating the Sheet's own state.
+
+author: Affiliate Threads
+license: MIT
+homepage: https://github.com/example/affiliate-threads-plugins
+tags:
+  - threads
+  - affiliate
+  - content
+  - telegram
+  - google-sheets
+  - marketing
+
+# --------------------------------------------------------------------------- #
+# Credentials — collected by Hermes at install time, never shipped here
+# --------------------------------------------------------------------------- #
+#
+# This repository contains no secret. It contains the *names* of the variables
+# the plugin needs, so Hermes can ask for them and store them itself, and so the
+# values reach the plugin only as environment variables.
+#
+# `requires_env` is what produces the prompt during `hermes plugins install` and
+# `hermes plugins enable`. Each entry carries its description, signup URL and
+# masking flag, so the prompt explains itself and the typed value is never
+# echoed. Values land in Hermes' credential store (~/.hermes/.env, or a
+# configured secret manager — Bitwarden, 1Password, the command helper) and are
+# injected into the process environment at startup.
+#
+# Note the two masking keys. Hermes reads `secret` when building the install
+# prompt and `password` when building the `hermes config` / setup-wizard entry.
+# They are separate code paths, so a real secret sets both.
+#
+# `requires_env` also GATES loading: while a listed variable is unset, Hermes
+# reports the plugin disabled and never calls register(ctx) — which is what keeps
+# the bundled skill from loading on a half-configured install. Set both during
+# install and this never comes up.
+#
+# If you would rather generate and preview before wiring publishing, move
+# THREADS_ACCESS_TOKEN down into `optional_env`: the plugin then loads without
+# it, and `threads_publish` still fails closed naming the missing variable.
+#
+# `optional_env` entries have a working default or are resolved automatically, so
+# they show up in the config UI without ever blocking a load.
+
+requires_env:
+  - name: THREADS_ACCESS_TOKEN
+    description: >-
+      Long-lived Meta Threads user access token (60 days, refreshable). Needs the
+      threads_basic and threads_content_publish scopes, from a Meta app created
+      with the Threads use case.
+    prompt: "Meta Threads long-lived user access token"
+    url: "https://developers.facebook.com/apps"
+    secret: true
+    password: true
+    category: tool
+
+  - name: AFFILIATE_SHEET_ID
+    description: >-
+      Google Sheets spreadsheet id holding the candidate table — the long id in
+      the sheet URL between /d/ and /edit. Every operation reads the Sheet, so
+      the plugin has nothing to do without it.
+    prompt: "Google Sheets spreadsheet id"
+    secret: false
+    password: false
+    category: tool
+
+optional_env:
+  - name: THREADS_USER_ID
+    description: >-
+      Numeric Meta Threads user id. Leave it blank and the plugin resolves it
+      from GET /me and caches it in plugin state.
+    prompt: "Meta Threads user id (optional)"
+    password: false
+    secret: false
+    category: tool
+
+  - name: AFFILIATE_SHEET_TAB
+    description: >-
+      Tab that holds the candidate table. Defaults to Sheet1 when unset.
+    prompt: "Sheet tab name (default: Sheet1)"
+    password: false
+    secret: false
+    category: tool
+
+provides_tools:
+  - threads_publish
+  - threads_check
+
+provides_hooks:
+  - pre_tool_call
+  - post_tool_call
+
+config_schema:
+  # --- Business data (Google Sheets is the source of truth) -----------------
+  spreadsheet_id:
+    type: str
+    default: ""
+    label: "Spreadsheet ID"
+    description: >-
+      Google Sheets spreadsheet id from its URL. Falls back to the
+      AFFILIATE_SHEET_ID environment variable when empty.
+
+  sheet_tab:
+    type: str
+    default: "Sheet1"
+    label: "Sheet tab"
+    description: >-
+      Tab that holds the candidate table (ID, Product, Description,
+      Affiliate URL, Category, Threads URL, Status).
+
+  columns:
+    type: dict
+    default:
+      id: "A"
+      product: "B"
+      description: "C"
+      affiliate_url: "D"
+      category: "E"
+      threads_url: "F"
+      status: "G"
+    label: "Sheet columns"
+    description: >-
+      Maps each field to its column letter. Change only if your table does not use
+      the documented layout. A map that names one column twice is discarded and the
+      documented layout is used instead.
+
+  # --- Status vocabulary ----------------------------------------------------
+  eligible_status:
+    type: str
+    default: "Ready To Generate"
+    label: "Eligible status"
+    description: "The only Status value that makes a row eligible for generation and publishing."
+
+  done_status:
+    type: str
+    default: "Done"
+
+  hold_status:
+    type: str
+    default: "Hold"
+
+  cancel_status:
+    type: str
+    default: "Cancel"
+
+  in_progress_status:
+    type: str
+    default: "In Progress"
+
+  # --- Publish guardrails ---------------------------------------------------
+  require_disclosure:
+    type: bool
+    default: true
+    label: "Require affiliate disclosure"
+    description: >-
+      Refuse to publish when no post carries a disclosure marker.
+
+  disclosure_markers:
+    type: list
+    default:
+      - "#ad"
+      - "#ads"
+      - "#affiliate"
+      - "#afiliasi"
+      - "link afiliasi"
+      - "affiliate link"
+      - "tautan afiliasi"
+      - "komisi"
+      - "paid partnership"
+      - "iklan berbayar"
+    label: "Disclosure markers"
+    description: "Any one of these appearing in a post satisfies the disclosure requirement."
+
+  require_affiliate_url:
+    type: bool
+    default: true
+    label: "Require the affiliate URL"
+    description: "Refuse to publish when the row's Affiliate URL does not appear in any post."
+
+  blocked_phrases:
+    type: list
+    default:
+      - '\baku (sudah|udah|pernah|sering) (coba|nyoba|cobain|pakai|pake|beli|gunakan|pesan)\b'
+      - '\bsaya (sudah|udah|pernah|sering) (coba|nyoba|cobain|pakai|pake|beli|gunakan|pesan)\b'
+      - '\b(saya|aku) (pakai|pake|memakai|gunakan|menggunakan|pesan) (ini|itu|produk ini|produk itu|barang ini)\b'
+      - '\bmenurut pengalaman (saya|aku)\b'
+      - '\bpengalaman (saya|aku) (pakai|pake|memakai)\b'
+      - '\bdi (rumah|kantor) (saya|aku) (pakai|pake)\b'
+      - '\bi (have|''ve) (personally )?(tried|used|bought|tested)\b'
+      - '\bi (use|used) (this|it) every day\b'
+      - '\bwhen i (tried|used|bought|tested)\b'
+      - '\bin my (own )?experience\b'
+    label: "Blocked phrases"
+    description: >-
+      Regular expressions that may never appear in published copy — the
+      fabricated-personal-experience guardrail. Matched case-insensitively.
+
+  max_posts:
+    type: int
+    default: 6
+    label: "Maximum posts per thread"
+
+  min_posts:
+    type: int
+    default: 3
+
+  max_chars_per_post:
+    type: int
+    default: 500
+    label: "Maximum characters per post"
+    description: "Threads' own limit. Emoji are counted as their UTF-8 byte length."
+
+  max_links_per_post:
+    type: int
+    default: 5
+    label: "Maximum unique links per post"
+
+  container_wait_seconds:
+    type: int
+    default: 5
+    label: "Container processing wait"
+    description: >-
+      Seconds to wait between creating a media container and publishing it.
+      Threads recommends ~30s for media uploads; text-only containers are ready
+      almost immediately.
+
+  # --- Google Sheets plumbing ----------------------------------------------
+  google_api_path:
+    type: str
+    default: ""
+    label: "google_api.py path"
+    description: >-
+      Path to the bundled google-workspace skill's google_api.py. Empty means
+      auto-discover under $HERMES_HOME/skills and ~/.hermes/skills.
+
+  google_api_command:
+    type: str
+    default: "{python} {script}"
+    label: "google_api.py command template"
+    description: "How to invoke google_api.py. {python} and {script} are substituted."
+
+  sheet_timeout_seconds:
+    type: int
+    default: 60
+
+  # --- Approval + audit -----------------------------------------------------
+  require_approval_prompt:
+    type: bool
+    default: true
+    label: "Escalate publishing to the approval gate"
+    description: >-
+      When on, every threads_publish call is escalated to Hermes' own
+      human-approval gate before it can execute.
+
+  content_language:
+    type: str
+    default: "id"
+    choices: [id, en]
+    label: "Content language"
+    description: "Language the generated Threads copy is written in."
+
+  # --- Threads credentials --------------------------------------------------
+  threads_access_token:
+    type: secret
+    env: THREADS_ACCESS_TOKEN
+    label: "Threads access token"
+    description: "Long-lived Threads user access token (60 days, refreshable)."
+
+  threads_user_id:
+    type: str
+    default: ""
+    label: "Threads user id"
+    description: "Optional. Resolved from GET /me and cached when empty."
