@@ -49,9 +49,9 @@ directly.
 
 ---
 
-## Option A — accept the blueprint suggestion (recommended)
+## Option A — accept the blueprint suggestion
 
-The skill declares a blueprint in its frontmatter. Installing it registers a
+The skill declares a blueprint in its frontmatter, so Hermes offers it as a
 _suggested_ job; nothing is scheduled until you accept.
 
 In any session:
@@ -62,17 +62,24 @@ In any session:
 ```
 
 That creates the job through the same `cron.jobs.create_job` path as the CLI —
-there is no second scheduler.
+there is no second scheduler. The blueprint's prompt names the skill explicitly,
+so the job works whether or not the suggestion attaches it by name.
+
+If no suggestion appears, use Option B — it creates the same job.
 
 ## Option B — create it from the CLI
 
 ```bash
 hermes cron create "0 8 * * 0,1,3,5" \
-  "Generate the next affiliate thread for Meta Threads and send me the preview. Process exactly one candidate, then stop and wait for a human decision." \
-  --skill affiliate-threads-generator \
+  "Load the skill affiliate-threads-generator:affiliate-threads-generator with skill_view, then generate the next affiliate thread for Meta Threads and send me the preview. Process exactly one candidate, then stop and wait for a human decision." \
   --name "affiliate-threads-generator" \
   --deliver telegram
 ```
+
+The prompt names the skill rather than attaching it with `--skill`: the skill
+ships inside the plugin under a namespaced name, while `--skill` resolves bare
+names against the skills installed in `$HERMES_HOME/skills/`. Naming it in the
+prompt also keeps the job self-contained, which a fresh session needs anyway.
 
 Or in natural language, in any session:
 
@@ -83,8 +90,8 @@ thread and send me the preview on Telegram.
 
 ## Option C — create it from the Desktop or dashboard
 
-The cron editor accepts the same expression, skill attachment, prompt and
-delivery target.
+The cron editor accepts the same expression, prompt and delivery target. Put the
+skill name in the prompt as in Option B.
 
 ---
 
@@ -174,7 +181,8 @@ published**. Check the Sheet: the row's `Status` is unchanged.
 Also run the setup doctor, which verifies the job exists and is enabled:
 
 ```bash
-python3 "$HERMES_HOME/skills/affiliate-threads-generator/scripts/doctor.py"
+SKILL_DIR="$HERMES_HOME/plugins/affiliate-threads-generator/skills/affiliate-threads-generator"
+python3 "$SKILL_DIR/scripts/doctor.py"
 ```
 
 ---
@@ -193,8 +201,8 @@ If nothing is eligible, the run says so and stops. That is the correct outcome,
 not a failure.
 
 The run is a **fresh session**, so the prompt has to be self-contained — which is
-why the prompt above spells out "exactly one candidate, then stop". The attached
-skill supplies everything else.
+why the prompt above names the skill and spells out "exactly one candidate, then
+stop". The skill supplies everything else.
 
 ---
 
@@ -217,16 +225,16 @@ override.
 
 ## Troubleshooting
 
-| Symptom                                                | Cause                                                                                     | Fix                                                                          |
-| ------------------------------------------------------ | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| Job never fires                                        | Scheduler not ticking                                                                     | `hermes cron status`; then `hermes gateway restart`                          |
-| Fires at the wrong hour                                | Host timezone                                                                             | Set `TZ=Asia/Jakarta` on the gateway service                                 |
-| `blocked_config`                                       | A preflight check failed (missing credential, missing skill env, unknown delivery target) | Read the alert — it names the exact problem. No tokens were spent.           |
-| `skill not found`                                      | Standalone skill copy missing                                                             | `./install.sh --skill-only`                                                  |
-| Preview arrives but replies start a new session        | Delivery is not continuable                                                               | Set `cron.mirror_delivery: true` or `--attach-to-session`                    |
-| Preview arrives in the main DM and replies are refused | Telegram topic mode lobby                                                                 | Set `TELEGRAM_CRON_THREAD_ID`                                                |
-| Job fires but produces no preview                      | Delivery failure                                                                          | `hermes cron doctor`, `hermes cron runs affiliate-threads-generator`          |
-| Overdue and never fired                                | Gateway was down through the slot                                                         | `hermes cron run affiliate-threads-generator`, then check the gateway service |
+| Symptom                                                | Cause                                                                                     | Fix                                                                                 |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Job never fires                                        | Scheduler not ticking                                                                     | `hermes cron status`; then `hermes gateway restart`                                 |
+| Fires at the wrong hour                                | Host timezone                                                                             | Set `TZ=Asia/Jakarta` on the gateway service                                        |
+| `blocked_config`                                       | A preflight check failed (missing credential, missing skill env, unknown delivery target) | Read the alert — it names the exact problem. No tokens were spent.                  |
+| Job runs but ignores the skill                         | The job's prompt does not name it                                                         | Include `affiliate-threads-generator:affiliate-threads-generator` in the job prompt |
+| Preview arrives but replies start a new session        | Delivery is not continuable                                                               | Set `cron.mirror_delivery: true` or `--attach-to-session`                           |
+| Preview arrives in the main DM and replies are refused | Telegram topic mode lobby                                                                 | Set `TELEGRAM_CRON_THREAD_ID`                                                       |
+| Job fires but produces no preview                      | Delivery failure                                                                          | `hermes cron doctor`, `hermes cron runs affiliate-threads-generator`                |
+| Overdue and never fired                                | Gateway was down through the slot                                                         | `hermes cron run affiliate-threads-generator`, then check the gateway service       |
 
 `hermes cron doctor` is read-only and exits non-zero while any finding stands —
 useful as a watchdog.

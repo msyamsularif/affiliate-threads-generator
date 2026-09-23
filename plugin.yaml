@@ -18,7 +18,7 @@ description: >-
 
 author: Affiliate Threads
 license: MIT
-homepage: https://github.com/example/affiliate-threads-plugins
+homepage: https://github.com/msyamsularif/affiliate-threads-generator
 tags:
   - threads
   - affiliate
@@ -103,6 +103,7 @@ provides_tools:
   - threads_check
 
 provides_hooks:
+  - pre_llm_call
   - pre_tool_call
   - post_tool_call
 
@@ -267,6 +268,16 @@ config_schema:
     description: >-
       When on, every threads_publish call is escalated to Hermes' own
       human-approval gate before it can execute.
+
+  announce_skill:
+    type: bool
+    default: true
+    label: "Point the agent at the bundled skill"
+    description: >-
+      The plugin's skill is namespaced and kept out of the skill index, so
+      nothing tells the model it exists. When on, a turn that looks like
+      Affiliate Threads work gets one line of context naming it. Turn this off
+      to keep those turns byte-identical to a plain conversation.
 
   content_language:
     type: str

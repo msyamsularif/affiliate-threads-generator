@@ -39,8 +39,12 @@ Everything else is exception handling.
 ## Health check
 
 ```bash
-python3 "$HERMES_HOME/skills/affiliate-threads-generator/scripts/doctor.py"
+SKILL_DIR="$HERMES_HOME/plugins/affiliate-threads-generator/skills/affiliate-threads-generator"
+python3 "$SKILL_DIR/scripts/doctor.py"
 ```
+
+From any session, `/affiliate-threads status` runs the same read-only preflight
+without spending a model turn.
 
 Eight checks. Any `✗` comes with a `→` hint.
 
@@ -50,7 +54,7 @@ Eight checks. Any `✗` comes with a `→` hint.
   ✓ threads_api: @yourhandle (id ...); token valid=True, expires in 58.4 days
   ✓ sheets: 12 data row(s) in Sheet1; google_api=...
   ✓ next_candidate: ID 3 — Wireless Earbuds X (row 5)
-  ✓ skill_installed: .../skills/affiliate-threads-generator/SKILL.md
+  ✓ bundled_skill: .../plugins/affiliate-threads-generator/skills/affiliate-threads-generator/SKILL.md
   ✓ cron_job: affiliate-threads-generator [0 8 * * 0,1,3,5] next=... enabled=True
   ✓ unsynced_publishes: none
 ```
@@ -129,8 +133,9 @@ unnoticed.
 Symptoms: `threads_api` fails in the doctor, or publish returns an auth error.
 
 ```bash
-python3 "$HERMES_HOME/skills/affiliate-threads-generator/scripts/threads_token.py" status
-python3 "$HERMES_HOME/skills/affiliate-threads-generator/scripts/threads_token.py" refresh --write-env
+SKILL_DIR="$HERMES_HOME/plugins/affiliate-threads-generator/skills/affiliate-threads-generator"
+python3 "$SKILL_DIR/scripts/threads_token.py" status
+python3 "$SKILL_DIR/scripts/threads_token.py" refresh --write-env
 hermes gateway restart
 ```
 
@@ -177,12 +182,12 @@ hermes gateway restart
 ```
 
 | Finding                            | Meaning                                                                                                    |
-| ---------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | `blocked_config`                   | A preflight check failed. The alert names it. No tokens were spent.                                        |
 | `Overdue:` and the gateway is down | The scheduler stopped ticking. Restart the gateway.                                                        |
 | `last_fire_error`                  | The fire never reached the runner. Restart the gateway through its supervisor.                             |
 | `delivery_failed`                  | The run succeeded but the preview never reached Telegram. Check the bot token and `TELEGRAM_HOME_CHANNEL`. |
-| `skill not found`                  | `./install.sh --skill-only`                                                                                |
+| The run ignores the skill          | The job's prompt does not name it                                                                          | Include `affiliate-threads-generator:affiliate-threads-generator` in the job prompt |
 
 ### "It published the wrong thing"
 
@@ -290,17 +295,21 @@ hermes plugins doctor "$HERMES_HOME/plugins/affiliate-threads-generator" --ci
 Then reinstall and re-run the doctor:
 
 ```bash
-./install.sh && hermes gateway restart
-python3 "$HERMES_HOME/skills/affiliate-threads-generator/scripts/doctor.py"
+hermes plugins update affiliate-threads-generator && hermes gateway restart
+SKILL_DIR="$HERMES_HOME/plugins/affiliate-threads-generator/skills/affiliate-threads-generator"
+python3 "$SKILL_DIR/scripts/doctor.py"
 ```
 
 ### If you edit the skill
 
-The skill is copied to two places. Refresh both:
+There is one copy and it lives in the plugin directory, so the skill moves with
+the code it runs beside:
 
 ```bash
-./install.sh --skill-only
+hermes plugins update affiliate-threads-generator
 ```
+
+That is the whole refresh — there is no separate skill install to keep in step.
 
 ### If you change the guardrails
 
@@ -312,11 +321,11 @@ rule in the script.
 
 ## Escalation thresholds
 
-| Situation                                           | Response                                                                                                   |
-| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| One failed generation run                           | Ignore. Read the next preview.                                                                             |
-| Two consecutive failures                            | Run `doctor.py`.                                                                                           |
-| Publish fails twice with the same API error         | Treat as a token or scope problem. Check `threads_token.py status`.                                        |
-| A publish that went live with a Sheet write failure | Repair immediately with `threads_publish` on the same product id.                                          |
+| Situation                                           | Response                                                                                                    |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| One failed generation run                           | Ignore. Read the next preview.                                                                              |
+| Two consecutive failures                            | Run `doctor.py`.                                                                                            |
+| Publish fails twice with the same API error         | Treat as a token or scope problem. Check `threads_token.py status`.                                         |
+| A publish that went live with a Sheet write failure | Repair immediately with `threads_publish` on the same product id.                                           |
 | Any publish that nobody approved                    | Stop the pipeline (`hermes cron pause affiliate-threads-generator`), preserve the audit trail, investigate. |
-| Rate limit hit                                      | Wait. 250 posts / 1000 replies per 24h. Do not retry in a loop.                                            |
+| Rate limit hit                                      | Wait. 250 posts / 1000 replies per 24h. Do not retry in a loop.                                             |

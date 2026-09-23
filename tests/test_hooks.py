@@ -181,3 +181,51 @@ class TestAuditTrail:
         hooks.on_post_tool_call(
             tool_name="threads_publish", args={"product_id": "1"}, result=json.dumps({"ok": True})
         )
+
+
+class TestSkillPointer:
+    """The bundled skill is namespaced and kept out of the skill index, so this
+    hook is the only thing that tells the model it exists."""
+
+    @pytest.mark.parametrize(
+        "message",
+        [
+            "Buatkan content berikutnya.",
+            "Generate lagi dong.",
+            "Saya approve.",
+            "Hold dulu yang ini.",
+            "Yang ini jangan dipublish.",
+            "Regenerate tapi angle-nya lebih ke traveller.",
+            "Menurut kamu affiliate link-nya oke?",
+        ],
+    )
+    def test_domain_messages_get_the_pointer(self, ctx, message: str) -> None:  # noqa: ANN001
+        result = hooks.on_pre_llm_call(user_message=message)
+        assert result is not None
+        assert hooks.SKILL_ID in result["context"]
+
+    @pytest.mark.parametrize(
+        "message",
+        [
+            "",
+            "What is the weather like in Jakarta?",
+            "Refactor the auth middleware.",
+            "cancel my subscription",
+            "Summarize this pull request.",
+        ],
+    )
+    def test_unrelated_messages_are_left_alone(self, ctx, message: str) -> None:  # noqa: ANN001
+        assert hooks.on_pre_llm_call(user_message=message) is None
+
+    def test_the_pointer_stays_one_line(self, ctx) -> None:  # noqa: ANN001
+        result = hooks.on_pre_llm_call(user_message="Buatkan content berikutnya.")
+        assert set(result) == {"context"}
+        assert "\n" not in result["context"]
+        assert len(result["context"]) < 400
+
+    def test_it_can_be_turned_off(self, ctx) -> None:  # noqa: ANN001
+        ctx.settings["announce_skill"] = False
+        assert hooks.on_pre_llm_call(user_message="Buatkan content berikutnya.") is None
+
+    def test_a_missing_message_does_not_crash(self, ctx) -> None:  # noqa: ANN001
+        assert hooks.on_pre_llm_call() is None

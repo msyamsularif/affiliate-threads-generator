@@ -10,58 +10,39 @@
 | A Meta app with the Threads use case             | Publishing                                            |
 | A Google Sheet with the candidate table          | See [google-sheets-setup.md](google-sheets-setup.md)  |
 
-## 1. Install the plugin and the skill
-
-From the repository root:
+## 1. Install the plugin
 
 ```bash
-./install.sh
+hermes plugins install msyamsularif/affiliate-threads-generator --enable
 ```
 
-This copies:
+There is no installer script and nothing to clone by hand: the repository _is_
+the plugin, and Hermes clones it into
+`$HERMES_HOME/plugins/affiliate-threads-generator/` itself. `--enable` is what
+makes the install prompt for the credentials the plugin cannot run without —
+with their description, a link to the Meta app console, and the token masked as
+you type. Values are stored in Hermes' credential store; you never edit a file,
+and nothing is echoed back.
 
-| From                                                                    | To                                                 |
-| ----------------------------------------------------------------------- | -------------------------------------------------- |
-| `plugins/affiliate-threads-generator/`                                   | `$HERMES_HOME/plugins/affiliate-threads-generator/` |
-| `plugins/affiliate-threads-generator/skills/affiliate-threads-generator/` | `$HERMES_HOME/skills/affiliate-threads-generator/`  |
+That one command is the whole install. The plugin is a bundle — it carries its
+own tools, hooks, skill and slash command, and Hermes loads all of them from the
+single directory it cloned.
 
-Both copies matter:
+| What                                                                                      | Where it lands                                      |
+| ----------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| Two tools, three hooks, and the `/affiliate-threads` command                              | `$HERMES_HOME/plugins/affiliate-threads-generator/` |
+| The bundled skill, reachable as `affiliate-threads-generator:affiliate-threads-generator` | the same directory, loaded by Hermes; never copied  |
 
-- The **plugin** provides the tools and hooks. It also registers its own bundled
-  skill, reachable as `affiliate-threads-generator:affiliate-threads-generator`.
-- The **standalone skill copy** gives the skill an unqualified name. That is what
-  cron's `--skill affiliate-threads-generator` flag and `/skill-name` look up.
+Nothing is written to `$HERMES_HOME/skills/`, so there is no second copy to
+install, update, or let drift.
 
-Useful variants:
-
-```bash
-./install.sh --plugin-only     # plugin only
-./install.sh --skill-only      # refresh the skill copy after editing it
-./install.sh --uninstall       # remove both (cron jobs are left alone)
-```
-
-## 2. Enable the plugin
-
-```bash
-hermes plugins enable affiliate-threads-generator
-```
-
-**This is where Hermes asks for the credentials.** The plugin declares two
-variables it cannot work without, so enabling it prompts for them — with their
-description, a link to the Meta app console, and the token masked as you type.
-Values are stored in Hermes' credential store; you never edit a file, and nothing
-is echoed back.
-
-If you would rather install and enable in one step, use
-`hermes plugins install <repo> --enable` — same prompt.
-
-Plugins are opt-in. Confirm it loaded:
+Confirm it loaded:
 
 ```bash
 hermes plugins list
 ```
 
-You should see the plugin with two tools and two hooks. If it does not appear:
+You should see the plugin with two tools and three hooks. If it does not appear:
 
 ```bash
 HERMES_PLUGINS_DEBUG=1 hermes plugins list
@@ -69,6 +50,54 @@ HERMES_PLUGINS_DEBUG=1 hermes plugins list
 
 If it appears as _disabled_ naming a variable, the prompt was skipped — set it
 with `hermes config set` (step 4) and re-enable.
+
+Restart the gateway so the new tools are picked up:
+
+```bash
+hermes gateway restart
+```
+
+### Developing against a local checkout
+
+To point Hermes at a working tree instead of a clone:
+
+```bash
+git clone https://github.com/msyamsularif/affiliate-threads-generator.git \
+  "$HERMES_HOME/plugins/affiliate-threads-generator"
+hermes plugins enable affiliate-threads-generator
+```
+
+## 2. Reaching the skill — there is nothing else to install
+
+The skill ships inside the plugin, which registers it under a namespaced name:
+`affiliate-threads-generator:affiliate-threads-generator`. Three ways in, all of
+them live on a fresh install:
+
+| You want to                            | Do this                                                                                                                                                       |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Generate a thread                      | Say so — "Buatkan content berikutnya." The plugin injects one line naming the skill whenever a turn looks like Affiliate Threads work, so the model loads it. |
+| Check the wiring by hand               | `/affiliate-threads status` in any session — CLI, Telegram, Discord                                                                                           |
+| Load it explicitly, or from a cron job | `skill_view("affiliate-threads-generator:affiliate-threads-generator")`                                                                                       |
+
+A plugin skill is kept out of the system prompt's skill index and cannot be
+edited with `skill_manage` — it is read-only, versioned with the code it belongs
+to. That is exactly why the plugin also carries the pointer hook and the command:
+without them, a bundled skill would be reachable only by someone who already knew
+its name.
+
+To stop the model seeing the pointer at all:
+
+```yaml
+# $HERMES_HOME/config.yaml
+plugins:
+  entries:
+    affiliate-threads-generator:
+      settings:
+        announce_skill: false
+```
+
+Cron needs one thing from you: a prompt that names the skill. See
+[cron-setup.md](cron-setup.md).
 
 ## 3. Validate the plugin
 
@@ -83,7 +112,7 @@ fails here.
 
 ## 4. Credentials
 
-Normally step 2 already collected what is needed. This section is for changing a
+Normally step 1 already collected what is needed. This section is for changing a
 value later, or for skipping the prompt on purpose.
 
 **Do not edit `.env` by hand, and never paste a token into a chat message.**
@@ -138,7 +167,8 @@ hermes chat -q "Run the affiliate-threads-generator doctor script."
 Or directly:
 
 ```bash
-python3 "$HERMES_HOME/skills/affiliate-threads-generator/scripts/doctor.py"
+SKILL_DIR="$HERMES_HOME/plugins/affiliate-threads-generator/skills/affiliate-threads-generator"
+python3 "$SKILL_DIR/scripts/doctor.py"
 ```
 
 A healthy setup looks like:
@@ -149,7 +179,7 @@ A healthy setup looks like:
   ✓ threads_api: @yourhandle (id 1234567890); token valid=True, expires in 58.4 days
   ✓ sheets: 12 data row(s) in Sheet1; google_api=/.../google_api.py
   ✓ next_candidate: ID 3 — Wireless Earbuds X (row 5)
-  ✓ skill_installed: /.../skills/affiliate-threads-generator/SKILL.md
+  ✓ bundled_skill: .../plugins/affiliate-threads-generator/skills/affiliate-threads-generator/SKILL.md
   ✓ cron_job: affiliate-threads-generator [0 8 * * 0,1,3,5] next=... enabled=True
   ✓ unsynced_publishes: none
 
@@ -164,8 +194,7 @@ See [cron-setup.md](cron-setup.md). The short version:
 
 ```bash
 hermes cron create "0 8 * * 0,1,3,5" \
-  "Generate the next affiliate thread and send me the preview. Process exactly one candidate, then stop and wait for a decision." \
-  --skill affiliate-threads-generator \
+  "Load the skill affiliate-threads-generator:affiliate-threads-generator with skill_view, then generate the next affiliate thread and send me the preview. Process exactly one candidate, then stop and wait for a decision." \
   --name "affiliate-threads-generator" \
   --deliver telegram
 ```
@@ -186,23 +215,24 @@ thread publishes. Reply `hold` or `cancel` and the Sheet is updated instead.
 ## Upgrading
 
 ```bash
-git pull
-./install.sh
+hermes plugins update affiliate-threads-generator
+hermes gateway restart
 hermes plugins list          # confirm the version
 ```
 
-`$HERMES_HOME/plugins/` and `$HERMES_HOME/skills/` survive `hermes update` — the
-updater only rebuilds the venv and the checkout. Plugin state under
+One command, because there is one artifact: the tools, hooks, command and skill
+all move together with the plugin. `$HERMES_HOME/plugins/` survives `hermes
+update` — the updater only rebuilds the venv and the checkout. Plugin state under
 `$HERMES_HOME/plugin-data/` survives too, which matters: it holds the publish
 ledger.
 
 ## Troubleshooting
 
-| Symptom                                  | Cause                                                                              | Fix                                                                 |
-| ---------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| Plugin listed but disabled               | A `requires_env` gate — none are declared here, so this means a `register()` crash | `HERMES_PLUGINS_DEBUG=1 hermes plugins list` and read the traceback |
-| Tools missing from the model's tool list | Toolset not enabled for the platform                                               | `hermes tools` → enable `affiliate_threads` for Telegram and cron   |
-| Cron says "skill not found"              | Standalone skill copy missing                                                      | `./install.sh --skill-only`                                         |
-| `doctor.py` cannot find the plugin       | Plugin not installed where Hermes looks                                            | `./install.sh`, or set `HERMES_HOME`                                |
-| `google_api.py could not be found`       | The google-workspace skill is not installed                                        | Install/authorize it, or set `HERMES_GAPI_PATH`                     |
-| Everything passes but nothing publishes  | Expected — publishing needs explicit human approval                                | Reply `approve` to a preview                                        |
+| Symptom                                  | Cause                                                 | Fix                                                                                                                                             |
+| ---------------------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Plugin listed but disabled               | An unset `requires_env` gate, or a `register()` crash | Answer the prompt (`hermes plugins enable affiliate-threads-generator`), or `HERMES_PLUGINS_DEBUG=1 hermes plugins list` and read the traceback |
+| Tools missing from the model's tool list | Toolset not enabled for the platform                  | `hermes tools` → enable `affiliate_threads` for Telegram and cron                                                                               |
+| Cron run does not load the skill         | The job's prompt does not name it                     | Put `affiliate-threads-generator:affiliate-threads-generator` in the job prompt — see [cron-setup.md](cron-setup.md)                            |
+| `doctor.py` cannot find the plugin       | Plugin not installed where Hermes looks               | `hermes plugins install msyamsularif/affiliate-threads-generator --enable`, or set `HERMES_HOME`                                                |
+| `google_api.py could not be found`       | The google-workspace skill is not installed           | Install/authorize it, or set `HERMES_GAPI_PATH`                                                                                                 |
+| Everything passes but nothing publishes  | Expected — publishing needs explicit human approval   | Reply `approve` to a preview                                                                                                                    |

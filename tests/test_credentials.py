@@ -25,7 +25,7 @@ from conftest import PLUGIN_DIR
 
 yaml = pytest.importorskip("yaml", reason="pip install pyyaml to run credential checks")
 
-REPO_ROOT = PLUGIN_DIR.parents[1]
+REPO_ROOT = PLUGIN_DIR
 MANIFEST_PATH = PLUGIN_DIR / "plugin.yaml"
 SKILL_PATH = PLUGIN_DIR / "skills" / "affiliate-threads-generator" / "SKILL.md"
 

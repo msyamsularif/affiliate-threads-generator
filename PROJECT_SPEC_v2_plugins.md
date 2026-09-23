@@ -65,23 +65,23 @@ Telegram bot, its own scheduler, its own agent loop, its own Google
 Sheets/Threads adapters, SQLite for execution history. Hermes Agent
 already provides most of that as ready infrastructure:
 
-| Need | Original plan | This spec (Hermes-based) |
-|---|---|---|
-| Telegram interface | `python-telegram-bot`/`aiogram`, built by hand | Hermes' built-in Messaging Gateway |
-| Scheduler | APScheduler, built by hand | Hermes' built-in Cron Scheduler |
-| Agent loop / intent handling | Custom `ai/agent.py` | Hermes' agent loop + this system's own Skill |
-| Google Sheets access | Custom adapter | Hermes' bundled `google-workspace` skill |
-| Web/product research | `httpx` + BeautifulSoup + Playwright, built by hand | Hermes' bundled web/browser tools |
-| Image generation | Custom provider integration | Hermes' built-in image-generation tool (FAL.ai), optional |
-| Execution history / content memory | SQLite | Hermes' own persistent memory (no separate DB) |
-| Threads publishing | Custom adapter | **Custom Hermes plugin Tool — the one piece that must stay hand-written** |
+| Need                               | Original plan                                       | This spec (Hermes-based)                                                  |
+| ---------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------- |
+| Telegram interface                 | `python-telegram-bot`/`aiogram`, built by hand      | Hermes' built-in Messaging Gateway                                        |
+| Scheduler                          | APScheduler, built by hand                          | Hermes' built-in Cron Scheduler                                           |
+| Agent loop / intent handling       | Custom `ai/agent.py`                                | Hermes' agent loop + this system's own Skill                              |
+| Google Sheets access               | Custom adapter                                      | Hermes' bundled `google-workspace` skill                                  |
+| Web/product research               | `httpx` + BeautifulSoup + Playwright, built by hand | Hermes' bundled web/browser tools                                         |
+| Image generation                   | Custom provider integration                         | Hermes' built-in image-generation tool (FAL.ai), optional                 |
+| Execution history / content memory | SQLite                                              | Hermes' own persistent memory (no separate DB)                            |
+| Threads publishing                 | Custom adapter                                      | **Custom Hermes plugin Tool — the one piece that must stay hand-written** |
 
 The guiding principle carried over unchanged from the original design:
 
 > AI creates and reasons. Code controls and validates. Human approves.
 > Threads publishes. Google Sheets records the business state.
 
-The only thing that changes is *where* the "code controls and validates"
+The only thing that changes is _where_ the "code controls and validates"
 part lives: instead of an entire Python application, it lives in one
 narrow, auditable Hermes plugin Tool (`threads_publish`) plus a set of
 explicit instructions (a Skill) that tell the agent how to use Hermes'
@@ -107,6 +107,33 @@ Every non-negotiable rule from the original spec that concerns a
 side-effect (Section 12) is enforced at the Tool layer, in code — never
 left as a Skill instruction alone, because a Skill instruction is
 followed by the model, not guaranteed by it.
+
+### Packaging: one bundle, one install
+
+The Skill and the Tool ship inside the _same_ Hermes plugin, installed
+with a single `hermes plugins install`. Hermes lets a plugin register a
+skill of its own (`ctx.register_skill`), so the Skill is read straight
+from the plugin directory, namespaced as
+`affiliate-threads-generator:affiliate-threads-generator`, and versioned
+with the code it belongs to.
+
+Nothing is published to the skills hub and nothing is copied into
+`~/.hermes/skills/`. There is therefore one artifact to install, one to
+update, and no second copy of the pipeline that can drift away from the
+guardrails the Tool enforces.
+
+Two consequences belong to the plugin rather than to the operator:
+
+- A plugin skill is kept out of the system prompt's skill index, so the
+  plugin's `pre_llm_call` hook injects one line naming it whenever a turn
+  looks like Affiliate Threads work. Without that, the Skill would ship
+  and never be loaded.
+- The name is namespaced, so a cron job names the Skill in its prompt
+  rather than attaching it with `--skill`.
+
+The bundle also carries the human-facing surface: the
+`/affiliate-threads status` slash command runs the same read-only
+preflight as `threads_check`, without spending a model turn.
 
 ---
 
@@ -223,15 +250,15 @@ text, and never a separate database. See
 Unchanged from the original spec — Google Sheets remains the business-data
 source of truth, and also doubles as the state lock (no SQLite):
 
-| Column | Description |
-|---|---|
-| `ID` | Unique product/content identifier |
-| `Product` | Product name |
-| `Description` | User-provided product description/context — **primary research source, see Section 9** |
-| `Affiliate URL` | Affiliate URL (Shopee) supplied by the user |
-| `Category` | Product category |
-| `Threads URL` | Published Threads URL; blank before publication |
-| `Status` | Current workflow state |
+| Column          | Description                                                                            |
+| --------------- | -------------------------------------------------------------------------------------- |
+| `ID`            | Unique product/content identifier                                                      |
+| `Product`       | Product name                                                                           |
+| `Description`   | User-provided product description/context — **primary research source, see Section 9** |
+| `Affiliate URL` | Affiliate URL (Shopee) supplied by the user                                            |
+| `Category`      | Product category                                                                       |
+| `Threads URL`   | Published Threads URL; blank before publication                                        |
+| `Status`        | Current workflow state                                                                 |
 
 Allowed statuses: `In Progress`, `Ready To Generate`, `Hold`, `Cancel`,
 `Done` — semantics unchanged from the original spec.
@@ -364,20 +391,20 @@ Flag list used during review: `generic_hook`, `repetitive_structure`,
 `obvious_ai_phrase`, `weak_transition`, `unnecessary_cta`.
 
 Flagged phrases (not hard-banned, but suspicious when they carry no
-specific information): *"praktis dan nyaman digunakan", "cocok untuk
+specific information): _"praktis dan nyaman digunakan", "cocok untuk
 berbagai kebutuhan", "wajib banget punya", "solusi yang tepat untuk
 kamu", "di era sekarang", "tidak perlu khawatir lagi", "worth it
-banget"*.
+banget"_.
 
 Bounded to 1-2 revision rounds.
 
 ### 10.8 Personal Experience Guardrail (hard rule)
 
-Never write *"Aku sudah coba...", "Saya pakai ini setiap hari...",
-"Menurut pengalaman saya..."* — the system has no personal experience
-with the product and none is supplied. Use *"Dari spesifikasi
+Never write _"Aku sudah coba...", "Saya pakai ini setiap hari...",
+"Menurut pengalaman saya..."_ — the system has no personal experience
+with the product and none is supplied. Use _"Dari spesifikasi
 produk...", "Berdasarkan review yang tersedia...", "Untuk skenario
-seperti ini..."* instead.
+seperti ini..."_ instead.
 
 ### 10.9 Evidence Checker
 
@@ -387,9 +414,9 @@ the draft reaches Telegram.
 
 ### 10.10 CTA & Disclosure
 
-Contextual link language, e.g. *"Saya taruh detail produknya di sini
-buat yang penasaran bentuk dan spesifikasinya."* — never *"BELI
-SEKARANG"*. Disclosure must remain clear; the goal is reducing hard-sell
+Contextual link language, e.g. _"Saya taruh detail produknya di sini
+buat yang penasaran bentuk dan spesifikasinya."_ — never _"BELI
+SEKARANG"_. Disclosure must remain clear; the goal is reducing hard-sell
 tone, not concealing the commercial relationship.
 
 ### 10.11 Image Strategy (optional)
@@ -435,11 +462,11 @@ generation again.
 
 ### 11.2 Human actions
 
-| Action | Trigger example | Result |
-|---|---|---|
-| Approve | "Saya approve." | Call `threads_publish`; on success, Status=Done + Threads URL saved; on failure, Status untouched |
-| Hold | "Hold dulu yang ini." | Sheet Status=Hold; no publish |
-| Cancel | "Yang ini jangan dipublish." | Sheet Status=Cancel; no publish |
+| Action     | Trigger example                                                    | Result                                                                                                  |
+| ---------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| Approve    | "Saya approve."                                                    | Call `threads_publish`; on success, Status=Done + Threads URL saved; on failure, Status untouched       |
+| Hold       | "Hold dulu yang ini."                                              | Sheet Status=Hold; no publish                                                                           |
+| Cancel     | "Yang ini jangan dipublish."                                       | Sheet Status=Cancel; no publish                                                                         |
 | Regenerate | "Regenerate tapi angle-nya lebih ke orang yang sering travelling." | Back to Angle Discovery with new constraint, same Product ID, same research unless new info is required |
 
 ---
@@ -613,6 +640,6 @@ The central rule, unchanged from the original spec:
 > AI creates and reasons. Code controls and validates. Human approves.
 > Threads publishes. Google Sheets records the business state.
 
-The only thing this version of the spec changes is *how much of that
-code* needs to be written by hand — reduced from a full modular monolith
+The only thing this version of the spec changes is _how much of that
+code_ needs to be written by hand — reduced from a full modular monolith
 to one plugin, one Skill, and one Tool.

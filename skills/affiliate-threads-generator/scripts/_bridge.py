@@ -9,7 +9,10 @@ Locating the plugin:
 
 1. ``$HERMES_HOME/plugins/affiliate-threads-generator``
 2. ``~/.hermes/plugins/affiliate-threads-generator``
-3. two directories up from this file (the bundled-in-plugin layout)
+3. three directories up from this file — which is the plugin directory in both
+   layouts the skill ever lives in, the repository
+   (``<repo>/skills/<skill>/scripts/``) and the plugin as Hermes installs it
+   (``<hermes>/plugins/<plugin>/skills/<skill>/scripts/``)
 
 The modules use relative imports, so the plugin directory is registered in
 ``sys.modules`` as a package first.
@@ -36,18 +39,15 @@ def candidate_dirs() -> list[Path]:
         dirs.append(Path(hermes_home).expanduser() / "plugins" / PLUGIN_DIRNAME)
     dirs.append(Path.home() / ".hermes" / "plugins" / PLUGIN_DIRNAME)
 
-    # Layout-relative fallbacks. Both are checked; anything that does not contain
-    # the plugin's modules is discarded by find_plugin_dir().
+    # Layout-relative fallback. Three directories up is the plugin directory in
+    # both layouts, so one candidate covers them:
     #
-    #   bundled:   <plugin>/skills/<skill>/scripts/_bridge.py   -> parents[3]
-    #   installed: <hermes>/skills/<skill>/scripts/_bridge.py   -> parents[2]/plugins/<plugin>
+    #   in-repo:   <repo>/skills/<skill>/scripts/_bridge.py
+    #   installed: <hermes>/plugins/<plugin>/skills/<skill>/scripts/_bridge.py
     here = Path(__file__).resolve()
     parents = here.parents
     if len(parents) > 3:
         dirs.append(parents[3])
-    if len(parents) > 2:
-        dirs.append(parents[2] / "plugins" / PLUGIN_DIRNAME)
-        dirs.append(parents[2])
 
     # De-duplicate while preserving order (the "first match wins" contract).
     seen: set[Path] = set()
@@ -78,7 +78,7 @@ def plugin_package() -> types.ModuleType:
         raise RuntimeError(
             "the affiliate-threads-generator plugin could not be found. Searched:\n"
             f"{searched}\n"
-            "Install it with ./install.sh from the repository root."
+            "Install it with: hermes plugins install msyamsularif/affiliate-threads-generator --enable"
         )
 
     package = types.ModuleType(PACKAGE_NAME)

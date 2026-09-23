@@ -10,6 +10,14 @@
     Appends an audit line for publish attempts, in the log and in plugin state,
     so "what did this thing actually push?" is answerable without reading the
     model's transcript.
+
+``pre_llm_call``
+    Points the agent at the bundled skill when a turn looks like Affiliate
+    Threads work. A plugin skill is namespaced and kept out of the system
+    prompt's skill index, so without this the model would never learn that
+    ``affiliate-threads-generator:affiliate-threads-generator`` exists — the one
+    thing that used to require installing the same skill a second time through
+    the skills hub.
 """
 
 from __future__ import annotations
@@ -27,6 +35,35 @@ _AUDIT_KEY = "publish_audit"
 _AUDIT_LIMIT = 50
 
 _WATCHED_TOOLS = {"threads_publish", "threads_check"}
+
+#: The plugin's own namespace, which is also the bundled skill's directory name.
+PLUGIN_ID = "affiliate-threads-generator"
+SKILL_ID = f"{PLUGIN_ID}:{PLUGIN_ID}"
+
+#: Phrases that mean "this turn is Affiliate Threads work", lowercased and
+#: matched as substrings. Deliberately narrow: the words that only make sense
+#: here, not the bare English verbs that show up in unrelated conversations.
+_TRIGGERS = (
+    "affiliate",
+    "afiliasi",
+    "threads",
+    "buatkan content",
+    "buat konten",
+    "bikin konten",
+    "generate lagi",
+    "generate content",
+    "regenerate",
+    "hold dulu",
+    "jangan dipublish",
+    "saya approve",
+    "post aja",
+)
+
+_SKILL_POINTER = (
+    f"[{PLUGIN_ID}] This turn looks like Affiliate Threads work. Load the plugin's "
+    f'bundled skill before answering: skill_view("{SKILL_ID}"). '
+    "Publishing only ever happens through the threads_publish tool."
+)
 
 
 def on_pre_tool_call(
@@ -125,6 +162,30 @@ def on_post_tool_call(
             "duration_ms": duration_ms,
         }
     )
+
+
+def on_pre_llm_call(
+    user_message: str = "",
+    session_id: str = "",  # noqa: ARG001 - part of the hook payload
+    **kwargs: Any,  # noqa: ANN401
+) -> dict[str, str] | None:
+    """Inject a pointer to the bundled skill when the turn is ours.
+
+    Returns ``None`` for everything else, which is the normal case: an injection
+    the model does not need still costs tokens on every turn of the session.
+    """
+    if not _setting_bool("announce_skill", default=True):
+        return None
+    if not _looks_like_our_work(user_message):
+        return None
+    return {"context": _SKILL_POINTER}
+
+
+def _looks_like_our_work(user_message: str) -> bool:
+    if not user_message:
+        return False
+    lowered = user_message.lower()
+    return any(trigger in lowered for trigger in _TRIGGERS)
 
 
 def _parse(result: str) -> dict[str, Any]:

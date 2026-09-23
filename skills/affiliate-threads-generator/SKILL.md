@@ -65,8 +65,10 @@ metadata:
       schedule: "0 8 * * 0,1,3,5"
       deliver: origin
       prompt: >-
-        Generate the next affiliate thread for Meta Threads and send the preview.
-        Process exactly one candidate, then stop and wait for a human decision.
+        Load the skill affiliate-threads-generator:affiliate-threads-generator with
+        skill_view, then generate the next affiliate thread for Meta Threads and send
+        the preview. Process exactly one candidate, then stop and wait for a human
+        decision.
 ---
 
 # Affiliate Thread Generator

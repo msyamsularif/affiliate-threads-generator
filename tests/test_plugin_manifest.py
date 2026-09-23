@@ -9,9 +9,7 @@ from __future__ import annotations
 
 import importlib
 import json
-import os
 import re
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -53,6 +51,7 @@ class RecordingContext:
         self.tools: list[dict] = []
         self.hooks: list[tuple[str, object]] = []
         self.skills: list[tuple[str, Path]] = []
+        self.commands: list[dict] = []
         self.settings: dict = {}
 
     def get_config(self, key: str, default=None):  # noqa: ANN001, ANN201
@@ -69,6 +68,9 @@ class RecordingContext:
 
     def register_skill(self, name: str, path) -> None:  # noqa: ANN001
         self.skills.append((name, Path(path)))
+
+    def register_command(self, name: str, **kwargs) -> None:  # noqa: ANN003
+        self.commands.append({"name": name, **kwargs})
 
 
 @pytest.fixture
@@ -158,6 +160,15 @@ class TestRegistration:
         names = {tool["name"] for tool in registered.tools}
         assert "threads_publish" in names
 
+    def test_a_slash_command_is_registered(self, registered) -> None:  # noqa: ANN001
+        """The bundle carries its own entry point, so a user never needs the
+        skills hub to get one."""
+        assert len(registered.commands) == 1
+        command = registered.commands[0]
+        assert command["name"] == "affiliate-threads"
+        assert command["description"]
+        assert callable(command["handler"])
+
     def test_register_binds_the_host_context(self, registered) -> None:  # noqa: ANN001
         from atg_plugin import runtime
 
@@ -169,6 +180,23 @@ class TestBundledSkill:
         assert registered.skills
         names = {name for name, _ in registered.skills}
         assert "affiliate-threads-generator" in names
+
+    def test_the_skill_pointer_names_the_registered_skill(self, registered) -> None:  # noqa: ANN001
+        """The pointer hook and the skill registration must agree on the name.
+
+        Plugin skills are namespaced and absent from the skill index, so the
+        pointer is the only thing that tells the model the skill exists. A
+        mismatch here is a skill that ships and can never be loaded.
+        """
+        from atg_plugin import hooks
+
+        assert len(registered.skills) == 1
+        skill_name = registered.skills[0][0]
+        assert hooks.SKILL_ID.split(":") == [PLUGIN_DIR.name, skill_name]
+
+        pointer = hooks.on_pre_llm_call(user_message="Buatkan content berikutnya.")
+        assert pointer is not None
+        assert hooks.SKILL_ID in pointer["context"]
 
     def test_skill_file_exists(self) -> None:
         assert (SKILL_DIR / "SKILL.md").is_file()
@@ -242,7 +270,7 @@ class TestBundledSkill:
 
 class TestRepositoryLayout:
     def test_docs_exist(self) -> None:
-        docs = PLUGIN_DIR.parents[1] / "docs"
+        docs = PLUGIN_DIR / "docs"
         for name in (
             "installation.md",
             "configuration.md",
@@ -254,47 +282,36 @@ class TestRepositoryLayout:
         ):
             assert (docs / name).is_file(), f"missing docs/{name}"
 
-    def test_install_script_is_executable_content(self) -> None:
-        script = PLUGIN_DIR.parents[1] / "install.sh"
-        assert script.is_file()
-        assert script.read_text(encoding="utf-8").startswith("#!/usr/bin/env bash")
+    def test_repo_root_is_the_plugin(self) -> None:
+        """``hermes plugins install owner/repo`` clones the repository and loads
+        the plugin from its root — a nested layout would install nothing."""
+        assert (PLUGIN_DIR / "plugin.yaml").is_file()
+        assert (PLUGIN_DIR / "__init__.py").is_file()
+        assert not (PLUGIN_DIR / "plugins").exists()
 
-    def test_install_script_runs_clean(self, tmp_path: Path) -> None:
-        """Run the installer for real, into a throwaway HERMES_HOME.
+    def test_repo_doubles_as_a_skill_tap(self) -> None:
+        """One install step: the skill is read from the plugin directory.
 
-        The next-steps block is an *unquoted* heredoc, so a stray backtick is
-        executed as a command rather than printed: bash reports "command not
-        found" on stderr and silently drops the word from the output. That got
-        shipped once. Asserting empty stderr is what catches it.
+        Nothing is published to the skills hub, so there is no second copy to
+        install, update, or let drift out of sync with the code it runs beside.
         """
-        script = PLUGIN_DIR.parents[1] / "install.sh"
-        home = tmp_path / "hermes"
-        result = subprocess.run(
-            ["bash", str(script)],
-            capture_output=True,
-            text=True,
-            env={**os.environ, "HERMES_HOME": str(home)},
-            check=False,
-        )
-
-        assert result.returncode == 0, result.stderr
-        assert result.stderr == "", f"install.sh wrote to stderr:\n{result.stderr}"
-
-        # The text the heredoc is supposed to print must survive intact.
-        assert "requires_env" in result.stdout
-        assert "optional_env" in result.stdout
-
-        # And it must have actually installed both halves under the current name.
-        plugin_dir = home / "plugins" / PLUGIN_DIR.name
-        skill_dir = home / "skills" / PLUGIN_DIR.name
-        assert (plugin_dir / "plugin.yaml").is_file()
+        skill_dir = PLUGIN_DIR / "skills" / "affiliate-threads-generator"
         assert (skill_dir / "SKILL.md").is_file()
-        assert "affiliate-threads-generator" in (plugin_dir / "plugin.yaml").read_text(
-            encoding="utf-8"
-        )
+        assert (skill_dir / "references").is_dir()
+        assert (skill_dir / "scripts").is_dir()
 
-    def test_the_two_directories_share_the_plugin_name(self) -> None:
-        """The bundled skill directory must match the plugin, or install.sh
-        copies from a path that does not exist."""
+    def test_no_document_tells_the_user_to_install_the_skill_separately(self) -> None:
+        """A stray second install step is how the two copies drifted apart."""
+        documents = [PLUGIN_DIR / "README.md", *sorted((PLUGIN_DIR / "docs").glob("*.md"))]
+        offenders = [
+            str(path.relative_to(PLUGIN_DIR))
+            for path in documents
+            if "hermes skills install" in path.read_text(encoding="utf-8")
+        ]
+        assert not offenders, f"still document a second install: {offenders}"
+
+    def test_the_bundled_skill_directory_matches_the_plugin_name(self) -> None:
+        """The plugin registers its bundled skill by directory name, and Hermes
+        namespaces it as ``<plugin-id>:<directory-name>``."""
         skills = PLUGIN_DIR / "skills"
         assert [child.name for child in skills.iterdir() if child.is_dir()] == [PLUGIN_DIR.name]

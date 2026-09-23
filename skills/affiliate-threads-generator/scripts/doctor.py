@@ -11,7 +11,7 @@ Checks
 3. the Threads token works, and when it expires
 4. the Google Sheet is reachable through the bundled google-workspace skill
 5. the next eligible candidate, if any
-6. the standalone skill copy exists (needed for cron's ``--skill`` lookup)
+6. the bundled skill is present where Hermes loads it
 7. a cron job exists for this skill
 8. any publish that went live without its Sheet write landing
 
@@ -200,16 +200,24 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as exc:  # noqa: BLE001
             checks.append({"check": "next_candidate", "ok": False, "detail": f"{type(exc).__name__}: {exc}"})
 
-    # ---- 6. standalone skill copy ---------------------------------------
-    skill_copy = hermes_home() / "skills" / SKILL_NAME / "SKILL.md"
+    # ---- 6. the bundled skill --------------------------------------------
+    # The skill ships inside the plugin and the plugin registers it, so this
+    # checks the copy Hermes actually loads. Nothing is installed into
+    # ~/.hermes/skills/ and nothing needs to be.
+    bundled_skill = _bridge.plugin_path() / "skills" / SKILL_NAME / "SKILL.md"
     checks.append(
         {
-            "check": "skill_installed",
-            "ok": skill_copy.is_file(),
-            "detail": str(skill_copy) if skill_copy.is_file() else f"missing at {skill_copy}",
+            "check": "bundled_skill",
+            "ok": bundled_skill.is_file(),
+            "detail": str(bundled_skill)
+            if bundled_skill.is_file()
+            else f"missing at {bundled_skill}",
             "hint": None
-            if skill_copy.is_file()
-            else "Run ./install.sh — cron's --skill flag looks up the unqualified skill name.",
+            if bundled_skill.is_file()
+            else (
+                "Reinstall the plugin: hermes plugins install "
+                "msyamsularif/affiliate-threads-generator --enable"
+            ),
         }
     )
 
@@ -289,6 +297,10 @@ def _cron_check() -> dict:
     if not isinstance(jobs, list):
         return {"check": "cron_job", "ok": False, "detail": "unexpected jobs.json shape"}
 
+    # A job either attaches the skill by name, or names it in the prompt — which
+    # is what the bundle-only setup does, since cron resolves a bare name
+    # against the installed skills and this one is namespaced.
+    namespaced = f"{PLUGIN_NAME}:{SKILL_NAME}"
     matches = []
     for job in jobs:
         if not isinstance(job, dict):
@@ -296,7 +308,11 @@ def _cron_check() -> dict:
         skills = job.get("skills") or []
         if isinstance(skills, str):
             skills = [skills]
-        if SKILL_NAME in skills or PLUGIN_NAME in str(job.get("name") or ""):
+        if (
+            SKILL_NAME in skills
+            or namespaced in str(job.get("prompt") or "")
+            or PLUGIN_NAME in str(job.get("name") or "")
+        ):
             matches.append(job)
 
     if not matches:

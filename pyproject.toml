@@ -20,6 +20,10 @@ license = { text = "MIT" }
 #
 # The only network call the plugin makes itself is to graph.threads.net, using
 # the standard library so it can never be blocked by a dependency conflict.
+#
+# Hermes reads this list when the plugin is installed — a pyproject.toml beside
+# plugin.yaml is the preferred form of the manifest's python_dependencies — so an
+# empty list here means "install nothing into the Hermes venv".
 dependencies = []
 
 [project.optional-dependencies]
@@ -31,7 +35,13 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+# The plugin's __init__.py sits at the repository root — that is what makes the
+# repo installable with `hermes plugins install owner/repo` — and the root
+# directory name is not a valid Python identifier. Without the cutoff, pytest
+# builds its collector chain from the rootdir, finds that __init__.py, and tries
+# to import the repo root as a package. Keeping the conftest cutoff inside
+# tests/ stops the chain at the test directory. Run pytest from the repo root.
+addopts = "-q --confcutdir=tests"
 
 [tool.ruff]
 line-length = 100
@@ -47,4 +57,4 @@ ignore = [
 known-first-party = ["atg_plugin", "conftest"]
 
 [tool.ruff.lint.per-file-ignores]
-"plugins/affiliate-threads-generator/skills/**/scripts/*.py" = ["E402"]
+"skills/**/scripts/*.py" = ["E402"]

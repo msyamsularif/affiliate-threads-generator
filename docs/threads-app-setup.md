@@ -67,7 +67,11 @@ You get a **short-lived token, valid for 1 hour**. Move fast, or start over.
 ```bash
 export THREADS_APP_SECRET=<THREADS_APP_SECRET>
 
-python3 "$HERMES_HOME/skills/affiliate-threads-generator/scripts/threads_token.py" \
+# The skill ships inside the plugin; nothing lands in ~/.hermes/skills/.
+# Defined once here and reused by the snippets below.
+SKILL_DIR="$HERMES_HOME/plugins/affiliate-threads-generator/skills/affiliate-threads-generator"
+
+python3 "$SKILL_DIR/scripts/threads_token.py" \
   exchange --short-token <SHORT_LIVED_TOKEN> --write-env
 ```
 
@@ -97,7 +101,7 @@ Optional — the plugin resolves it from `GET /me` and caches it. Pinning it is
 useful when several accounts share a token file.
 
 ```bash
-python3 "$HERMES_HOME/skills/affiliate-threads-generator/scripts/threads_token.py" status
+python3 "$SKILL_DIR/scripts/threads_token.py" status
 ```
 
 ```json
@@ -132,8 +136,7 @@ day after it was issued — for another 60 days. Refreshing resets the clock, so
 monthly job is plenty.
 
 ```bash
-python3 "$HERMES_HOME/skills/affiliate-threads-generator/scripts/threads_token.py" \
-  refresh --write-env
+python3 "$SKILL_DIR/scripts/threads_token.py" refresh --write-env
 ```
 
 Then restart the gateway so the new value is loaded:
@@ -161,8 +164,8 @@ hermes cron create "0 9 1 * *" \
 #!/bin/bash
 # Refresh the Threads token and stay quiet unless it fails.
 set -euo pipefail
-SKILL="$HERMES_HOME/skills/affiliate-threads-generator/scripts/threads_token.py"
-OUT="$(python3 "$SKILL" refresh --write-env)"
+TOKEN_SCRIPT="$HERMES_HOME/plugins/affiliate-threads-generator/skills/affiliate-threads-generator/scripts/threads_token.py"
+OUT="$(python3 "$TOKEN_SCRIPT" refresh --write-env)"
 DAYS="$(python3 -c "import json,sys;print(json.loads(sys.argv[1]).get('expires_in',0)//86400)" "$OUT")"
 if [ "$DAYS" -lt 40 ]; then
   echo "Threads token refresh looks wrong: only ${DAYS} days granted. Output: $OUT"

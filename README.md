@@ -23,14 +23,17 @@ Threads publishes.       Google Sheets records the business state.
 
 ## What this repository contains
 
-| Path                                                                    | What it is                                                                  |
-| ----------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `plugins/affiliate-threads-generator/`                                   | The Hermes plugin — the **only** hand-written code artifact                 |
-| `plugins/affiliate-threads-generator/skills/affiliate-threads-generator/` | The bundled Skill: pipeline, writing rules, references, helper scripts      |
-| `docs/`                                                                 | Installation, configuration, Threads app setup, Sheets setup, cron, runbook |
-| `tests/`                                                                | Unit tests for the plugin's deterministic layer                             |
-| `install.sh`                                                            | One-command installer (plugin + skill)                                      |
-| `PROJECT_SPEC_v2_plugins.md`                                            | The source-of-truth specification this implements                           |
+| Path                                                     | What it is                                                                                                                                                     |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `plugin.yaml`, `__init__.py` and the modules beside them | The Hermes plugin — the **only** hand-written code artifact. It lives at the repository root, which is what makes `hermes plugins install <owner>/<repo>` work |
+| `skills/affiliate-threads-generator/`                    | The bundled Skill: pipeline, writing rules, references, helper scripts                                                                                         |
+| `docs/`                                                  | Installation, configuration, Threads app setup, Sheets setup, cron, runbook                                                                                    |
+| `tests/`                                                 | Unit tests for the plugin's deterministic layer                                                                                                                |
+| `PROJECT_SPEC_v2_plugins.md`                             | The source-of-truth specification this implements                                                                                                              |
+
+One `hermes plugins install` is the whole install. The plugin is a bundle — it
+carries its own tools, hooks, skill and slash command, and Hermes loads all four
+from this one directory. Nothing is copied into `~/.hermes/skills/`.
 
 ---
 
@@ -38,6 +41,8 @@ Threads publishes.       Google Sheets records the business state.
 
 ```
 User ──► Telegram (Hermes Messaging Gateway)
+              │
+              ├─► /affiliate-threads status ──► threads_check (read-only, no model turn)
               │
               ▼
      Skill: affiliate-threads-generator
@@ -66,6 +71,13 @@ User ──► Telegram (Hermes Messaging Gateway)
 - **Tool** — exactly one thing: `threads_publish`. A side effect must never
   depend on the model getting it right.
 
+Both live in the same bundle. The plugin registers the skill from its own
+directory instead of publishing it to the skills hub, so there is one artifact to
+install, one to update, and no second copy that can drift.
+
+There is also one slash command, `/affiliate-threads status`, which runs the
+read-only preflight for a human.
+
 The plugin ships two tools:
 
 | Tool              | Purpose                                                                                                                                                   |
@@ -73,38 +85,40 @@ The plugin ships two tools:
 | `threads_publish` | Re-validates the Sheet row, publishes the thread via the official Threads Graph API, then writes `Status=Done` + `Threads URL`. The only path to Threads. |
 | `threads_check`   | Read-only preflight: credentials, identity, token expiry, Sheet reachability, next eligible candidate.                                                    |
 
-Two hooks:
+Three hooks:
 
-| Hook             | Purpose                                                                       |
-| ---------------- | ----------------------------------------------------------------------------- |
-| `pre_tool_call`  | Escalates every `threads_publish` call to Hermes' own human-approval gate.    |
-| `post_tool_call` | Writes an audit line for every publish attempt to `~/.hermes/logs/agent.log`. |
+| Hook             | Purpose                                                                                                                                                 |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pre_llm_call`   | Injects one line naming the bundled skill when a turn looks like Affiliate Threads work — plugin skills are namespaced and absent from the skill index. |
+| `pre_tool_call`  | Escalates every `threads_publish` call to Hermes' own human-approval gate.                                                                              |
+| `post_tool_call` | Writes an audit line for every publish attempt to `~/.hermes/logs/agent.log`.                                                                           |
 
 ---
 
 ## Quick start
 
 ```bash
-# 1. Install the plugin + skill
-./install.sh
+# The whole install. Hermes asks for the credentials here — the plugin declares
+# them, so installing prompts for what it cannot run without. Nothing to edit,
+# nothing echoed back, values go to Hermes' credential store.
+hermes plugins install msyamsularif/affiliate-threads-generator --enable
 
-# 2. Enable it. This is where Hermes asks for the credentials — the plugin
-#    declares them, so enabling prompts for what it cannot run without. Nothing
-#    to edit, nothing echoed back, values go to Hermes' credential store.
-hermes plugins enable affiliate-threads-generator
-
-#    (Or install and enable from Git in one step:)
-#    hermes plugins install <repo> --enable
-
-# 3. Verify everything
+# Restart the gateway so the new tools are discovered, then verify.
+hermes gateway restart
 hermes chat -q "Run the affiliate-threads-generator doctor script."
 ```
+
+One command, because the plugin is a bundle: the tools, the hooks, the skill and
+the `/affiliate-threads` command all arrive together. Nothing is written to
+`~/.hermes/skills/`, so there is no second copy to install or keep in sync.
 
 Then, from Telegram:
 
 ```
 Buatkan content berikutnya.
 ```
+
+To check the wiring without spending a model turn, use `/affiliate-threads status`.
 
 Full instructions: [`docs/installation.md`](docs/installation.md).
 
@@ -142,6 +156,8 @@ Full instructions: [`docs/installation.md`](docs/installation.md).
 The deterministic layer — guardrails, the Threads client, the Sheet client, the
 publish tool, the hooks — is covered by tests. None of them touch the network: the
 Threads API and the Google Sheets CLI are both faked at the boundary.
+
+Run both from the repository root:
 
 ```bash
 uv run --no-project --with pytest --with pyyaml --with ruff pytest -q

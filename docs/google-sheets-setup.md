@@ -116,15 +116,18 @@ The `sheets` and `next_candidate` checks should both pass.
 Read the next eligible candidate:
 
 ```bash
-python3 "$HERMES_HOME/skills/affiliate-threads-generator/scripts/select_candidate.py"
+# The skill ships inside the plugin; nothing lands in ~/.hermes/skills/.
+SKILL_DIR="$HERMES_HOME/plugins/affiliate-threads-generator/skills/affiliate-threads-generator"
+
+python3 "$SKILL_DIR/scripts/select_candidate.py"
 ```
 
 Hold, cancel or resume:
 
 ```bash
-python3 "$HERMES_HOME/skills/affiliate-threads-generator/scripts/set_status.py" 2 Hold
-python3 "$HERMES_HOME/skills/affiliate-threads-generator/scripts/set_status.py" 2 Cancel
-python3 "$HERMES_HOME/skills/affiliate-threads-generator/scripts/set_status.py" 2 "Ready To Generate"
+python3 "$SKILL_DIR/scripts/set_status.py" 2 Hold
+python3 "$SKILL_DIR/scripts/set_status.py" 2 Cancel
+python3 "$SKILL_DIR/scripts/set_status.py" 2 "Ready To Generate"
 ```
 
 `set_status.py` re-reads the row first, verifies the ID matches, and refuses to

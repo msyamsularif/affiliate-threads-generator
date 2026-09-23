@@ -141,7 +141,7 @@ is the install prompt — no file editing required, and no instruction to go and
 find one.
 
 ```
-$ hermes plugins install you/affiliate-threads-plugins --enable
+$ hermes plugins install msyamsularif/affiliate-threads-generator --enable
 
   This plugin needs the following to run.
   Values are stored in ~/.hermes/.env and never leave your machine.
@@ -303,8 +303,10 @@ A Threads long-lived token lasts 60 days and refreshing resets the clock, so a
 monthly refresh is plenty:
 
 ```bash
-python3 ~/.hermes/skills/affiliate-threads-generator/scripts/threads_token.py \
-  refresh --write-env
+# The skill ships inside the plugin; nothing is installed under ~/.hermes/skills/.
+SKILL_DIR="$HERMES_HOME/plugins/affiliate-threads-generator/skills/affiliate-threads-generator"
+
+python3 "$SKILL_DIR/scripts/threads_token.py" refresh --write-env
 hermes gateway restart
 ```
 
@@ -372,7 +374,8 @@ hermes config show | grep -i -E "threads|affiliate" || true
 hermes chat -q "Run threads_check."
 
 # Do the standalone scripts see everything they need?
-python3 ~/.hermes/skills/affiliate-threads-generator/scripts/doctor.py
+SKILL_DIR="$HERMES_HOME/plugins/affiliate-threads-generator/skills/affiliate-threads-generator"
+python3 "$SKILL_DIR/scripts/doctor.py"
 ```
 
 `doctor.py` reports each declared variable as configured or missing, naming it

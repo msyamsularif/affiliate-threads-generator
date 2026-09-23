@@ -1,9 +1,10 @@
 """Test fixtures.
 
-The plugin directory name contains hyphens, so it cannot be imported as a normal
-package. It is registered in ``sys.modules`` under a clean name instead — the
-same trick the skill's ``_bridge.py`` uses, which also means the tests exercise
-the exact code path the scripts do.
+The plugin lives at the repository root, and the directory name contains
+hyphens, so it cannot be imported as a normal package. It is registered in
+``sys.modules`` under a clean name instead — the same trick the skill's
+``_bridge.py`` uses, which also means the tests exercise the exact code path the
+scripts do.
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-PLUGIN_DIR = Path(__file__).resolve().parents[1] / "plugins" / "affiliate-threads-generator"
+PLUGIN_DIR = Path(__file__).resolve().parents[1]
 PACKAGE = "atg_plugin"
 
 if PACKAGE not in sys.modules:
