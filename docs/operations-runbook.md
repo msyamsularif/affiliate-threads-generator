@@ -49,7 +49,7 @@ without spending a model turn.
 Eight checks. Any `✗` comes with a `→` hint.
 
 ```
-  ✓ plugin: found at .../plugins/affiliate-threads-generator (v1.0.0)
+  ✓ plugin: found at .../plugins/affiliate-threads-generator (v1.0.1)
   ✓ settings: spreadsheet=... tab=Sheet1 eligible='Ready To Generate' disclosure=required
   ✓ threads_api: @yourhandle (id ...); token valid=True, expires in 58.4 days
   ✓ sheets: 12 data row(s) in Sheet1; google_api=...
