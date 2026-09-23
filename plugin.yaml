@@ -241,6 +241,46 @@ config_schema:
       Threads recommends ~30s for media uploads; text-only containers are ready
       almost immediately.
 
+  # --- Structural soft signals (warnings only, never blocks) ----------------
+  #
+  # Cheap counters for patterns that read as templated. They come back from
+  # validate_thread.py and threads_publish as warnings so the model can rewrite
+  # before the preview reaches a human. None of them is proof that a text is
+  # AI-written, and a value of 0 disables that signal. The prose audit itself
+  # lives in the external antislop / antislop-copywriting skills.
+
+  signposting_warning_threshold:
+    type: int
+    default: 2
+    label: "Signposting warning threshold"
+    description: >-
+      Warn when this many phrases announcing what the thread is about to do
+      appear ("mari kita bahas", "yang perlu kamu tahu", ...). 0 disables.
+
+  transition_warning_threshold:
+    type: int
+    default: 3
+    label: "Transition density warning threshold"
+    description: >-
+      Warn when this many sentence-opening transitions appear ("Jadi, ...",
+      "Makanya, ...", "Kesimpulannya, ..."). 0 disables.
+
+  enumeration_warning_threshold:
+    type: int
+    default: 2
+    label: "Enumeration warning threshold"
+    description: >-
+      Warn when this many enumeration markers appear ("Pertama, ...",
+      "Kedua: ..."). 0 disables.
+
+  spec_token_warning_threshold:
+    type: int
+    default: 6
+    label: "Spec density warning threshold"
+    description: >-
+      Warn when a thread contains this many number-plus-unit tokens, a proxy
+      for spec dumping. 0 disables.
+
   # --- Google Sheets plumbing ----------------------------------------------
   google_api_path:
     type: str

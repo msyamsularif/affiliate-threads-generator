@@ -166,15 +166,16 @@ preflight as `threads_check`, without spending a model turn.
         5-8 candidates, scored, checked against recent-content memory
         for novelty
                                 ↓
-        STEP 4 — NARRATIVE PLANNER → NARRATIVE CRITIC
-        Bounded revise loop (max 2-3 rounds) against 9 quality questions
+        STEP 4 — POINT OF VIEW → NARRATIVE PLANNER → NARRATIVE CRITIC
+        One-line point of view first; objective-based plan; bounded revise
+        loop (max 2-3 rounds) against 9 quality questions
                                 ↓
         STEP 5 — THREAD GENERATOR
-        Anti-slop rules, structural variation, personal-experience
+        Editorial rules, structural variation, personal-experience
         guardrail, contextual CTA, affiliate_intensity ≈ 2
                                 ↓
-        STEP 6 — EVIDENCE CHECKER → ANTI-SLOP REVIEWER → AFFILIATE REVIEW
-        Bounded revise loop (max 1-2 rounds)
+        STEP 6 — ANTISLOP AUDIT → AFFILIATE EDITORIAL REVIEW → EVIDENCE
+        Bounded revise loop (max 2 rounds), then the deterministic lint
                                 ↓
         STEP 7 — IMAGE (OPTIONAL)
         Only if FAL_KEY is configured; otherwise skip to text-only thread
@@ -361,14 +362,20 @@ separate infrastructure required.
 
 ### 10.5 Narrative Planner & Critic
 
-Planner determines topic, audience, hook strategy, post-by-post roles,
-product entry point (~post 3-4, dynamic), CTA post, `affiliate_intensity`
-(default `2`, ~80% value / 20% product), `must_include`/`must_not_claim`,
-evidence IDs.
+Planner determines topic, audience, a required one-line **point of view**,
+the tension, hook strategy, per-post **objectives** (not fixed roles), the
+product entry point _together with why the narrative is ready for it
+there_, CTA post, `affiliate_intensity` (default `2`, ~80% value / 20%
+product), `must_include`/`must_not_claim`, and the evidence ledger.
 
-Critic must answer 9 questions before Thread Generation proceeds (see
-Section 12 for the full checklist). Bounded to 2-3 revision rounds — never
-an unbounded loop.
+Objectives, not roles: two objectives may collapse into one post, one may
+take two posts. The product enters when the reader already has a reason to
+care — post 3-4 is the normal range, not a rule.
+
+Critic gates on the point of view first (a generic one fails immediately),
+then answers 9 questions before Thread Generation proceeds (see Section 12
+for the full checklist). Bounded to 2-3 revision rounds — never an
+unbounded loop.
 
 ### 10.6 Thread Generator
 
@@ -383,20 +390,33 @@ a weakness.
 
 ### 10.7 Anti-Slop Strategy
 
+Two layers, deliberately separate:
+
+1. **Generic prose** — the external `antislop` and `antislop-copywriting`
+   skills, loaded through Hermes. They own AI vocabulary, signposting,
+   fake-candid framing, forced parallelism, rule-of-three, staccato drama,
+   filler, rhythm and promotional tone. The plugin does not vendor them;
+   if either cannot be loaded, the preview says so instead of implying an
+   audit that did not happen.
+2. **Affiliate editorial** — this plugin's own rules
+   (`references/editorial-rules.md`): point of view, detail selection,
+   product entry, ending, disclosure.
+
 Human-like writing comes from genuine specifics, not imperfection
 theater — never intentionally inject bad grammar or random mistakes.
 
-Flag list used during review: `generic_hook`, `repetitive_structure`,
-`too_promotional`, `unsupported_claim`, `generic_adjective`,
-`obvious_ai_phrase`, `weak_transition`, `unnecessary_cta`.
+`guardrails.py` keeps only what is specific to affiliate copy: a short
+cliché list (_"praktis dan nyaman digunakan", "cocok untuk berbagai
+kebutuhan", "wajib banget punya", "solusi yang tepat untuk kamu",
+"kualitas terjamin", "worth it banget", "game changer", "must have"_) and
+four structural counters — `excessive_signposting`,
+`repeated_transition_density`, `excessive_enumeration`,
+`product_detail_density`. All are warnings, never blocks, and none is
+proof that a text is AI-written. Thresholds are configurable; `0`
+disables a signal.
 
-Flagged phrases (not hard-banned, but suspicious when they carry no
-specific information): _"praktis dan nyaman digunakan", "cocok untuk
-berbagai kebutuhan", "wajib banget punya", "solusi yang tepat untuk
-kamu", "di era sekarang", "tidak perlu khawatir lagi", "worth it
-banget"_.
-
-Bounded to 1-2 revision rounds.
+Bounded to 2 revision rounds. If the thread still reads as templated after
+two, the angle is the problem: return to Angle Discovery.
 
 ### 10.8 Personal Experience Guardrail (hard rule)
 
@@ -416,8 +436,10 @@ the draft reaches Telegram.
 
 Contextual link language, e.g. _"Saya taruh detail produknya di sini
 buat yang penasaran bentuk dan spesifikasinya."_ — never _"BELI
-SEKARANG"_. Disclosure must remain clear; the goal is reducing hard-sell
-tone, not concealing the commercial relationship.
+SEKARANG"_. Disclosure must remain explicit but lightweight — "Link
+afiliasi." on the same post as the URL is enough — and `threads_publish`
+still refuses to publish without a configured disclosure marker. The goal
+is reducing hard-sell tone, not concealing the commercial relationship.
 
 ### 10.11 Image Strategy (optional)
 
@@ -473,13 +495,17 @@ generation again.
 
 ## 12. Narrative Critic Checklist (used every generation)
 
+Gate — the point of view. A generic `point_of_view` fails the plan immediately,
+before the questions below are answered.
+
 1. Is the topic interesting without the product?
 2. Does the hook create real curiosity?
 3. Is there progression between posts?
-4. Is the product introduced too early?
+4. Is the product introduced when the reader already has a reason to care?
 5. Is the Thread only a feature list?
 6. Does each post create a reason to continue?
-7. Does the ending feel like an advertisement?
+7. Does the ending feel like an advertisement — and does it give the reader
+   something useful rather than summarizing?
 8. Are claims supported (traceable to Section 9's tiers)?
 9. Is the angle too similar to recent content (Section 10.4)?
 
@@ -493,9 +519,13 @@ Hermes Agent (LLM + agent loop)
   angle/narrative reasoning, writing
 
 Skill: affiliate-threads-generator
-= orchestration instructions, writing rules, anti-slop enforcement,
+= orchestration instructions, affiliate editorial rules, the audit order,
   how to interpret natural-language decisions
   (NOT the final authority for side effects)
+
+External antislop skills (antislop, antislop-copywriting)
+= the generic AI-prose filter, loaded through Hermes, applied as an audit
+  of the draft — referenced by name, never vendored
 
 Tool: threads_publish (this system's one custom code artifact)
 = control, precondition validation, publish authority, Sheet state
@@ -577,11 +607,14 @@ Meta Threads (official Graph API)
     unavailable
 [ ] 5-8 angles generated and scored before selection
 [ ] Angle/structure novelty checked via Hermes memory
+[ ] A one-line point of view is required before drafting
 [ ] Narrative Critic can reject weak plans (bounded retries)
-[ ] Thread copy follows content-philosophy + anti-slop rules
+[ ] Thread copy follows content-philosophy + the affiliate editorial rules
 [ ] Evidence Checker removes/softens untraceable claims
-[ ] Anti-Slop Reviewer runs before user review (bounded retries)
-[ ] Affiliate disclosure present and verified before publish
+[ ] antislop + antislop-copywriting audit runs before the affiliate
+    editorial and evidence reviews (bounded to 2 revision rounds)
+[ ] Affiliate disclosure present, short, and on the same post as the
+    affiliate URL
 [ ] Images generated only when FAL_KEY is configured; text-only
     otherwise
 [ ] Telegram preview always shows the Product ID explicitly
@@ -616,7 +649,7 @@ Meta Threads (official Graph API)
                          ▼
                   Content Generation
                          │
-              Evidence + Anti-Slop
+          Antislop + Editorial + Evidence
                          │
               Image Creation (optional)
                          │

@@ -46,7 +46,8 @@ User ──► Telegram (Hermes Messaging Gateway)
               │
               ▼
      Skill: affiliate-threads-generator
-     (research, angles, narrative, writing, anti-slop)
+     (research, angles, point of view, narrative, drafting,
+      antislop audit, editorial + evidence review)
               │
               ├─► Hermes bundled google-workspace skill  → Google Sheets (source of truth)
               ├─► Hermes bundled web/browser tools       → research
@@ -70,10 +71,9 @@ User ──► Telegram (Hermes Messaging Gateway)
   anti-slop review, interpreting natural-language approve/hold/cancel.
 - **Tool** — exactly one thing: `threads_publish`. A side effect must never
   depend on the model getting it right.
-
-Both live in the same bundle. The plugin registers the skill from its own
-directory instead of publishing it to the skills hub, so there is one artifact to
-install, one to update, and no second copy that can drift.
+  Both live in the same bundle. The plugin registers the skill from its own
+  directory instead of publishing it to the skills hub, so there is one artifact to
+  install, one to update, and no second copy that can drift.
 
 There is also one slash command, `/affiliate-threads status`, which runs the
 read-only preflight for a human.
@@ -151,6 +151,14 @@ Full instructions: [`docs/installation.md`](docs/installation.md).
 - A Google Sheet with the columns described in
   [`docs/google-sheets-setup.md`](docs/google-sheets-setup.md)
 
+Writing quality has one external dependency, preferred rather than required:
+
+- The **`antislop`** and **`antislop-copywriting`** skills in the Hermes project
+  (`.hermes/skills/`, then `hermes skills trust`). Without them the pipeline
+  still generates, but the preview says the anti-slop layer was not loaded
+  instead of claiming an audit that did not happen. Setup and version pinning:
+  [`docs/antislop-integration.md`](docs/antislop-integration.md).
+
 ## Development
 
 The deterministic layer — guardrails, the Threads client, the Sheet client, the
@@ -173,6 +181,7 @@ uv run --no-project --with ruff ruff check .
 | `test_hooks.py`                  | The approval gate fires for `threads_publish` and nothing else                      |
 | `test_plugin_manifest.py`        | Declared tools/hooks match what `register()` registers; the skill is loadable       |
 | `test_skill_scripts.py`          | The doctor finds the publish ledger wherever Hermes filed it                        |
+| `test_content_regression.py`     | The content corpus: templated drafts are flagged, the style target stays clean      |
 | `test_integration_end_to_end.py` | The whole cycle through a real subprocess to a fake `google_api.py`                 |
 
 Before changing anything in `guardrails.py` or `tools.py`, run both commands.

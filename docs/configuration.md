@@ -142,6 +142,32 @@ is a lower hard-sell tone, not a hidden commercial relationship. If the wording
 feels clumsy, add your own marker to `disclosure_markers` rather than turning the
 check off.
 
+The copy itself is deliberately short. "Link afiliasi." on the same post as the
+URL satisfies the marker list, and that is the preferred form — see
+`skills/affiliate-threads-generator/references/editorial-rules.md`.
+
+---
+
+## Structural soft signals
+
+These never block publishing. They come back from `threads_publish` and
+`validate_thread.py` as `warnings`, so the model can rewrite before the preview
+reaches a human.
+
+Each one is a threshold, not a ban: one "Jadi," is ordinary Indonesian, three of
+them is a rhythm the reader can feel. A value of `0` disables that signal.
+
+| Setting                         | Default | Fires when                                                       |
+| ------------------------------- | ------- | ---------------------------------------------------------------- |
+| `signposting_warning_threshold` | `2`     | This many "mari kita bahas" / "yang perlu kamu tahu" phrases     |
+| `transition_warning_threshold`  | `3`     | This many sentence-opening transitions ("Jadi, ...", "Makanya,") |
+| `enumeration_warning_threshold` | `2`     | This many enumeration markers ("Pertama, ...", "Kedua: ...")     |
+| `spec_token_warning_threshold`  | `6`     | This many number-plus-unit tokens in one thread (spec dumping)   |
+
+None of these is proof that a text is AI-written, and none of them replaces the
+prose audit: that lives in the external `antislop` and `antislop-copywriting`
+skills — see [antislop-integration.md](antislop-integration.md).
+
 ---
 
 ## Google Sheets plumbing

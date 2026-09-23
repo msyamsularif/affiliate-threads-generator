@@ -194,7 +194,12 @@ class TestSoftWarnings:
         assert report.ok
         assert "generic_phrase" in {item.code for item in report.warnings}
 
-    def test_ai_tic_warns(self, settings: config.Settings) -> None:
+    def test_ai_tic_phrases_are_no_longer_a_guardrail_concern(self, settings: config.Settings) -> None:
+        """The generic AI-prose catalogue belongs to the external antislop skills.
+
+        The code layer keeps only what is specific to affiliate product copy, so
+        a phrase like this one must not be flagged here any more.
+        """
         posts = [
             {"text": "Penting untuk dicatat bahwa ini bagus."},
             {"text": "b"},
@@ -203,7 +208,7 @@ class TestSoftWarnings:
         report = guardrails.validate_thread(
             posts, settings, affiliate_url="https://shope.ee/abc123"
         )
-        assert "obvious_ai_phrase" in {item.code for item in report.warnings}
+        assert "obvious_ai_phrase" not in {item.code for item in report.warnings}
 
     def test_product_overexposure_warns(self, settings: config.Settings) -> None:
         posts = [
@@ -220,3 +225,123 @@ class TestSoftWarnings:
             product_name="Powerbank Z",
         )
         assert "product_overexposed" in {item.code for item in report.warnings}
+
+
+class TestStructuralSignals:
+    """Cheap structural counters. Warnings only — never proof of AI writing."""
+
+    STRUCTURAL = {
+        "excessive_signposting",
+        "repeated_transition_density",
+        "excessive_enumeration",
+        "product_detail_density",
+    }
+
+    def codes(self, report: guardrails.GuardrailReport) -> set[str]:
+        return {item.code for item in report.warnings}
+
+    def test_a_clean_thread_raises_none_of_them(self, settings: config.Settings) -> None:
+        report = guardrails.validate_thread(
+            build_good_thread(), settings, affiliate_url="https://shope.ee/abc123"
+        )
+        assert self.STRUCTURAL.isdisjoint(self.codes(report))
+
+    def test_narrated_transitions_warn(self, settings: config.Settings) -> None:
+        posts = [
+            {"text": "Jadi, kapasitas besar selalu berarti berat."},
+            {"text": "Makanya, yang paling sering dipakai justru yang paling ringan."},
+            {"text": "Kesimpulannya, ini bukan buat semua orang."},
+            {"text": "#afiliasi https://shope.ee/abc123"},
+        ]
+        report = guardrails.validate_thread(
+            posts, settings, affiliate_url="https://shope.ee/abc123"
+        )
+        assert report.ok
+        assert "repeated_transition_density" in self.codes(report)
+
+    def test_a_transition_inside_a_word_does_not_count(self, settings: config.Settings) -> None:
+        posts = [
+            {"text": "Beratnya menjadi alasan utama orang melewatinya."},
+            {"text": "Kapasitas menjadi alasan orang membelinya."},
+            {"text": "#afiliasi https://shope.ee/abc123"},
+        ]
+        report = guardrails.validate_thread(
+            posts, settings, affiliate_url="https://shope.ee/abc123"
+        )
+        assert "repeated_transition_density" not in self.codes(report)
+
+    def test_enumeration_markers_warn(self, settings: config.Settings) -> None:
+        posts = [
+            {"text": "Dua catatan: Pertama, kapasitasnya besar. Kedua, beratnya ikut naik."},
+            {"text": "b"},
+            {"text": "#afiliasi https://shope.ee/abc123"},
+        ]
+        report = guardrails.validate_thread(
+            posts, settings, affiliate_url="https://shope.ee/abc123"
+        )
+        assert "excessive_enumeration" in self.codes(report)
+
+    def test_pertama_kali_is_not_an_enumeration_marker(self, settings: config.Settings) -> None:
+        posts = [
+            {"text": "Pertama kali lihat, ukurannya terlihat kecil."},
+            {"text": "Kedua kalinya, baru terasa bedanya."},
+            {"text": "#afiliasi https://shope.ee/abc123"},
+        ]
+        report = guardrails.validate_thread(
+            posts, settings, affiliate_url="https://shope.ee/abc123"
+        )
+        assert "excessive_enumeration" not in self.codes(report)
+
+    def test_signposting_warns(self, settings: config.Settings) -> None:
+        posts = [
+            {"text": "Mari kita bahas daya tahannya."},
+            {"text": "Yang perlu kamu tahu soal kapasitasnya."},
+            {"text": "#afiliasi https://shope.ee/abc123"},
+        ]
+        report = guardrails.validate_thread(
+            posts, settings, affiliate_url="https://shope.ee/abc123"
+        )
+        assert "excessive_signposting" in self.codes(report)
+
+    def test_spec_density_warns(self, settings: config.Settings) -> None:
+        posts = [
+            {"text": "20000mAh, 22.5W, 380g, 15cm, 6 jam, 2 liter."},
+            {"text": "b"},
+            {"text": "#afiliasi https://shope.ee/abc123"},
+        ]
+        report = guardrails.validate_thread(
+            posts, settings, affiliate_url="https://shope.ee/abc123"
+        )
+        assert "product_detail_density" in self.codes(report)
+
+    def test_a_threshold_of_zero_disables_the_signal(self, settings: config.Settings) -> None:
+        import dataclasses
+
+        relaxed = dataclasses.replace(settings, transition_warning_threshold=0)
+        posts = [
+            {"text": "Jadi, satu."},
+            {"text": "Makanya, dua."},
+            {"text": "Kesimpulannya, tiga."},
+            {"text": "#afiliasi https://shope.ee/abc123"},
+        ]
+        report = guardrails.validate_thread(
+            posts, relaxed, affiliate_url="https://shope.ee/abc123"
+        )
+        assert "repeated_transition_density" not in self.codes(report)
+
+    def test_structural_signals_never_block(self, settings: config.Settings) -> None:
+        posts = [
+            {
+                "text": (
+                    "Jadi, makanya, kesimpulannya. Pertama, kedua, ketiga: "
+                    "20000mAh, 22.5W, 380g, 15cm, 6 jam, 2 liter."
+                )
+            },
+            {"text": "Mari kita bahas. Yang perlu kamu tahu: ini panjang."},
+            {"text": "#afiliasi https://shope.ee/abc123"},
+        ]
+        report = guardrails.validate_thread(
+            posts, settings, affiliate_url="https://shope.ee/abc123"
+        )
+        assert report.ok
+        assert self.STRUCTURAL & self.codes(report)

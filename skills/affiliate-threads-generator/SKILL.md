@@ -6,9 +6,10 @@ description: >-
   affiliate content — "buatkan content berikutnya", "generate lagi", "hold dulu
   yang ini", "saya approve", "regenerate tapi angle-nya lebih ke traveller".
   Runs the full pipeline: deterministic candidate selection, description-first
-  research, angle discovery and scoring, narrative planning with a critic pass,
-  anti-slop thread writing, evidence and affiliate review, then a Telegram
-  preview that waits for a human decision. Never publishes on its own.
+  research, angle discovery and scoring, a one-line point of view, narrative
+  planning with a critic pass, drafting, an antislop audit, the affiliate
+  editorial and evidence reviews, then a Telegram preview that waits for a human
+  decision. Never publishes on its own.
 version: 1.0.0
 author: Affiliate Threads
 license: MIT
@@ -108,6 +109,38 @@ Everything else in this skill is judgement. That one thing is not.
 
 ---
 
+## Writing quality dependencies
+
+The generic AI-writing filter is **not** in this skill. It lives in two external
+skills, loaded through Hermes:
+
+| Skill                  | What it is for                                                              |
+| ---------------------- | --------------------------------------------------------------------------- |
+| `antislop`             | the core filter — structural AI tells, filler, unsupported claims, CTA tone |
+| `antislop-copywriting` | prose depth — rhythm, signposting, parallelism, fake-candid framing         |
+
+Both are **optional**. Using them is the recommended setup; not having them is a
+supported one. The pipeline always runs its own affiliate editorial and evidence
+reviews — the external skills add the generic prose pass on top, and nothing
+breaks without them.
+
+When they are available:
+
+1. Load both with `skill_view`.
+2. Apply them as an **audit** of the draft, not only as advice while writing.
+3. Never let anti-slop rules override affiliate evidence, disclosure, product
+   fit, or safety requirements. They govern prose, not facts.
+4. After the anti-slop pass, run this plugin's affiliate editorial review —
+   `references/editorial-rules.md`.
+
+When they are not, skip that pass and say so on the preview's anti-slop line
+instead of implying an audit that did not happen. Do not reimplement the missing
+rules from memory — that is how the two layers drift apart.
+
+Setup, if you want it: [`docs/antislop-integration.md`](../../docs/antislop-integration.md).
+
+---
+
 ## When to use this skill
 
 Load it for anything in this family:
@@ -140,12 +173,13 @@ for you when the skill loads.
 | Health check                      | `python3 ${HERMES_SKILL_DIR}/scripts/doctor.py`                            |
 | Threads token status / refresh    | `python3 ${HERMES_SKILL_DIR}/scripts/threads_token.py status`              |
 
-| Tool                             | Use                                                              |
-| -------------------------------- | ---------------------------------------------------------------- |
-| `threads_publish`                | The only way to publish. Requires explicit human approval first. |
-| `threads_check`                  | Read-only preflight. Use before claiming something is broken.    |
-| `skill_view("google-workspace")` | Sheet reads/writes and the OAuth setup                           |
-| Hermes web/browser tools         | External research                                                |
+| Tool                                                            | Use                                                              |
+| --------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `threads_publish`                                               | The only way to publish. Requires explicit human approval first. |
+| `threads_check`                                                 | Read-only preflight. Use before claiming something is broken.    |
+| `skill_view("google-workspace")`                                | Sheet reads/writes and the OAuth setup                           |
+| `skill_view("antislop")` · `skill_view("antislop-copywriting")` | The generic writing-quality filter. Load both before drafting.   |
+| Hermes web/browser tools                                        | External research                                                |
 
 ---
 
@@ -249,15 +283,25 @@ the next one. Read `references/content-rules.md` for the exact memory format.
 Show the human your angle shortlist only when they asked to see the reasoning.
 Otherwise carry it into Step 4.
 
-### Step 4 — Narrative planner → narrative critic
+### Step 4 — Point of view → narrative planner → narrative critic
+
+**Point of view.** Write the thread's position in one line before anything else:
+
+> "Jumlah tekstur bukan hal pertama yang perlu dilihat dari mainan seperti ini."
+
+If the line is generic ("produk ini punya beberapa kelebihan dan kekurangan"),
+stop. That is an angle problem, not a wording problem — go back to Step 3.
 
 **Planner.** Decide, explicitly:
 
-- topic and audience
+- topic, audience, and the point of view above
+- the tension that makes it worth reading
 - hook strategy for post 1
-- the role of each post, post by post
-- where the product enters (~post 3-4; dynamic, never post 1)
-- which post carries the CTA
+- the objective of each post — what the reader notices, understands, or can do
+  next because of it (objectives, not a fixed role template)
+- where the product becomes relevant, and why the narrative is ready for it
+  there (post 3-4 is the normal range, not a rule)
+- which post carries the CTA and the disclosure
 - `affiliate_intensity` — default `2` (roughly 80% value, 20% product)
 - `must_include` and `must_not_claim` lists
 - which evidence tier each factual claim traces to
@@ -270,59 +314,62 @@ a different angle from Step 3 rather than looping forever.
 
 ### Step 5 — Thread generation
 
-Write **3-6 posts**, dynamic length. Not every thread is the same shape.
+Write **3-6 posts**. Dynamic — post length varies, and not every thread is the
+same shape. Rotate the narrative structure across runs; never default to
+`Hook → 3 benefits → CTA`. The structures are in
+`references/content-rules.md`.
 
-Rotate the narrative structure across runs — never default to
-`Hook → 3 benefits → CTA`:
-
-- observation → story → product
-- question → comparison → product
-- problem → evidence → trade-off → product
-- hot take → explanation → product
-- mistake → lesson → recommendation
-- checklist → example → product
-
-Include genuine, evidence-backed trade-offs or limitations. **Never fabricate a
-weakness** — a made-up drawback is as dishonest as a made-up benefit.
-
-Follow the content philosophy and the anti-slop rules in
-`references/content-rules.md`. The short version:
+Follow the content philosophy in `references/content-rules.md` and the editorial
+rules in `references/editorial-rules.md`. The short version:
 
 ```
 Audience → Problem/curiosity/observation → Interesting insight →
 Specific evidence → Possible solution → Product → Contextual CTA + disclosure
 ```
 
+Select the two to four details the angle needs. Leave the rest in the research.
+Include a genuine, evidence-backed trade-off when the angle has room for one —
+and never fabricate a weakness.
+
 **Hard rule — no fabricated personal experience.** Never write _"Aku sudah
 coba..."_, _"Saya pakai ini setiap hari..."_, _"Menurut pengalaman saya..."_. The
 system has never touched the product. Write _"Dari spesifikasi produk..."_,
 _"Berdasarkan review yang tersedia..."_, _"Untuk skenario seperti ini..."_.
 
-### Step 6 — Three reviews, then lint
+### Step 6 — Audit, rewrite, then lint
 
-Run all three, in order, on your draft:
+Four passes on the draft, in this order:
 
-1. **Evidence checker** — every factual claim must trace to one of Step 2's tiers.
-   Anything untraceable is removed or rewritten as an explicit hedge.
-2. **Anti-slop reviewer** — check against the flag list
-   (`generic_hook`, `repetitive_structure`, `too_promotional`,
-   `unsupported_claim`, `generic_adjective`, `obvious_ai_phrase`,
-   `weak_transition`, `unnecessary_cta`).
-3. **Affiliate review** — is the disclosure present and clear? Is the CTA
-   contextual rather than `BELI SEKARANG`? Is the product supporting the story
-   rather than starring in it?
-
-Bounded loop: **1-2 revision rounds maximum.**
-
-Then run the deterministic lint. This is the same check the publish tool will run,
-so failing it here is much cheaper than failing at publish time:
+1. **Anti-slop audit** (when the skills are installed) — with `antislop` and
+   `antislop-copywriting` loaded, ask what makes this obviously AI-written.
+   Structure, rhythm, signposting, symmetry and unnecessary explanation count
+   for more than vocabulary. If the skills are not installed, skip this pass and
+   note it on the preview's anti-slop line.
+2. **Affiliate editorial review** — the questions in
+   `references/editorial-rules.md`: is there a point of view? would the thread be
+   useful without the link? is the product supporting the conversation rather
+   than starring in it? is the ending earned rather than a summary?
+3. **Evidence review** — every factual claim traces to one of Step 2's tiers.
+   Anything untraceable is removed or rewritten as an explicit hedge. Check that
+   the rewrite did not introduce a new fact or drop a qualification.
+4. **Deterministic lint** — the same check the publish tool will run:
 
 ```bash
 python3 ${HERMES_SKILL_DIR}/scripts/validate_thread.py --json draft.json
 ```
 
 Fix every `violation`. Read the `warnings` and decide — they are signals, not
-orders. Do not show the human a draft that still has violations.
+orders. Alongside the phrase warnings, `validate_thread.py` reports four
+structural signals: `excessive_signposting`, `repeated_transition_density`,
+`excessive_enumeration`, `product_detail_density`. None of them blocks, and none
+of them is proof that the text is AI-written — treat each as a reason to look
+again.
+
+Do not show the human a draft that still has violations.
+
+Bounded loop: **2 revision rounds maximum.** If the thread still reads as
+templated after two rounds, the angle is the problem — go back to Step 3 and take
+the next candidate. Do not keep polishing the same structure.
 
 ### Step 7 — Image (optional)
 
@@ -348,6 +395,7 @@ in front of them:
 🎯 Angle: <angle_type> — <core idea in one line>
 🧭 Structure: <the narrative structure you used>
 📊 Evidence: description (primary) · <what else you actually found>
+🧹 Anti-slop: antislop + antislop-copywriting · <N> revision round(s)
 🖼️ Image: <yes, N images | text-only>
 
 ———————————————
@@ -369,6 +417,12 @@ Reply with: approve · hold · cancel · regenerate <what to change>
 **The Product ID line is mandatory.** It is the review context for every
 approve/hold/cancel that follows. Do not use a separate store, do not rely on
 conversation memory across a reset.
+
+**The Anti-slop line is mandatory too**, and it reports what actually happened.
+Without the external skills it reads
+`🧹 Anti-slop: not installed — affiliate editorial + evidence review only`.
+That is a normal configuration, not a defect: never present a draft as
+anti-slop-audited when the skills were not loaded.
 
 Then **stop**. Do not publish. Do not ask "should I publish?" in a way that makes
 approval the default. Wait.
@@ -418,11 +472,16 @@ Before you send the preview, confirm all of these are true:
 - [ ] Exactly one candidate was processed
 - [ ] 5-8 angles were generated and scored before one was chosen
 - [ ] The novelty check against recent content notes ran
+- [ ] A one-line point of view existed before drafting, and it is not generic
 - [ ] The narrative critic answered all nine questions
+- [ ] `antislop` and `antislop-copywriting` were loaded, or the preview says they were not
+- [ ] The anti-slop audit ran as an audit of the draft, not only as writing advice
+- [ ] The affiliate editorial review ran after it
 - [ ] Every factual claim traces to a named evidence tier
 - [ ] No fabricated first-hand experience
-- [ ] A trade-off or limitation is present, and it is real
-- [ ] Disclosure is present and readable
+- [ ] A trade-off or limitation is present when the angle has room for one, and it is real
+- [ ] Disclosure is present, short, and on the same post as the affiliate URL
+- [ ] The ending gives the reader something useful instead of summarizing
 - [ ] `validate_thread.py` reports zero violations
 - [ ] The preview shows the Product ID explicitly
 - [ ] You stopped and waited instead of publishing

@@ -208,6 +208,14 @@ class Settings:
     max_links_per_post: int = 5
     container_wait_seconds: int = 5
 
+    # Structural soft signals — warnings only, never blocks. These are
+    # thresholds, not bans: one "Jadi," is ordinary prose, three is a rhythm
+    # problem. A value of 0 disables that signal.
+    signposting_warning_threshold: int = 2
+    transition_warning_threshold: int = 3
+    enumeration_warning_threshold: int = 2
+    spec_token_warning_threshold: int = 6
+
     # Sheets plumbing
     google_api_path: str = ""
     google_api_command: str = "{python} {script}"
@@ -261,6 +269,10 @@ class Settings:
             "max_chars_per_post": self.max_chars_per_post,
             "max_links_per_post": self.max_links_per_post,
             "container_wait_seconds": self.container_wait_seconds,
+            "signposting_warning_threshold": self.signposting_warning_threshold,
+            "transition_warning_threshold": self.transition_warning_threshold,
+            "enumeration_warning_threshold": self.enumeration_warning_threshold,
+            "spec_token_warning_threshold": self.spec_token_warning_threshold,
             "require_approval_prompt": self.require_approval_prompt,
             "content_language": self.content_language,
             "threads_credentials_configured": self.credentials_configured,
@@ -305,6 +317,10 @@ def resolve(overrides: dict[str, Any] | None = None) -> Settings:
         max_chars_per_post=_as_int(_lookup("max_chars_per_post", 500), 500),
         max_links_per_post=_as_int(_lookup("max_links_per_post", 5), 5),
         container_wait_seconds=_as_int(_lookup("container_wait_seconds", 5), 5),
+        signposting_warning_threshold=_as_int(_lookup("signposting_warning_threshold", 2), 2),
+        transition_warning_threshold=_as_int(_lookup("transition_warning_threshold", 3), 3),
+        enumeration_warning_threshold=_as_int(_lookup("enumeration_warning_threshold", 2), 2),
+        spec_token_warning_threshold=_as_int(_lookup("spec_token_warning_threshold", 6), 6),
         google_api_path=str(_lookup("google_api_path", "") or "").strip(),
         google_api_command=str(_lookup("google_api_command", "{python} {script}")).strip()
         or "{python} {script}",

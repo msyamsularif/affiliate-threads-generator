@@ -8,8 +8,12 @@ Two classes of finding:
     limits, the affiliate disclosure, and the fabricated-personal-experience ban.
 
 ``warnings``
-    Soft signals — the anti-slop "suspicious phrase" list and similar. They are
-    reported back to the model so it can rewrite, but they never block.
+    Soft signals: the affiliate-cliché phrase list and a handful of cheap
+    structural counters (signposting, transition density, enumeration, spec
+    density). They are reported back to the model so it can rewrite, but they
+    never block — and none of them is proof that a text is AI-written. The prose
+    audit itself belongs to the external ``antislop`` / ``antislop-copywriting``
+    skills, not here.
 
 Nothing here does I/O, so it is cheap to run on every draft.
 """
@@ -103,36 +107,63 @@ class GuardrailReport:
 
 
 # --------------------------------------------------------------------------- #
-# Anti-slop phrase list (spec section 10.7) — warnings only
+# Soft-signal vocabularies (warnings only)
 # --------------------------------------------------------------------------- #
+#
+# Deliberately small. The generic AI-prose catalogue — fake-candid openers,
+# rule-of-three, negative parallelism, staccato drama, filler — belongs to the
+# external antislop skills, which are better at prose than a substring list.
+# What stays here is what is specific to affiliate product copy.
 
 DEFAULT_SUSPICIOUS_PHRASES: tuple[str, ...] = (
     "praktis dan nyaman digunakan",
     "cocok untuk berbagai kebutuhan",
     "wajib banget punya",
     "solusi yang tepat untuk kamu",
-    "solusi yang tepat untuk anda",
-    "di era sekarang",
-    "tidak perlu khawatir lagi",
+    "kualitas terjamin",
     "worth it banget",
     "game changer",
     "must have",
-    "solusi terbaik",
-    "kualitas terjamin",
 )
 
-#: Phrases that read as an obvious model tic rather than a person writing.
-DEFAULT_AI_TIC_PHRASES: tuple[str, ...] = (
-    "sebagai kesimpulan",
-    "dalam kesimpulan",
-    "penting untuk dicatat bahwa",
-    "tidak hanya itu",
+#: Sentence openers that narrate the reasoning instead of carrying meaning.
+#: Matched only at a sentence boundary, so "jadi" inside "menjadi" is invisible.
+DEFAULT_TRANSITION_WORDS: tuple[str, ...] = (
+    "jadi",
+    "makanya",
+    "contohnya",
+    "dengan kata lain",
+    "kesimpulannya",
+    "singkatnya",
+)
+
+#: Enumeration markers, matched only when followed by a comma or colon — so
+#: "pertama kali" does not count, but "Pertama, ... Kedua, ..." does.
+DEFAULT_ENUMERATION_WORDS: tuple[str, ...] = (
+    "pertama",
+    "kedua",
+    "ketiga",
+    "keempat",
+)
+
+#: Meta-commentary that announces what the text is about to do.
+DEFAULT_SIGNPOSTING_PHRASES: tuple[str, ...] = (
     "mari kita bahas",
-    "in conclusion",
-    "it is important to note",
+    "di artikel ini",
+    "kali ini kita akan",
+    "sebelum masuk ke",
+    "yang perlu kamu tahu",
+    "perlu dicatat bahwa",
     "let's dive in",
-    "delve into",
-    "in today's fast-paced",
+    "here's what you need to know",
+)
+
+#: A number with a unit — the cheapest deterministic proxy for spec dumping.
+_SPEC_TOKEN_RE = re.compile(
+    r"\d+(?:[.,]\d+)?\s*(?:mah|wh|kwh|watt|volt|gram|kg|mg|cm|mm|km|ml|liter"
+    r"|jam|menit|detik|inci|inch|w|v|g|l)\b"
+    r"|\d+(?:[.,]\d+)?\s*[\"\u201d]",
+    re.IGNORECASE,
 )
 
 _DISCLOSURE_SIGNAL_RE = re.compile(
@@ -152,7 +183,9 @@ def validate_thread(
     affiliate_url: str = "",
     product_name: str = "",
     suspicious_phrases: Iterable[str] = DEFAULT_SUSPICIOUS_PHRASES,
-    ai_tic_phrases: Iterable[str] = DEFAULT_AI_TIC_PHRASES,
+    transition_words: Iterable[str] = DEFAULT_TRANSITION_WORDS,
+    enumeration_words: Iterable[str] = DEFAULT_ENUMERATION_WORDS,
+    signposting_phrases: Iterable[str] = DEFAULT_SIGNPOSTING_PHRASES,
 ) -> GuardrailReport:
     """Check a thread against every rule that must not depend on model judgement."""
     report = GuardrailReport()
@@ -309,20 +342,63 @@ def validate_thread(
                 )
                 break
 
-    for phrase in ai_tic_phrases:
-        needle = phrase.lower()
-        for index, text in enumerate(lowered_posts):
-            if needle in text:
-                report.warnings.append(
-                    Finding(
-                        "obvious_ai_phrase",
-                        f'"{phrase}" reads as machine-written filler.',
-                        post_index=index,
-                        detail={"phrase": phrase},
-                    )
-                )
-                break
+    # ---- structural soft signals -----------------------------------------
+    # Cheap counters for patterns that read as templated: narrated reasoning,
+    # enumerated posts, announced structure, spec dumping. Each one is a prompt
+    # to look again, never a verdict. A threshold of 0 disables the signal.
+    raw_texts = [str(post.get("text") or "") for post in posts]
 
+    if settings.signposting_warning_threshold > 0:
+        hits = _phrase_hits(raw_texts, signposting_phrases)
+        if len(hits) >= settings.signposting_warning_threshold:
+            report.warnings.append(
+                Finding(
+                    "excessive_signposting",
+                    f"{len(hits)} signposting phrase(s) announce what the thread is about to "
+                    "do instead of doing it. Soft signal, not a block — cut the ones that add "
+                    "nothing.",
+                    detail={"count": len(hits), "matches": hits[:8]},
+                )
+            )
+
+    if settings.transition_warning_threshold > 0:
+        hits = _sentence_opener_hits(raw_texts, transition_words)
+        if len(hits) >= settings.transition_warning_threshold:
+            report.warnings.append(
+                Finding(
+                    "repeated_transition_density",
+                    f"{len(hits)} sentence-opening transition(s) narrate the reasoning instead "
+                    "of carrying meaning. Soft signal, not a block — a transition is worth "
+                    "keeping only when it contributes something.",
+                    detail={"count": len(hits), "matches": hits[:8]},
+                )
+            )
+
+    if settings.enumeration_warning_threshold > 0:
+        hits = _enumeration_hits(raw_texts, enumeration_words)
+        if len(hits) >= settings.enumeration_warning_threshold:
+            report.warnings.append(
+                Finding(
+                    "excessive_enumeration",
+                    f"{len(hits)} enumeration marker(s) turn the thread into a list. Soft "
+                    "signal, not a block — check whether the list is doing work the sentences "
+                    "should be doing.",
+                    detail={"count": len(hits), "matches": hits[:8]},
+                )
+            )
+
+    if settings.spec_token_warning_threshold > 0:
+        hits = _spec_token_hits(raw_texts)
+        if len(hits) >= settings.spec_token_warning_threshold:
+            report.warnings.append(
+                Finding(
+                    "product_detail_density",
+                    f"{len(hits)} specification token(s) in one thread. Soft signal, not a "
+                    "block — select the details the angle needs instead of listing what the "
+                    "research happened to contain.",
+                    detail={"count": len(hits), "matches": hits[:8]},
+                )
+            )
     if product_name:
         mentions = sum(
             1 for text in lowered_posts if product_name.lower() in text
@@ -347,6 +423,49 @@ def _contains_url(posts: Sequence[dict[str, Any]], url: str) -> bool:
             if found == needle or needle in found or found in needle:
                 return True
     return False
+
+
+def _phrase_hits(texts: Sequence[str], phrases: Iterable[str]) -> list[str]:
+    """Phrases that appear anywhere in the thread, counted once each."""
+    hits: list[str] = []
+    lowered = [text.lower() for text in texts]
+    for phrase in phrases:
+        needle = phrase.lower()
+        if any(needle in text for text in lowered):
+            hits.append(phrase)
+    return hits
+
+
+def _sentence_opener_hits(texts: Sequence[str], words: Iterable[str]) -> list[str]:
+    """Words that open a sentence — so "jadi" inside "menjadi" does not count."""
+    hits: list[str] = []
+    for word in words:
+        pattern = re.compile(
+            r"(?:^|[.!?]\s+|\n)\s*" + re.escape(word) + r"\b", re.IGNORECASE
+        )
+        for text in texts:
+            hits.extend([word] * len(pattern.findall(text)))
+    return hits
+
+
+def _enumeration_hits(texts: Sequence[str], words: Iterable[str]) -> list[str]:
+    """Enumeration markers, matched only when a comma or colon follows them."""
+    escaped = [re.escape(word) for word in words]
+    if not escaped:
+        return []
+    pattern = re.compile(r"\b(?:" + "|".join(escaped) + r")\s*[,:]", re.IGNORECASE)
+    hits: list[str] = []
+    for text in texts:
+        hits.extend(match.group(0) for match in pattern.finditer(text))
+    return hits
+
+
+def _spec_token_hits(texts: Sequence[str]) -> list[str]:
+    """Number-plus-unit tokens — the cheapest proxy for spec dumping."""
+    hits: list[str] = []
+    for text in texts:
+        hits.extend(match.group(0).strip() for match in _SPEC_TOKEN_RE.finditer(text))
+    return hits
 
 
 def _contains_disclosure_signal(posts: Sequence[dict[str, Any]]) -> bool:
