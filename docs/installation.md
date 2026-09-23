@@ -174,7 +174,7 @@ python3 "$SKILL_DIR/scripts/doctor.py"
 A healthy setup looks like:
 
 ```
-  ✓ plugin: found at .../plugins/affiliate-threads-generator (v1.0.1)
+  ✓ plugin: found at .../plugins/affiliate-threads-generator (v1.0.2)
   ✓ settings: spreadsheet=... tab=Sheet1 eligible='Ready To Generate' disclosure=required
   ✓ threads_api: @yourhandle (id 1234567890); token valid=True, expires in 58.4 days
   ✓ sheets: 12 data row(s) in Sheet1; google_api=/.../google_api.py

@@ -8,7 +8,7 @@ manifest_version: 2
 api_version: 1
 
 name: affiliate-threads-generator
-version: 1.0.1
+version: 1.0.2
 
 description: >-
   AI-assisted affiliate content engine for Meta Threads. Generates

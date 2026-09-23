@@ -10,7 +10,7 @@ description: >-
   planning with a critic pass, drafting, an antislop audit, the affiliate
   editorial and evidence reviews, then a Telegram preview that waits for a human
   decision. Never publishes on its own.
-version: 1.0.1
+version: 1.0.2
 author: Affiliate Threads
 license: MIT
 
