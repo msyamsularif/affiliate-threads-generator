@@ -11,7 +11,7 @@ description: >-
   critic pass, drafting, an antislop audit, the affiliate editorial and evidence
   reviews, then a Telegram preview that waits for a human decision. Never
   publishes on its own.
-version: 1.0.4
+version: 1.0.5
 author: Affiliate Threads
 license: MIT
 

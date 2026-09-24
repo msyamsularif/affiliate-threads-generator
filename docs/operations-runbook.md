@@ -50,7 +50,7 @@ Eight checks plus one that reports where the settings came from. Any `✗` comes
 with a `→` hint.
 
 ```
-  ✓ plugin: found at .../plugins/affiliate-threads-generator (v1.0.4)
+  ✓ plugin: found at .../plugins/affiliate-threads-generator (v1.0.5)
   ✓ settings: spreadsheet=... tab=Sheet1 eligible='Ready To Generate' disclosure=required topic_tag=required
   ✓ plugin_settings: 3 setting(s) read from ~/.hermes/config.yaml
   ✓ threads_api: @yourhandle (id ...); token valid=True, expires in 58.4 days
