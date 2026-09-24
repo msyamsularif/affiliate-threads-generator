@@ -1,6 +1,6 @@
 [project]
 name = "affiliate-threads-hermes-plugin"
-version = "1.0.2"
+version = "1.0.3"
 description = "Hermes Agent plugin: AI-assisted affiliate content engine for Meta Threads"
 readme = "README.md"
 # Hermes itself requires 3.11+, but the plugin's modules are also imported by the
