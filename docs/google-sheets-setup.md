@@ -17,15 +17,15 @@ header anyway; it makes the sheet readable for humans.
 
 ### Column semantics
 
-| Column          | Who writes it      | Notes                                                                                                                            |
-| --------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
-| `ID`            | Operator           | Unique. Numeric IDs sort first, ascending.                                                                                       |
-| `Product`       | Operator           | Product name                                                                                                                     |
-| `Description`   | Operator           | **The primary trusted research source.** Write this deliberately — it anchors every claim the generated copy is allowed to make. |
-| `Affiliate URL` | Operator           | Required when `require_affiliate_url` is on (default). Must appear in the published thread.                                      |
-| `Category`      | Operator           | Used for category-level framing when product detail is thin                                                                      |
-| `Threads URL`   | `threads_publish`  | Blank before publication. Never write it by hand.                                                                                |
-| `Status`        | Operator + scripts | See below                                                                                                                        |
+| Column          | Who writes it      | Notes                                                                                                                                                                               |
+| --------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ID`            | Operator           | Unique. Numeric IDs sort first, ascending.                                                                                                                                          |
+| `Product`       | Operator           | Product name                                                                                                                                                                        |
+| `Description`   | Operator           | **Background material, written by the seller's side.** It orients the writer — what the product is, who it is for — and is never the thread's evidence. Keep it factual; see below. |
+| `Affiliate URL` | Operator           | Required when `require_affiliate_url` is on (default). Must appear in the published thread.                                                                                         |
+| `Category`      | Operator           | Used for category-level framing when product detail is thin                                                                                                                         |
+| `Threads URL`   | `threads_publish`  | Blank before publication. Never write it by hand.                                                                                                                                   |
+| `Status`        | Operator + scripts | See below                                                                                                                                                                           |
 
 ### Example rows
 
@@ -40,8 +40,14 @@ Only row 2 is eligible. Everything else is skipped, whatever the request says.
 
 ### Writing a good Description
 
-The description is the only tier-1 evidence. What you put here is what the copy is
-allowed to assert.
+The description is seller-side copy: it tells the writer what the product is and
+how it is being sold. It is **not** the evidence the thread is built from — that
+comes from independent research (see
+`skills/affiliate-threads-generator/references/evidence-sourcing.md`), because
+the copy may not rest on the seller's own words.
+
+What a good description does is make the product _checkable_: names, numbers and
+materials that can be looked up and confirmed elsewhere.
 
 Good — specific and checkable:
 
@@ -52,8 +58,8 @@ Poor — no information:
 
 > Power bank bagus, murah, berkualitas.
 
-The second one forces the whole pipeline down to category-level observations,
-because there is nothing specific to anchor to.
+The second one leaves the research step with nothing to look up, which pushes the
+whole thread down to generic category talk.
 
 ## 2. Statuses
 
@@ -66,6 +72,16 @@ because there is nothing specific to anchor to.
 | `Done`              | `threads_publish` only | Published, `Threads URL` filled |
 
 Exact match only, case-sensitive. `ready to generate` is not eligible.
+
+With `publish_mode: two_stage` the tool also writes a link-pending status
+(default `Link Pending`) between the two publishes, and the Sheet needs nothing
+special for it: it is just another value in the same column. See
+[configuration.md](configuration.md#deferred-affiliate-links-publish_mode-two_stage).
+
+With `publish_mode: two_stage` the tool also writes a link-pending status
+(default `Link Pending`) between the two publishes, and the Sheet needs nothing
+special for it: it is just another value in the same column. See
+[configuration.md](configuration.md#deferred-affiliate-links-publish_mode-two_stage).
 
 ## 3. Authorize the google-workspace skill
 

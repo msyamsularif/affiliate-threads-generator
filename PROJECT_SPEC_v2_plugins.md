@@ -158,7 +158,7 @@ preflight as `threads_check`, without spending a model turn.
         take exactly one (stable order by ID) → if none, notify & STOP
                                 ↓
         STEP 2 — RESEARCH
-        Description column = primary trusted source (Shopee links block
+        Description column = seller-side background (Shopee links block
         scraping — this is expected, not a failure) → best-effort page
         fetch → external web/review research → visual profile
                                 ↓
@@ -214,6 +214,28 @@ Important — unchanged from the original spec:
 - No automatic publishing is allowed under any circumstance.
 - Human approval is mandatory.
 
+### 5.1 Optional: the deferred affiliate link
+
+The default is one publish per thread, link included. The `publish_mode:
+two_stage` setting splits that in two, which is what makes "let the post collect
+views first, then attach the link" possible:
+
+```text
+stage 1  threads_publish stage="thread"   the thread, without the link
+         Sheet: Threads URL = permalink, Status = <link_pending_status>
+         (the link and the disclosure are both deferred to stage 2)
+                        ↓
+         the human watches the post; nothing is on a timer
+                        ↓
+stage 2  threads_publish stage="link"     one reply: affiliate URL + disclosure
+         Sheet: Status = Done
+```
+
+Both halves are separate publishes: each is previewed, each needs its own
+explicit human approval and its own pass through the approval gate, and each
+re-validates the Sheet's own state before doing anything. Nothing about this
+mode relaxes Section 14.
+
 ---
 
 ## 6. User Interaction Model
@@ -251,18 +273,22 @@ text, and never a separate database. See
 Unchanged from the original spec — Google Sheets remains the business-data
 source of truth, and also doubles as the state lock (no SQLite):
 
-| Column          | Description                                                                            |
-| --------------- | -------------------------------------------------------------------------------------- |
-| `ID`            | Unique product/content identifier                                                      |
-| `Product`       | Product name                                                                           |
-| `Description`   | User-provided product description/context — **primary research source, see Section 9** |
-| `Affiliate URL` | Affiliate URL (Shopee) supplied by the user                                            |
-| `Category`      | Product category                                                                       |
-| `Threads URL`   | Published Threads URL; blank before publication                                        |
-| `Status`        | Current workflow state                                                                 |
+| Column          | Description                                                                                                     |
+| --------------- | --------------------------------------------------------------------------------------------------------------- |
+| `ID`            | Unique product/content identifier                                                                               |
+| `Product`       | Product name                                                                                                    |
+| `Description`   | Seller-side product description/context — **background material for the writer, never evidence, see Section 9** |
+| `Affiliate URL` | Affiliate URL (Shopee) supplied by the user                                                                     |
+| `Category`      | Product category                                                                                                |
+| `Threads URL`   | Published Threads URL; blank before publication                                                                 |
+| `Status`        | Current workflow state                                                                                          |
 
 Allowed statuses: `In Progress`, `Ready To Generate`, `Hold`, `Cancel`,
-`Done` — semantics unchanged from the original spec.
+`Done` — semantics unchanged from the original spec. The optional two-stage
+publish mode (Section 5.1) adds one more, written by the tool: the configured
+link-pending status (default `Link Pending`) marks a thread that is live but
+still owes its affiliate-link reply. It is deliberately neither eligible nor
+`Done`, so the row cannot be published twice while it waits.
 
 Access is via Hermes' bundled `google-workspace` skill (`google_api.py
 sheets get/update/append`), not a custom adapter.
@@ -287,7 +313,7 @@ hard-guaranteed instead of model-followed:
 
 ---
 
-## 9. Research Strategy: Description-First, Shopee-Aware
+## 9. Research Strategy: Review-First, Shopee-Aware
 
 This is a deliberate deviation from the original spec's assumption that
 the product page can always be scraped.
@@ -299,20 +325,25 @@ CAPTCHA/anti-bot/auth walls to work around it.
 
 **Confidence tiers, highest to lowest:**
 
-1. **`Description` column** — trusted/verified tier. Written deliberately
-   by the operator specifically for this product; the anchor for
-   everything else.
-2. **Fetched product page** (best-effort, only if it actually succeeds) —
-   "seller marketing claim" tier, not automatically true.
-3. **External web/review research** (general search — NOT scraping
+1. **External web/review research** (general search — NOT scraping
    Shopee, so not blocked by its anti-bot measures) — "review-derived
-   observation" tier.
-4. **Inference** — reasonable deduction from 1-3, always hedged.
-5. **Unsupported** — never used as a factual claim; removed or rewritten.
+   observation" tier. Nothing in it is written by someone selling the
+   product, which is why the thread's substance is built here.
+2. **Seller material** — the `Description` column and the fetched
+   product page (best-effort, only if it actually succeeds). This is the
+   seller's own framing of their product, so it is **background and
+   orientation, not evidence**: what the product is, who it is for, the
+   physical details, and claims worth checking elsewhere. Anything taken
+   from it is attributed back to the seller (_"Klaim di deskripsi
+   produknya..."_), and it may never become the thread's main material —
+   a thread that paraphrases the seller's copy is an advertisement with a
+   hook.
+3. **Inference** — reasonable deduction from tiers 1-2, always hedged.
+4. **Unsupported** — never used as a factual claim; removed or rewritten.
 
-If tiers 2 and 3 both come back thin, the system shifts toward a more
-general, category-level observation/problem framing rather than
-inventing product-specific detail. Full procedure lives in
+If tiers 1 and 2 both come back thin, the system shifts toward a more
+category-level observation/problem framing rather than making the
+thread out of the seller's description. Full procedure lives in
 `references/evidence-sourcing.md`.
 
 ---
@@ -379,7 +410,7 @@ unbounded loop.
 
 ### 10.6 Thread Generator
 
-3-6 posts, dynamic length. One narrative structure per Thread, rotated
+3-10 posts, dynamic length. One narrative structure per Thread, rotated
 across runs (observation→story→product, question→comparison→product,
 problem→evidence→trade-off→product, hot take→explanation→product,
 mistake→lesson→recommendation, checklist→example→product) — never
@@ -436,12 +467,37 @@ the draft reaches Telegram.
 
 Contextual link language, e.g. _"Saya taruh detail produknya di sini
 buat yang penasaran bentuk dan spesifikasinya."_ — never _"BELI
-SEKARANG"_. Disclosure must remain explicit but lightweight — "Link
-afiliasi." on the same post as the URL is enough — and `threads_publish`
-still refuses to publish without a configured disclosure marker. The goal
-is reducing hard-sell tone, not concealing the commercial relationship.
+SEKARANG"_. Disclosure must remain explicit but lightweight, and the
+operator picks the style:
 
-### 10.11 Image Strategy (optional)
+- `disclosure_style: marker` (default) — any configured marker, in any
+  post. "Link afiliasi." on the same post as the URL is the usual form.
+- `disclosure_style: tag` — a hashtag marker (`#ad`) on the final post,
+  which is the post carrying the link in single mode and the link reply
+  itself in two-stage mode. That tag alone is the disclosure; no sentence
+  mentioning commission is needed, which is the form to prefer when a
+  sentence reads as hard-sell.
+
+`threads_publish` refuses to publish either way when the configured shape
+is missing. The goal is reducing hard-sell tone, not concealing the
+commercial relationship.
+
+### 10.11 Deferred Link Publishing (optional)
+
+Under `publish_mode: two_stage` the affiliate link is deliberately not in
+the thread. The thread body carries no URL and no disclosure; the row is
+parked in the link-pending status; and the link goes out later, as a reply
+to the last post, once a human decides the thread has been seen. Both
+halves are separate publishes with separate approvals, and both are
+enforced in code — the reply must carry the row's `Affiliate URL` and
+satisfy the disclosure rule, exactly as the single-call mode requires of
+the thread.
+
+This is a delivery mode, not a relaxation: nothing here permits a thread
+to go out with a link that was never disclosed, and nothing attaches the
+link automatically.
+
+### 10.12 Image Strategy (optional)
 
 Only if Hermes' image-generation tool is available (`FAL_KEY` set).
 Derive image briefs from the visual profile (Section 9) and narrative
@@ -472,6 +528,10 @@ Only on confirmed success: Sheet Status=Done, Threads URL saved
 
 Never implement `AI → publish directly`. The only path to Meta Threads is
 the `threads_publish` tool call.
+
+Under the optional two-stage mode (Section 5.1) that gate runs twice: once
+for the thread and once for the deferred link reply. Approving the thread
+never carries over to the link.
 
 ### 11.1 Review context without a database
 
@@ -564,13 +624,17 @@ Meta Threads (official Graph API)
 7. The scheduler never publishes automatically.
 8. Product research must happen before content generation, and must never
    attempt to bypass anti-bot/CAPTCHA/auth protections on Shopee.
-9. `Description` is the primary trusted research source; scraped/external
-   data is always tiered lower.
+9. `Description` is seller-side background material, not evidence: the
+   thread's substance comes from independent research, anything taken
+   from the seller's copy is attributed, and scraped/external data is
+   never treated as automatically true.
 10. Generated images (if used) must preserve recognizable product
     characteristics and never invent unverified features.
 11. Do not fabricate personal experience.
 12. Do not fabricate product facts, criticism, or unsupported claims.
-13. Affiliate disclosure must remain clear.
+13. Affiliate disclosure must remain clear — either a configured marker
+    anywhere in the thread, or, under `disclosure_style: tag`, a hashtag
+    on the post that carries the link.
 14. The product should naturally support the story, never be forced into
     it.
 15. Final content should be worth reading even without the affiliate
@@ -581,7 +645,9 @@ Meta Threads (official Graph API)
     the state lock, and Hermes' own memory covers content-repetition
     checks.
 18. No uncontrolled autonomous publishing by the AI — `threads_publish`
-    is the only path to Threads, and it re-validates state itself.
+    is the only path to Threads, and it re-validates state itself. The
+    optional deferred link reply (Section 5.1) is one more publish, not
+    an exception: it needs its own approval and its own re-validation.
 19. Application code (the Tool), not prompts, is the final authority for
     the publish side effect.
 20. Keep the plugin minimal: reuse Hermes' bundled capabilities wherever
@@ -602,7 +668,8 @@ Meta Threads (official Graph API)
     Hermes Cron
 [ ] Affiliate redirect resolution attempted; Shopee anti-bot failure is
     handled gracefully, never bypassed
-[ ] Description column used as primary research source
+[ ] Description treated as seller background; the thread's substance
+    comes from independent research and attributed claims
 [ ] External (non-Shopee) research supplements when the page is
     unavailable
 [ ] 5-8 angles generated and scored before selection
@@ -613,8 +680,12 @@ Meta Threads (official Graph API)
 [ ] Evidence Checker removes/softens untraceable claims
 [ ] antislop + antislop-copywriting audit runs before the affiliate
     editorial and evidence reviews (bounded to 2 revision rounds)
-[ ] Affiliate disclosure present, short, and on the same post as the
-    affiliate URL
+[ ] Affiliate disclosure present, short, and in the shape the configured
+    disclosure style requires (a marker anywhere, or a hashtag on the
+    post carrying the link)
+[ ] Optional two-stage mode: the thread publishes first, the affiliate
+    link follows as a reply, and each half is separately approved
+[ ] Link preview cards documented as unremovable through the API
 [ ] Images generated only when FAL_KEY is configured; text-only
     otherwise
 [ ] Telegram preview always shows the Product ID explicitly
@@ -639,7 +710,7 @@ Meta Threads (official Graph API)
                          │
                          ▼
                  Research + Reasoning
-           (Description-first, Shopee-aware)
+           (Review-first, Shopee-aware)
                          │
              ┌───────────┴───────────┐
              │                       │

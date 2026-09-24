@@ -303,10 +303,31 @@ confusing enough to be worth stating plainly:
 There is one consequence worth knowing. `AFFILIATE_SHEET_ID` can also be set as a
 plain plugin setting (`plugins.entries.affiliate-threads-generator.settings.
 spreadsheet_id` in `config.yaml`) — that works fine for the plugin, and the
-Desktop settings form writes it there. But a `config.yaml` setting is _not_ an
-environment variable, so the standalone scripts will not see it. If you want one
-place to configure everything, set these in `.env`; if you want the Desktop form,
-set them there and accept that the scripts need the environment variables too.
+Desktop settings form writes it there.
+
+**Settings are not credentials, and the scripts read them from the same file.**
+The skill's scripts import the plugin's own modules, and `runtime.py` reads
+`plugins.entries.affiliate-threads-generator.settings.*` out of
+`$HERMES_HOME/config.yaml` itself when it runs outside Hermes. So a guardrail or a
+mode customised in the Desktop form — `max_posts`, `disclosure_markers`,
+`disclosure_style`, `publish_mode` — is enforced by `validate_thread.py` exactly
+as `threads_publish` enforces it, and `spreadsheet_id` set there is enough for
+`select_candidate.py` too.
+
+Two caveats on that read:
+
+- It needs PyYAML, which Hermes itself uses. Without it the scripts fall back to a
+  narrow parser for the settings block; a construct neither can read confidently
+  yields _no_ settings plus a warning on stderr, and `doctor.py`'s
+  `plugin_settings` check goes red. A lint that ran with different rules than the
+  publish tool says so rather than implying a clean bill of health.
+- Secrets still belong in the credential store, never in `config.yaml`. Set
+  `THREADS_ACCESS_TOKEN` in `.env` / via `hermes config set`, and declare it for
+  `terminal.env_passthrough` if a script needs it directly.
+
+If you want exactly one place for configuration, settings files cover the
+settings and the credential store covers the token; neither substitutes for the
+other.
 
 Cron `no_agent` scripts are a third case: children too, but the skill is not
 loaded during them, so `required_environment_variables` does not apply. Declare the
@@ -399,3 +420,7 @@ python3 "$SKILL_DIR/scripts/doctor.py"
 `doctor.py` reports each declared variable as configured or missing, naming it
 exactly. A `✓` on `threads_credentials` with a `✗` on `threads_api` means the token
 is present but the API rejected it — an expiry or scope problem, not a wiring one.
+
+The `plugin_settings` check says where the scripts got the plugin's settings from:
+the host, `config.yaml`, or the defaults. A red one there means the scripts cannot
+read the settings block and are enforcing the defaults instead.

@@ -109,8 +109,16 @@ def on_pre_tool_call(
         "Publish to Meta Threads?",
         f"Product ID: {product_id}",
         f"Posts: {len(posts)}",
-        "",
     ]
+    # A deferred link reply is a different decision from the thread itself: one
+    # post going up under a thread the human already approved. Say which one this
+    # is, so the approval is about the right thing.
+    stage = str(args.get("stage") or "").strip().lower()
+    if stage == "link":
+        lines.append("Stage: the deferred affiliate link reply to the live thread")
+    elif stage == "thread":
+        lines.append("Stage: the thread itself")
+    lines.append("")
     budget = 1800
     for index, post in enumerate(posts):
         text = post.get("text", "") if isinstance(post, dict) else str(post)
@@ -170,6 +178,7 @@ def on_post_tool_call(
             "tool": tool_name,
             "task_id": task_id,
             "product_id": args.get("product_id"),
+            "publish_stage": args.get("stage"),
             "posts": len(args.get("posts") or []) if isinstance(args.get("posts"), list) else None,
             "outcome": outcome,
             "ok": parsed.get("ok"),

@@ -1,10 +1,15 @@
-# Evidence sourcing — description-first, Shopee-aware
+# Evidence sourcing — review-first, Shopee-aware
 
 ## Why this file exists
 
-The naive assumption is "fetch the product page, read the specs". That assumption
-is wrong here. The `Affiliate URL` points at Shopee, which actively blocks
-automated access. A failed fetch is the normal case, not an error to escalate.
+The naive assumption is "fetch the product page, read the specs". That is wrong
+here twice over.
+
+The `Affiliate URL` points at Shopee, which actively blocks automated access, so a
+failed fetch is the normal case rather than an error to escalate. And the two
+sources that _are_ reachable — the `Description` column and the product page —
+are both written by someone who is selling the product. They say what the seller
+wants said, not what is true about this unit.
 
 **Hard rule: never attempt to bypass CAPTCHA, anti-bot measures or auth walls.**
 Not with a different user agent, not with a headless browser, not with a proxy,
@@ -14,33 +19,55 @@ not with `execute_code`. If a page does not load, that is the end of that path.
 
 Every factual claim in the final copy must trace to exactly one of these.
 
-| Tier | Source                                                | How much you may claim                                                                                                                |
-| ---- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | **`Description` column**                              | Trusted and verified. The operator wrote it deliberately, for this product. This is the anchor.                                       |
-| 2    | **Fetched product page** (only if it actually loaded) | "Seller marketing claim" tier. It may be true; it is not evidence. Attribute it: _"Klaim di halaman produknya..."_                    |
-| 3    | **External web / review research**                    | "Review-derived observation" tier. Search generally — blogs, forum threads, video reviews, comparison articles. Do not scrape Shopee. |
-| 4    | **Inference**                                         | Reasonable deduction from 1-3. **Always hedged**: _"kemungkinan", "biasanya", "bisa jadi"_.                                           |
-| 5    | **Unsupported**                                       | Never used as a factual claim. Remove it, or rewrite it as an explicit hedge or a question.                                           |
+| Tier | Source                                                                                           | How much you may claim                                                                                                                                                                                           |
+| ---- | ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | **External web / review research**                                                               | "Review-derived observation" tier. Category norms, forum threads, video reviews, comparison articles. Search generally — do not scrape Shopee. This is the tier a thread is built from: nobody in it is selling. |
+| 2    | **Seller material** — the `Description` column and the product page (only if it actually loaded) | "Seller's own description" tier. Background and orientation only. Attribute whatever you take from it: _"Klaim di deskripsi produknya..."_ It may not become the thread's main material.                         |
+| 3    | **Inference**                                                                                    | Reasonable deduction from tiers 1-2. **Always hedged**: _"kemungkinan", "biasanya", "bisa jadi"_.                                                                                                                |
+| 4    | **Unsupported**                                                                                  | Never used as a factual claim. Remove it, or rewrite it as an explicit hedge or a question.                                                                                                                      |
 
-When tiers 2 and 3 are both thin, do not compensate by inventing product detail.
-Shift the whole thread toward a **category-level** observation — the problem space,
-the buying decision, the common mistake — where you can be specific without
-claiming things you cannot support.
+### Why the seller's own words sit below independent sources
+
+The `Description` column is written by the operator and the product page by the
+seller. Both are trying to make the product look good, so neither can settle a
+claim about it. A thread whose substance is a paraphrase of that copy is an
+advertisement with a hook on it — the one thing this pipeline exists not to
+produce.
+
+What seller material is genuinely good for:
+
+- **Orientation** — what the product physically is, and who it appears to be for.
+  Angles need that context before they can be scored.
+- **Vocabulary** — the seller's words for the product's features are often the
+  words buyers search with.
+- **A claim to check** — "tahan 12 jam" in the description is a lead for tier-1
+  research, not a fact. If nothing independent confirms it, attribute it
+  (_"Klaim di deskripsi produknya..."_) or leave it out.
+- **The visual profile** — physical details for Step 7, taken as description
+  rather than as proof.
+
+When tiers 1 and 2 are both thin, do not compensate by building the thread out of
+the seller's copy. Shift the whole thread toward a **category-level** observation —
+the problem space, the buying decision, the common mistake — where you can be
+specific without repeating marketing.
 
 ## Procedure
 
-### 1. Read the Description first, fully
+### 1. Read the Description — as orientation, not as evidence
 
-Before any web call. The description is the operator's own framing of why this
-product is interesting; it often contains the exact angle the human wants.
+Before any web call. It is the cheapest way to find out what the product is, and
+it often contains the operator's own hint about why this product is interesting.
 
 Extract:
 
 - what the product is, physically
-- who it is for
-- what problem the operator believes it solves
+- who the seller says it is for
+- what the seller claims it does
 - anything distinctive: material, size, mechanism, included parts
 - anything the operator flagged as a caveat
+
+Then mark every one of those as _their_ claims. The list is a research agenda, not
+a fact list.
 
 ### 2. Attempt the affiliate page once (best effort)
 
@@ -48,7 +75,8 @@ One attempt. If it fails, note the failure and move on. Do not retry with
 variations.
 
 If it does load, extract only what you can quote as a claim: stated
-specifications, dimensions, materials, warranty. Remember it is tier 2.
+specifications, dimensions, materials, warranty. Remember it is tier 2 — the
+seller talking about their own product.
 
 ### 3. External research
 
@@ -83,32 +111,39 @@ the Evidence Checker in Step 6 checks against.
 
 ```
 CLAIM                                          TIER  SOURCE
-20000mAh capacity                              1     Description column
-PD 22.5W output                                1     Description column
-"claims 2x charge for a typical phone"         2     product page (seller claim)
-common complaint: heavy for a pocket            3     forum thread <url>
-likely fine for a day trip                      4     inference from capacity
-"charges in 30 minutes"                        5     UNSUPPORTED — drop
+common complaint: heavy for a pocket           1     forum thread <url>
+"usually enough for a day trip"                1     review roundup <url>
+20000mAh capacity                              2     Description column (seller's number)
+PD 22.5W output                                2     product page (seller claim)
+"claims 2x charge for a typical phone"         2     product page, corroborated by review <url>
+likely fine for a day trip                     3     inference from capacity
+"charges in 30 minutes"                        4     UNSUPPORTED — drop
 ```
 
-Anything that lands in tier 5 does not go into the draft. Not softened, not
+Anything that lands in tier 4 does not go into the draft. Not softened, not
 implied — removed.
+
+A ledger that is _all_ tier 2 is not a thread yet. It is the seller's copy with
+different punctuation, and it fails the editorial audit in
+`references/editorial-rules.md`.
 
 ## Hedging language
 
-When you must use a tier-3 or tier-4 claim, hedge it in a way that sounds like a
+When you must use a tier-2 or tier-3 claim, hedge it in a way that sounds like a
 person being honest, not like a disclaimer:
 
-| Instead of                 | Write                                                                                      |
-| -------------------------- | ------------------------------------------------------------------------------------------ |
-| "Baterainya tahan 2 hari." | "Klaim di halaman produknya tahan 2 hari — angka itu biasanya tergantung pemakaian."       |
-| "Ini yang paling nyaman."  | "Yang paling sering disebut di review: bagian ini."                                        |
-| "Kualitasnya bagus."       | "Bahannya [material from description], yang untuk kelas harga ini biasanya [expectation]." |
-| "Cocok untuk semua orang." | "Cocok kalau [specific scenario]. Kalau [other scenario], ada opsi lain yang lebih masuk." |
+| Instead of                 | Write                                                                                          |
+| -------------------------- | ---------------------------------------------------------------------------------------------- |
+| "Baterainya tahan 2 hari." | "Klaim di halaman produknya tahan 2 hari — angka itu biasanya tergantung pemakaian."           |
+| "Ini yang paling nyaman."  | "Yang paling sering disebut di review: bagian ini."                                            |
+| "Kualitasnya bagus."       | "Bahannya [material from the description], yang untuk kelas harga ini biasanya [expectation]." |
+| "Cocok untuk semua orang." | "Cocok kalau [specific scenario]. Kalau [other scenario], ada opsi lain yang lebih masuk."     |
 
 ## What this step is not
 
 - Not a reason to write a feature list. Research feeds the _angle_, not the copy.
+- Not a licence to repeat the seller's copy. Seller material is background — the
+  thread's substance comes from somewhere the seller does not control.
 - Not a licence to review a product you never used. You have no first-hand
   experience and may never imply one.
 - Not a virality study. You are looking for something true and specific that a

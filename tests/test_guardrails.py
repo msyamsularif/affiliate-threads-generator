@@ -64,7 +64,7 @@ class TestHardViolations:
         assert "too_few_posts" in {item.code for item in report.violations}
 
     def test_too_many_posts(self, settings: config.Settings) -> None:
-        posts = [{"text": f"post {index}"} for index in range(8)]
+        posts = [{"text": f"post {index}"} for index in range(12)]
         report = guardrails.validate_thread(posts, settings)
         assert "too_many_posts" in {item.code for item in report.violations}
 
@@ -154,6 +154,84 @@ class TestDisclosure:
         posts = [{"text": "a"}, {"text": "b"}, {"text": "https://shope.ee/abc123"}]
         report = guardrails.validate_thread(posts, relaxed, affiliate_url="https://shope.ee/abc123")
         assert "missing_disclosure" not in {item.code for item in report.violations}
+
+
+class TestTagDisclosureStyle:
+    """``disclosure_style: tag`` — a bare hashtag on the final post is the whole
+    disclosure. The operator chooses this when a commission sentence reads as
+    hard-sell; the commercial relationship still has to be visible, so the tag
+    is required on the post carrying the link."""
+
+    @pytest.fixture
+    def tag_settings(self, settings: config.Settings) -> config.Settings:
+        import dataclasses
+
+        return dataclasses.replace(settings, disclosure_style="tag")
+
+    def codes(self, report: guardrails.GuardrailReport) -> set[str]:
+        return {item.code for item in report.violations}
+
+    def test_a_bare_tag_on_the_final_post_is_enough(self, tag_settings: config.Settings) -> None:
+        posts = [
+            {"text": "Kapasitas besar biasanya berarti berat."},
+            {"text": "Yang sering disebut di review: kabel USB-C ikut di dalamnya."},
+            {"text": "Untuk skenario seperti ini, satu kabel sudah cukup."},
+            {"text": "https://shope.ee/abc123 #ad"},
+        ]
+        report = guardrails.validate_thread(posts, tag_settings, affiliate_url="https://shope.ee/abc123")
+        assert "missing_disclosure" not in self.codes(report)
+        assert not any("komisi" in str(post["text"]) for post in posts)
+
+    def test_the_tag_must_be_on_the_final_post(self, tag_settings: config.Settings) -> None:
+        posts = [
+            {"text": "Post pembuka #ad"},
+            {"text": "b"},
+            {"text": "https://shope.ee/abc123"},
+        ]
+        report = guardrails.validate_thread(posts, tag_settings, affiliate_url="https://shope.ee/abc123")
+        assert "missing_disclosure" in self.codes(report)
+
+    def test_a_sentence_marker_alone_does_not_satisfy_the_tag_style(
+        self, tag_settings: config.Settings
+    ) -> None:
+        posts = [
+            {"text": "a"},
+            {"text": "b"},
+            {"text": "Link afiliasi: https://shope.ee/abc123"},
+        ]
+        report = guardrails.validate_thread(posts, tag_settings, affiliate_url="https://shope.ee/abc123")
+        assert "missing_disclosure" in self.codes(report)
+
+    def test_an_unknown_hashtag_is_not_a_marker(self, tag_settings: config.Settings) -> None:
+        posts = [
+            {"text": "a"},
+            {"text": "b"},
+            {"text": "https://shope.ee/abc123 #promo"},
+        ]
+        report = guardrails.validate_thread(posts, tag_settings, affiliate_url="https://shope.ee/abc123")
+        assert "missing_disclosure" in self.codes(report)
+
+    def test_a_tag_style_without_hashtag_markers_says_why(self, settings: config.Settings) -> None:
+        import dataclasses
+
+        broken = dataclasses.replace(
+            settings, disclosure_style="tag", disclosure_markers=("komisi",)
+        )
+        posts = [{"text": "a"}, {"text": "b"}, {"text": "https://shope.ee/abc123 #ad"}]
+        report = guardrails.validate_thread(posts, broken, affiliate_url="https://shope.ee/abc123")
+        violation = next(item for item in report.violations if item.code == "missing_disclosure")
+        assert "no hashtag marker" in violation.message
+
+    def test_the_default_style_still_reads_any_marker_anywhere(
+        self, settings: config.Settings
+    ) -> None:
+        posts = [
+            {"text": "a"},
+            {"text": "b"},
+            {"text": "https://shope.ee/abc123 Link afiliasi."},
+        ]
+        report = guardrails.validate_thread(posts, settings, affiliate_url="https://shope.ee/abc123")
+        assert "missing_disclosure" not in self.codes(report)
 
 
 class TestAffiliateUrl:

@@ -5,6 +5,12 @@ handlers and hook callbacks only receive ``(args, **kwargs)``. This module is
 the single place that bridges the two, and it degrades gracefully when it is
 used outside Hermes (unit tests, one-off scripts) by falling back to a
 profile-local JSON file for state.
+
+Settings take the same shape. Inside Hermes the host resolves
+``plugins.entries.<id>.settings.*`` for us; outside it, there is no ``ctx`` — so
+this module reads that same ``config.yaml`` itself (``config_file.py``) rather
+than falling straight through to the defaults. Without that, a script would
+enforce different guardrails than the tool it is supposed to predict.
 """
 
 from __future__ import annotations
@@ -17,6 +23,8 @@ import threading
 from pathlib import Path
 from typing import Any
 
+from . import config_file
+
 logger = logging.getLogger(__name__)
 
 #: The plugin's own id — the manifest's ``name``, the install directory, and the
@@ -27,6 +35,10 @@ PLUGIN_ID = "affiliate-threads-generator"
 _lock = threading.RLock()
 _ctx: Any = None
 _fallback_state_path: Path | None = None
+
+#: Last ``config.yaml`` read, keyed by ``(path, mtime_ns, size)`` so a tool call
+#: resolving ~30 settings does not re-read the file 30 times.
+_config_file_cache: tuple[tuple[str, int, int], config_file.ConfigFile] | None = None
 
 
 def bind(ctx: Any) -> None:  # noqa: ANN401 - PluginContext is host-provided
@@ -52,8 +64,9 @@ def has_context() -> bool:
 def get_setting(key: str, default: Any = None) -> Any:  # noqa: ANN401
     """Read a plugin setting, tolerating any host-side failure.
 
-    Resolution is: ``plugins.entries.<id>.settings.<key>`` in ``config.yaml``
-    (via ``ctx.get_config``) -> environment variable -> ``default``.
+    Resolution is: ``plugins.entries.<id>.settings.<key>`` (via ``ctx.get_config``
+    inside Hermes, or read from ``config.yaml`` when there is no host context) ->
+    environment variable -> ``default``.
     """
     ctx = _ctx
     if ctx is not None:
@@ -65,10 +78,75 @@ def get_setting(key: str, default: Any = None) -> Any:  # noqa: ANN401
         if value not in (None, "", [], {}):
             return value
 
+    value = config_file_settings().get(key)
+    if value not in (None, "", [], {}):
+        return value
+
     env_key = key.upper()
     if env_key in os.environ and os.environ[env_key] != "":
         return os.environ[env_key]
     return default
+
+
+def _read_config_file() -> config_file.ConfigFile:
+    """The plugin's settings block, cached until the file itself changes."""
+    global _config_file_cache
+
+    path = config_file.config_path()
+    try:
+        stat = path.stat()
+        stamp = (str(path), stat.st_mtime_ns, stat.st_size)
+    except OSError:
+        with _lock:
+            _config_file_cache = None
+        return config_file.ConfigFile(path=path)
+
+    with _lock:
+        if _config_file_cache is not None and _config_file_cache[0] == stamp:
+            return _config_file_cache[1]
+        result = config_file.load(PLUGIN_ID, path=path)
+        _config_file_cache = (stamp, result)
+    if result.warning:
+        logger.warning("plugin settings: %s", result.warning)
+    return result
+
+
+def config_file_settings() -> dict[str, Any]:
+    """``plugins.entries.<id>.settings`` from Hermes' ``config.yaml``.
+
+    Empty when there is no config file, and also when it exists but could not be
+    read confidently — ``settings_note()`` is the case a caller should surface
+    to the human.
+    """
+    return dict(_read_config_file().settings)
+
+
+def settings_source() -> dict[str, Any]:
+    """Where settings are coming from, for the doctor and the scripts."""
+    path = config_file.config_path()
+    if _ctx is not None:
+        return {"source": "host", "path": str(path), "warning": ""}
+    result = _read_config_file()
+    if not result.found:
+        return {"source": "defaults", "path": str(path), "warning": ""}
+    return {
+        "source": "config_file" if not result.warning else "defaults",
+        "path": str(path),
+        "settings": len(result.settings),
+        "warning": result.warning,
+    }
+
+
+def settings_note() -> str:
+    """A one-line warning when the plugin's settings could not be read.
+
+    Empty in the normal case. Scripts print this to stderr so a lint that ran
+    with different rules than the publish tool says so, instead of implying a
+    clean bill of health.
+    """
+    if _ctx is not None:
+        return ""
+    return _read_config_file().warning
 
 
 def set_setting(key: str, value: Any) -> bool:  # noqa: ANN401
@@ -171,8 +249,9 @@ def _write_fallback_state(store: dict) -> None:
 
 
 def reset_for_tests() -> None:
-    """Drop the bound context and the fallback state path (test helper)."""
-    global _ctx, _fallback_state_path
+    """Drop the bound context and cached reads (test helper)."""
+    global _ctx, _fallback_state_path, _config_file_cache
     with _lock:
         _ctx = None
         _fallback_state_path = None
+        _config_file_cache = None

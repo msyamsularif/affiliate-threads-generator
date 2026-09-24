@@ -11,6 +11,14 @@ Every setting has three possible sources. Later ones win:
 A few settings can also be overridden per tool call (`spreadsheet_id`,
 `sheet_tab`).
 
+Source 2 is one file, read by two paths: the plugin's tools go through Hermes,
+and the bundled scripts — which run outside Hermes — parse `config.yaml`
+themselves before falling back to the environment. A guardrail changed here
+therefore changes what `validate_thread.py` enforces as well as what
+`threads_publish` enforces, which is the point: the lint's promise is that a
+draft passing it passes the publish. `doctor.py` reports where the settings
+actually came from in its `plugin_settings` check.
+
 ---
 
 ## Credentials
@@ -108,16 +116,19 @@ how the wrong row gets published.
 
 These are enforced by `threads_publish` in code. Nothing here is a suggestion.
 
-| Setting                   | Default                                                                                                                                        | Effect                                                     |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| `require_disclosure`      | `true`                                                                                                                                         | Refuse to publish when no post carries a disclosure marker |
-| `disclosure_markers`      | `#ad`, `#ads`, `#affiliate`, `#afiliasi`, `link afiliasi`, `affiliate link`, `tautan afiliasi`, `komisi`, `paid partnership`, `iklan berbayar` | Any one satisfies the requirement                          |
-| `require_affiliate_url`   | `true`                                                                                                                                         | The row's `Affiliate URL` must appear in some post         |
-| `blocked_phrases`         | 8 regex patterns                                                                                                                               | The fabricated-personal-experience ban. Case-insensitive.  |
-| `min_posts` / `max_posts` | `3` / `6`                                                                                                                                      | Thread length bounds                                       |
-| `max_chars_per_post`      | `500`                                                                                                                                          | Threads' own limit; emoji count as their UTF-8 byte length |
-| `max_links_per_post`      | `5`                                                                                                                                            | Threads rejects more                                       |
-| `container_wait_seconds`  | `5`                                                                                                                                            | Pause between container creation and publishing            |
+| Setting                   | Default                                                                                                                                        | Effect                                                                   |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `require_disclosure`      | `true`                                                                                                                                         | Refuse to publish when no post carries a disclosure marker               |
+| `disclosure_style`        | `marker` (`marker` or `tag`)                                                                                                                   | How the disclosure has to be written — see below                         |
+| `disclosure_markers`      | `#ad`, `#ads`, `#affiliate`, `#afiliasi`, `link afiliasi`, `affiliate link`, `tautan afiliasi`, `komisi`, `paid partnership`, `iklan berbayar` | Any one satisfies the requirement under `marker`                         |
+| `require_affiliate_url`   | `true`                                                                                                                                         | The row's `Affiliate URL` must appear in some post                       |
+| `blocked_phrases`         | 10 regex patterns                                                                                                                              | The fabricated-personal-experience ban. Case-insensitive.                |
+| `min_posts` / `max_posts` | `3` / `10`                                                                                                                                     | Thread length bounds                                                     |
+| `max_chars_per_post`      | `500`                                                                                                                                          | Threads' own limit; emoji count as their UTF-8 byte length               |
+| `max_links_per_post`      | `5`                                                                                                                                            | Threads rejects more                                                     |
+| `container_wait_seconds`  | `5`                                                                                                                                            | Pause between container creation and publishing                          |
+| `publish_mode`            | `single` (`single` or `two_stage`)                                                                                                             | Whether the affiliate link publishes with the thread or as a later reply |
+| `link_pending_status`     | `Link Pending`                                                                                                                                 | Where a two-stage row parks between the two publishes                    |
 
 ### Tightening the blocked-phrase list
 
@@ -139,12 +150,63 @@ plugins:
 
 Don't. The specification is explicit that the disclosure stays clear — the goal
 is a lower hard-sell tone, not a hidden commercial relationship. If the wording
-feels clumsy, add your own marker to `disclosure_markers` rather than turning the
-check off.
+feels clumsy, change the _style_ rather than turning the check off:
 
-The copy itself is deliberately short. "Link afiliasi." on the same post as the
-URL satisfies the marker list, and that is the preferred form — see
+| `disclosure_style` | What satisfies the rule                                                                                                                                                                                                                                                                          |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `marker` (default) | Any configured `disclosure_markers` entry, in any post. "Link afiliasi." on the post with the URL is the usual form.                                                                                                                                                                             |
+| `tag`              | A hashtag marker (one of the `#...` entries, e.g. `#ad`) on the **final** post — the one carrying the link in single mode, the link reply in two-stage mode. That tag alone is the disclosure, so no sentence about commission is needed. Sentence-form markers are not consulted in this style. |
+
+```yaml
+plugins:
+  entries:
+    affiliate-threads-generator:
+      settings:
+        disclosure_style: "tag"
+```
+
+Under `tag`, `... #ad` at the end of the last post is a complete disclosure. What
+is never allowed is dropping it, burying it, or putting it somewhere the reader
+following the link will not have seen. See
 `skills/affiliate-threads-generator/references/editorial-rules.md`.
+
+---
+
+## Deferred affiliate links (`publish_mode: two_stage`)
+
+By default the thread and its affiliate link publish in one call. `two_stage`
+splits that into two approved publishes, which is what makes the "let the post
+collect views first, then attach the link" tactic possible:
+
+```text
+stage 1  threads_publish (stage: "thread")   the thread, without the link
+         Sheet: Threads URL = permalink, Status = link_pending_status
+
+         the human watches the post
+
+stage 2  threads_publish (stage: "link")     one reply: the affiliate URL
+         Sheet: Status = Done                 plus the disclosure
+```
+
+Rules that come with it:
+
+- Both halves need their own explicit human approval; the second call is gated
+  exactly like the first.
+- The thread body is linted and published without the affiliate URL and without a
+  disclosure, because at that moment there is no commercial relationship in the
+  copy yet. Both are enforced on the reply instead: it must carry the row's
+  `Affiliate URL` and satisfy the configured disclosure rule.
+- `link_pending_status` is what marks a thread as unfinished. It has to differ
+  from every other status in use; a value that collides with the eligible, done,
+  hold, cancel or in-progress status is rejected and `Link Pending` is used
+  instead. A collision would either publish the same row twice or read as a hold.
+- Nothing posts the link on its own. If the human never asks for it, the thread
+  simply stays parked, and `/affiliate-threads status` reports it as waiting.
+- `validate_thread.py` follows the same stages: `--stage thread` (the default
+  under this mode) lints the body, `--stage link` lints the single reply post.
+
+Switch back to one-call publishing at any time by setting `publish_mode: single`;
+the tool then refuses a parked row until it is finished by hand.
 
 ---
 
@@ -224,6 +286,13 @@ plugins:
           - "#afiliasi"
           - "link afiliasi"
           - "komisi"
+        # Optional: a bare hashtag on the final post is the whole disclosure.
+        # disclosure_style: "tag"
+        #
+        # Optional: publish the thread first and attach the link as a reply
+        # once the post has been seen. Two approvals, two publishes.
+        # publish_mode: "two_stage"
+        # link_pending_status: "Link Pending"
 ```
 
 Credentials do not appear in that block on purpose — they go through the
@@ -253,3 +322,12 @@ hermes chat -q "Run threads_check and show me the settings summary."
 
 `threads_check` echoes the resolved settings back — including whether credentials
 are configured — without ever printing a secret.
+
+```bash
+SKILL_DIR="$HERMES_HOME/plugins/affiliate-threads-generator/skills/affiliate-threads-generator"
+python3 "$SKILL_DIR/scripts/doctor.py"
+```
+
+The doctor's `plugin_settings` line names the file the settings came from and how
+many keys it contributed. If it is red, the scripts could not read that block and
+are running on the defaults — see [credentials.md](credentials.md#the-subtle-part-sanitized-child-processes).

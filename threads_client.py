@@ -274,9 +274,14 @@ class ThreadsClient:
         image_url: str = "",
         reply_to_id: str = "",
         topic_tag: str = "",
-        link_attachment: str = "",
         stage: str = "create_container",
     ) -> str:
+        # The API also takes a `link_attachment` URL, and it is deliberately not
+        # sent: Threads already builds the preview card from the first URL in a
+        # text-only post, and passing the parameter would only count a second
+        # link against the per-post limit *and* point the card somewhere the
+        # copy does not. There is no parameter that removes the card — see
+        # references/publish-contract.md.
         data: dict[str, Any] = {"media_type": media_type.upper(), "text": text}
         if image_url:
             data["image_url"] = image_url
@@ -284,8 +289,6 @@ class ThreadsClient:
             data["reply_to_id"] = reply_to_id
         if topic_tag:
             data["topic_tag"] = topic_tag
-        if link_attachment:
-            data["link_attachment"] = link_attachment
 
         body = self._call("POST", self._user_path("/threads"), data=data, stage=stage)
         container_id = str(body.get("id") or "")
@@ -354,6 +357,37 @@ class ThreadsClient:
                 payload=body,
             )
         return media_id
+
+    def publish_reply(
+        self,
+        *,
+        text: str,
+        reply_to_id: str,
+        image_url: str = "",
+        container_wait_seconds: float = 5.0,
+        stage: str = "create_container[reply]",
+    ) -> str:
+        """Publish one post as a reply to an existing media object.
+
+        This is the second half of a deferred-link publish: the thread is already
+        live, and this attaches a post to it — the reply that carries the
+        affiliate URL and the disclosure.
+        """
+        if not reply_to_id:
+            raise ThreadsAPIError(
+                "a reply needs the media id it replies to", stage="preflight"
+            )
+        container_id = self.create_container(
+            text=text,
+            media_type="IMAGE" if image_url else "TEXT",
+            image_url=image_url,
+            reply_to_id=reply_to_id,
+            stage=stage,
+        )
+        if container_wait_seconds > 0:
+            self._sleep(container_wait_seconds)
+        self.wait_for_container(container_id)
+        return self.publish_container(container_id)
 
     def get_media(self, media_id: str, fields: str = "id,permalink,username") -> dict[str, Any]:
         return self._call("GET", f"/{media_id}", params={"fields": fields}, stage="media")

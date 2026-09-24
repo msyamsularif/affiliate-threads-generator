@@ -93,6 +93,41 @@ def _as_int(value: Any, default: int) -> int:  # noqa: ANN401
         return default
 
 
+def _disclosure_style(value: Any) -> str:  # noqa: ANN401
+    """``tag`` or ``marker``; anything unrecognised falls back to ``marker``."""
+    text = str(value or "").strip().lower()
+    return text if text in DISCLOSURE_STYLES else DEFAULT_DISCLOSURE_STYLE
+
+
+def _publish_mode(value: Any) -> str:  # noqa: ANN401
+    """``two_stage`` or ``single``; anything unrecognised falls back to ``single``."""
+    text = str(value or "").strip().lower()
+    return text if text in PUBLISH_MODES else DEFAULT_PUBLISH_MODE
+
+
+def _link_pending_status(settings: Settings) -> str:
+    """The status that means "the thread is live, its link reply is not".
+
+    It has to be a value no other part of the flow already uses: were it the
+    eligible status the row could be published twice, and were it ``Hold`` the
+    hold would read as a deferred link. A collision falls back to the default,
+    and then to a default that cannot collide.
+    """
+    reserved = {
+        settings.eligible_status,
+        settings.done_status,
+        settings.hold_status,
+        settings.cancel_status,
+        settings.in_progress_status,
+    }
+    candidate = settings.link_pending_status.strip()
+    if not candidate or candidate in reserved:
+        candidate = DEFAULT_LINK_PENDING_STATUS
+    if candidate in reserved:
+        candidate = f"{DEFAULT_LINK_PENDING_STATUS} (reply due)"
+    return candidate
+
+
 def _as_str_list(value: Any, default: tuple[str, ...]) -> tuple[str, ...]:  # noqa: ANN401
     if value is None or value == "" or value == []:
         return default
@@ -156,6 +191,31 @@ DEFAULT_DISCLOSURE_MARKERS: tuple[str, ...] = (
     "iklan berbayar",
 )
 
+#: How the disclosure has to be written.
+#:
+#: ``marker`` — any configured marker, in any post (the default, and the most
+#: permissive shape).
+#: ``tag`` — a hashtag marker from ``disclosure_markers`` must appear in the
+#: final post. A bare ``#ad`` there is enough; no sentence mentioning commission
+#: is needed, and markers of the sentence form do not satisfy it.
+DISCLOSURE_STYLES: tuple[str, ...] = ("marker", "tag")
+DEFAULT_DISCLOSURE_STYLE = "marker"
+
+#: How the affiliate link reaches the thread.
+#:
+#: ``single`` — the whole thread, link included, publishes in one call.
+#: ``two_stage`` — the thread publishes first and the row moves to
+#: ``link_pending_status``; the affiliate link then goes out as a reply to it.
+#: That is the "let the post collect views, then attach the link" tactic, and it
+#: is only possible because the second half is a separate, human-approved call.
+SINGLE_MODE = "single"
+TWO_STAGE_MODE = "two_stage"
+PUBLISH_MODES: tuple[str, ...] = (SINGLE_MODE, TWO_STAGE_MODE)
+DEFAULT_PUBLISH_MODE = SINGLE_MODE
+
+#: Status written after the first half of a two-stage publish.
+DEFAULT_LINK_PENDING_STATUS = "Link Pending"
+
 #: Fabricated-personal-experience patterns. The system has no first-hand
 #: experience with any product and none is ever supplied, so these may not ship.
 DEFAULT_BLOCKED_PHRASES: tuple[str, ...] = (
@@ -195,6 +255,9 @@ class Settings:
 
     # Publish guardrails
     require_disclosure: bool = True
+    #: ``marker``: any configured marker, anywhere. ``tag``: a hashtag marker on
+    #: the final post, which is enough on its own — see ``DISCLOSURE_STYLES``.
+    disclosure_style: str = DEFAULT_DISCLOSURE_STYLE
     disclosure_markers: tuple[str, ...] = field(
         default_factory=lambda: DEFAULT_DISCLOSURE_MARKERS
     )
@@ -203,10 +266,19 @@ class Settings:
         default_factory=lambda: DEFAULT_BLOCKED_PHRASES
     )
     min_posts: int = 3
-    max_posts: int = 6
+    #: Upper bound on thread length. Long enough for the multi-sub-thread shape
+    #: (a hook post, several short observations, a closing practical note), which
+    #: a 6-post ceiling cut off mid-argument.
+    max_posts: int = 10
     max_chars_per_post: int = 500
     max_links_per_post: int = 5
     container_wait_seconds: int = 5
+
+    #: ``single`` or ``two_stage`` — see ``PUBLISH_MODES``.
+    publish_mode: str = DEFAULT_PUBLISH_MODE
+    #: Status written when a two-stage thread is live but its link reply is not
+    #: posted yet. Normalised away from the other statuses in ``resolve()``.
+    link_pending_status: str = DEFAULT_LINK_PENDING_STATUS
 
     # Structural soft signals — warnings only, never blocks. These are
     # thresholds, not bans: one "Jadi," is ordinary prose, three is a rhythm
@@ -251,6 +323,11 @@ class Settings:
         return f"{self.sheet_tab}!{letter}{row}"
 
     @property
+    def two_stage(self) -> bool:
+        """Whether the affiliate link goes out as a separate reply."""
+        return self.publish_mode == TWO_STAGE_MODE
+
+    @property
     def credentials_configured(self) -> bool:
         return bool(self.threads_access_token)
 
@@ -263,9 +340,12 @@ class Settings:
             "eligible_status": self.eligible_status,
             "done_status": self.done_status,
             "require_disclosure": self.require_disclosure,
+            "disclosure_style": self.disclosure_style,
             "require_affiliate_url": self.require_affiliate_url,
             "min_posts": self.min_posts,
             "max_posts": self.max_posts,
+            "publish_mode": self.publish_mode,
+            "link_pending_status": self.link_pending_status,
             "max_chars_per_post": self.max_chars_per_post,
             "max_links_per_post": self.max_links_per_post,
             "container_wait_seconds": self.container_wait_seconds,
@@ -305,6 +385,7 @@ def resolve(overrides: dict[str, Any] | None = None) -> Settings:
         cancel_status=str(_lookup("cancel_status", "Cancel")).strip(),
         in_progress_status=str(_lookup("in_progress_status", "In Progress")).strip(),
         require_disclosure=_as_bool(_lookup("require_disclosure", True), True),
+        disclosure_style=_disclosure_style(_lookup("disclosure_style", DEFAULT_DISCLOSURE_STYLE)),
         disclosure_markers=_as_str_list(
             _lookup("disclosure_markers", None), DEFAULT_DISCLOSURE_MARKERS
         ),
@@ -313,7 +394,11 @@ def resolve(overrides: dict[str, Any] | None = None) -> Settings:
             _lookup("blocked_phrases", None), DEFAULT_BLOCKED_PHRASES
         ),
         min_posts=_as_int(_lookup("min_posts", 3), 3),
-        max_posts=_as_int(_lookup("max_posts", 6), 6),
+        max_posts=_as_int(_lookup("max_posts", 10), 10),
+        publish_mode=_publish_mode(_lookup("publish_mode", DEFAULT_PUBLISH_MODE)),
+        link_pending_status=str(
+            _lookup("link_pending_status", DEFAULT_LINK_PENDING_STATUS) or ""
+        ).strip(),
         max_chars_per_post=_as_int(_lookup("max_chars_per_post", 500), 500),
         max_links_per_post=_as_int(_lookup("max_links_per_post", 5), 5),
         container_wait_seconds=_as_int(_lookup("container_wait_seconds", 5), 5),
@@ -352,4 +437,5 @@ def resolve(overrides: dict[str, Any] | None = None) -> Settings:
         base = replace(base, min_posts=1)
     if base.min_posts > base.max_posts:
         base = replace(base, min_posts=base.max_posts)
+    base = replace(base, link_pending_status=_link_pending_status(base))
     return base

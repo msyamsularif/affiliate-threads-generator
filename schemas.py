@@ -26,7 +26,11 @@ THREADS_PUBLISH: dict = {
         "or fabricated first-hand experience). On success it writes Status=Done and the "
         "Threads URL back into the Sheet; on any failure it leaves the Sheet untouched.\n\n"
         "If the Sheet write fails after a successful publish, re-calling this tool with the "
-        "same product_id repairs the Sheet instead of publishing a duplicate."
+        "same product_id repairs the Sheet instead of publishing a duplicate.\n\n"
+        "Under publish_mode \"two_stage\" the affiliate link is deferred: the thread publishes "
+        "first, the row moves to the plugin's link-pending status instead of Done, and the link "
+        "goes out later as a reply — call this tool again with stage \"link\" and the single "
+        "reply post once the human decides the thread has been seen."
     ),
     "parameters": {
         "type": "object",
@@ -41,11 +45,13 @@ THREADS_PUBLISH: dict = {
             "posts": {
                 "type": "array",
                 "minItems": 1,
-                "maxItems": 10,
+                "maxItems": 30,
                 "description": (
                     "The thread, in order. Post 1 is the root; each later post is published as "
-                    "a reply to the previous one. 3-6 posts is the target range. The final post "
-                    "carries the affiliate link and the disclosure."
+                    "a reply to the previous one. 3-10 posts is the target range — the "
+                    "configured max_posts is the hard bound, and the tool refuses a longer "
+                    "thread. The final post carries the affiliate link and the disclosure, "
+                    "unless the link is deferred to a later reply (see stage)."
                 ),
                 "items": {
                     "type": "object",
@@ -74,6 +80,20 @@ THREADS_PUBLISH: dict = {
                 "description": (
                     "Must be true. Set it only after the human's explicit approval in this "
                     "conversation. Setting it while guessing is a failure of the process."
+                ),
+            },
+            "stage": {
+                "type": "string",
+                "enum": ["auto", "thread", "link"],
+                "description": (
+                    "Which half of a publish this call is. 'auto' (the default) follows the "
+                    "Sheet's own state: an eligible row starts the thread, and a row left in "
+                    "the link-pending status gets its deferred link reply. 'thread' insists on "
+                    "publishing the thread, and 'link' insists on the deferred link reply — a "
+                    "single post in `posts` carrying the affiliate URL and the disclosure, "
+                    "appended to the thread that is already live. Publishing the whole thread "
+                    "and its link in one call is the default configuration (publish_mode "
+                    "'single'), in which case only 'thread' applies."
                 ),
             },
             "approval_note": {

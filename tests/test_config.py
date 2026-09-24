@@ -100,7 +100,7 @@ class TestResolve:
         assert resolved.done_status == "Done"
         assert resolved.require_disclosure is True
         assert resolved.min_posts == 3
-        assert resolved.max_posts == 6
+        assert resolved.max_posts == 10
         assert resolved.max_chars_per_post == 500
         assert resolved.credentials_configured is False
 
@@ -147,6 +147,59 @@ class TestResolve:
     def test_list_setting_accepts_comma_separated_text(self, ctx) -> None:  # noqa: ANN001
         ctx.settings["disclosure_markers"] = "#ad, #iklan"
         assert config.resolve().disclosure_markers == ("#ad", "#iklan")
+
+    def test_disclosure_style_defaults_to_marker(self, ctx) -> None:  # noqa: ANN001
+        assert config.resolve().disclosure_style == "marker"
+
+    def test_disclosure_style_accepts_tag(self, ctx) -> None:  # noqa: ANN001
+        ctx.settings["disclosure_style"] = "TAG"
+        assert config.resolve().disclosure_style == "tag"
+
+    def test_an_unknown_disclosure_style_falls_back_to_marker(self, ctx) -> None:  # noqa: ANN001
+        ctx.settings["disclosure_style"] = "hashtag"
+        assert config.resolve().disclosure_style == "marker"
+
+    def test_publish_mode_defaults_to_single(self, ctx) -> None:  # noqa: ANN001
+        resolved = config.resolve()
+        assert resolved.publish_mode == "single"
+        assert resolved.two_stage is False
+
+    def test_publish_mode_accepts_two_stage(self, ctx) -> None:  # noqa: ANN001
+        ctx.settings["publish_mode"] = "Two_Stage"
+        resolved = config.resolve()
+        assert resolved.publish_mode == "two_stage"
+        assert resolved.two_stage is True
+
+    def test_an_unknown_publish_mode_falls_back_to_single(self, ctx) -> None:  # noqa: ANN001
+        ctx.settings["publish_mode"] = "batched"
+        assert config.resolve().publish_mode == "single"
+
+    def test_the_link_pending_status_defaults(self, ctx) -> None:  # noqa: ANN001
+        assert config.resolve().link_pending_status == "Link Pending"
+
+    def test_a_link_pending_status_may_be_customised(self, ctx) -> None:  # noqa: ANN001
+        ctx.settings["link_pending_status"] = "Nunggu Link"
+        assert config.resolve().link_pending_status == "Nunggu Link"
+
+    @pytest.mark.parametrize("status", ["Ready To Generate", "Done", "Hold", "", "   "])
+    def test_a_colliding_link_pending_status_is_replaced(self, ctx, status: str) -> None:  # noqa: ANN001
+        """A collision would either publish the row twice or read as a hold."""
+        ctx.settings["link_pending_status"] = status
+        resolved = config.resolve()
+        assert resolved.link_pending_status == "Link Pending"
+        assert resolved.link_pending_status not in {
+            resolved.eligible_status,
+            resolved.done_status,
+            resolved.hold_status,
+            resolved.cancel_status,
+            resolved.in_progress_status,
+        }
+
+    def test_a_double_collision_still_produces_a_distinct_status(self, ctx) -> None:  # noqa: ANN001
+        ctx.settings["eligible_status"] = "Link Pending"
+        resolved = config.resolve()
+        assert resolved.link_pending_status != resolved.eligible_status
+        assert resolved.link_pending_status != resolved.done_status
 
     def test_min_posts_cannot_exceed_max_posts(self, ctx) -> None:  # noqa: ANN001
         ctx.settings["min_posts"] = 9

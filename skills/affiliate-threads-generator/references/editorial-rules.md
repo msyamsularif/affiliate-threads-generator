@@ -101,10 +101,11 @@ The CTA and the disclosure come after that ending. They do not replace it.
 
 ## 8. Disclosure — explicit but lightweight
 
-The disclosure is mandatory and stays on the same post as the affiliate URL. It
-does not need to be a paragraph.
+The disclosure is mandatory and stays on the post that carries the affiliate URL.
+It does not need to be a paragraph. Which shape counts is the operator's setting:
 
-Preferred forms:
+- `disclosure_style: marker` (default) — any configured marker, anywhere.
+  Preferred forms:
 
 ```
 Link afiliasi.
@@ -121,10 +122,20 @@ https://...
 Link afiliasi.
 ```
 
+- `disclosure_style: tag` — a hashtag marker, `#ad`, on the **final** post. That
+  tag alone is the disclosure: no sentence about commission is needed, which is
+  the form to prefer when a sentence reads as hard-sell. It has to be on the last
+  post, because that is the one carrying the link.
+
+Under `publish_mode: two_stage` the link — and therefore the disclosure — belongs
+to the link reply, not to the thread body. The thread then carries no "link
+afiliasi nanti di reply" teaser either: it has to stand on its own without
+promising a link.
+
 The wording may vary as long as the commercial relationship is clear. What is not
 allowed is hiding it, burying it under hashtags, or dropping it because the
 ending reads better without it. `threads_publish` refuses to publish a thread
-with no disclosure marker, and that check is code, not judgement.
+that does not satisfy the configured style, and that check is code, not judgement.
 
 ## 9. The audit passes
 
@@ -163,9 +174,10 @@ know what an affiliate thread is; this pass does.
 Does this thread have a clear point of view?
 Would the thread still be useful if the affiliate link disappeared?
 Is the product supporting the conversation rather than becoming a product listing?
+Is the thread more than a paraphrase of the seller's description?
 Did we select only the evidence the angle required?
 Does the ending feel like the natural next step of the conversation?
-Is the disclosure present, short, and on the same post as the link?
+Is the disclosure present, short, and on the post the configuration expects?
 ```
 
 ### 9.3 Evidence pass — last

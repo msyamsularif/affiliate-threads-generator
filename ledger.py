@@ -54,8 +54,14 @@ def record_published(
     permalink: str,
     posts_count: int,
     published_at: str,
+    publish_mode: str = "single",
 ) -> dict[str, Any]:
-    """Record a confirmed publish. ``sheet_synced`` starts false on purpose."""
+    """Record a confirmed publish. ``sheet_synced`` starts false on purpose.
+
+    ``publish_mode`` decides what the Sheet still has to be told: in ``single``
+    mode the publish is finished once ``Status=Done`` lands, while a ``two_stage``
+    thread is finished only after the deferred link reply.
+    """
     ledger = _load()
     record = {
         "product_id": str(product_id),
@@ -63,10 +69,41 @@ def record_published(
         "permalink": permalink,
         "posts_count": posts_count,
         "published_at": published_at,
+        "publish_mode": publish_mode,
         "sheet_synced": False,
         "sheet_synced_at": None,
     }
     ledger[str(product_id)] = record
+    _save(ledger)
+    return record
+
+
+def record_link_reply(
+    product_id: str, *, media_id: str, posted_at: str
+) -> dict[str, Any] | None:
+    """Record the deferred link reply going live, before the Sheet write.
+
+    Same reason as ``record_published``: the reply is public the moment the API
+    returns, so the record exists before anything can fail around it.
+    """
+    ledger = _load()
+    record = ledger.get(str(product_id))
+    if record is None:
+        return None
+    record["link_media_id"] = media_id
+    record["link_posted_at"] = posted_at
+    record["link_sheet_synced"] = False
+    _save(ledger)
+    return record
+
+
+def mark_link_sheet_synced(product_id: str, *, synced_at: str) -> dict[str, Any] | None:
+    ledger = _load()
+    record = ledger.get(str(product_id))
+    if record is None:
+        return None
+    record["link_sheet_synced"] = True
+    record["link_sheet_synced_at"] = synced_at
     _save(ledger)
     return record
 

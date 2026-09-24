@@ -163,11 +163,31 @@ Link afiliasi.
 The wording may vary as long as the commercial relationship is clear. Do not
 expand it into a legal paragraph, do not repeat it across posts, and never drop it
 because the ending reads better without it. `threads_publish` refuses to publish
-without a disclosure marker, and the affiliate URL must appear in a post.
+without the disclosure the configuration asks for, and the affiliate URL must
+appear in a post.
+
+Which shape counts is the operator's choice (`disclosure_style`):
+
+- `marker` (default) — any configured marker, anywhere: "Link afiliasi." on the
+  post with the URL is the usual form.
+- `tag` — a hashtag marker, `#ad`, on the **final** post. That tag alone is the
+  whole disclosure: no sentence mentioning commission is needed, and this is the
+  form to reach for when a sentence reads as hard-sell. It has to be on the last
+  post, which is the one carrying the link.
+
+### When the link is deferred (`publish_mode: two_stage`)
+
+Under two-stage publishing the thread body carries no URL and no disclosure at
+all — both belong to the link reply that goes out later. So:
+
+- Do not write "link afiliasi di reply berikutnya" teasers or "cek reply"
+  prompts. The thread has to stand on its own without promising a link.
+- The reply is its own piece of copy: one post, the affiliate URL, and the
+  disclosure in the configured style (`... #ad` is enough under `tag`).
 
 ## 7. Post-by-post rules
 
-- **3-6 posts.** Dynamic. A 3-post thread that lands is better than a padded 6.
+- **3-10 posts.** Dynamic. A 3-post thread that lands is better than a padded 10.
 - **Post length varies.** One sentence in one post is fine. Uniform construction
   is a warning sign, not a standard.
 - **Post 1** earns the next post. No product mention.
@@ -179,6 +199,9 @@ without a disclosure marker, and the affiliate URL must appear in a post.
 - **The ending gives the reader something useful** — a practical boundary, a
   buying consideration, one concrete observation — not a summary of what came
   before. The CTA and disclosure follow it; they do not replace it.
+- **The seller's description is background.** Paraphrasing it is not a thread; the
+  observation has to come from independent research or be attributed to the owner
+  of the claim.
 - **Max 500 characters per post** (emoji count as their UTF-8 byte length), and no
   more than 5 unique links in one post. `threads_publish` enforces both.
 

@@ -46,11 +46,13 @@ python3 "$SKILL_DIR/scripts/doctor.py"
 From any session, `/affiliate-threads status` runs the same read-only preflight
 without spending a model turn.
 
-Eight checks. Any `✗` comes with a `→` hint.
+Eight checks plus one that reports where the settings came from. Any `✗` comes
+with a `→` hint.
 
 ```
   ✓ plugin: found at .../plugins/affiliate-threads-generator (v1.0.2)
   ✓ settings: spreadsheet=... tab=Sheet1 eligible='Ready To Generate' disclosure=required
+  ✓ plugin_settings: 3 setting(s) read from ~/.hermes/config.yaml
   ✓ threads_api: @yourhandle (id ...); token valid=True, expires in 58.4 days
   ✓ sheets: 12 data row(s) in Sheet1; google_api=...
   ✓ next_candidate: ID 3 — Wireless Earbuds X (row 5)
@@ -128,6 +130,32 @@ It returns `{"status": "sheet_resynced"}`.
 The doctor's `unsynced_publishes` check surfaces this case, so it will not go
 unnoticed.
 
+### "A thread is waiting for its link reply"
+
+Under `publish_mode: two_stage` the thread publishes first and the affiliate link
+follows as a reply. A row sitting on `Link Pending` means the second half never
+went out. Nothing is broken and nothing is stuck: no timer exists, and nothing
+attaches the link on its own.
+
+```bash
+/affiliate-threads status     # the pending links are listed in the output
+hermes chat -q "tolong pasang linknya sekarang"
+```
+
+The model previews the one-post reply (the affiliate URL plus the disclosure) and
+waits for approval, then calls `threads_publish` with `stage: "link"`. The reply
+attaches to the last post of the thread, whose media id is in the plugin's
+publish ledger — nothing about the thread is published twice.
+
+If the reply has already gone out but the Sheet still says pending, the return is
+`link_published_sheet_write_failed`: **do not post it again.** Re-calling stage
+`link` only repairs the Sheet.
+
+If the ledger was lost (a wiped profile, a fresh install), the tool refuses the
+reply stage rather than guessing which post to answer. Post the reply by hand in
+the Threads app and set the row to `Done` yourself — that is the one case where a
+human writes that status.
+
 ### "The token expired"
 
 Symptoms: `threads_api` fails in the doctor, or publish returns an auth error.
@@ -151,15 +179,15 @@ so this never becomes an incident.
 
 The error lists each violation with a code. The hard ones:
 
-| Code                               | Fix                                                |
-| ---------------------------------- | -------------------------------------------------- |
-| `missing_disclosure`               | Add a disclosure line to the final post            |
-| `affiliate_url_not_in_thread`      | Put the row's affiliate URL in a post              |
-| `fabricated_personal_experience`   | Rewrite the flagged sentence as an observation     |
-| `post_too_long`                    | Shorten it; emoji count as their UTF-8 byte length |
-| `too_many_links`                   | Threads allows 5 unique links per post             |
-| `too_few_posts` / `too_many_posts` | 3-6 posts                                          |
-| `affiliate_url_missing_from_row`   | The Sheet row has no affiliate URL                 |
+| Code                               | Fix                                                 |
+| ---------------------------------- | --------------------------------------------------- |
+| `missing_disclosure`               | Add the disclosure the configuration asks for       |
+| `affiliate_url_not_in_thread`      | Put the row's affiliate URL in a post               |
+| `fabricated_personal_experience`   | Rewrite the flagged sentence as an observation      |
+| `post_too_long`                    | Shorten it; emoji count as their UTF-8 byte length  |
+| `too_many_links`                   | Threads allows 5 unique links per post              |
+| `too_few_posts` / `too_many_posts` | 3-10 posts by default; `max_posts` raises the bound |
+| `affiliate_url_missing_from_row`   | The Sheet row has no affiliate URL                  |
 
 Then show a **new** preview and get a **new** approval — the previous approval was
 for different copy.
@@ -184,10 +212,10 @@ itself is the external antislop skills; see
 
 ### "Shopee blocked the fetch"
 
-Expected. This is not an incident. The research step is description-first by
-design; the Shopee page is a bonus, never a dependency. If the model reports this
-as a failure, it has misread the skill — point it at
-`references/evidence-sourcing.md`.
+Expected. This is not an incident. The Shopee page is the lowest-value source in
+the pipeline by design — it is the seller describing their own product — so the
+research step does not depend on it. If the model reports this as a failure, it
+has misread the skill — point it at `references/evidence-sourcing.md`.
 
 ### "The cron job stopped firing"
 

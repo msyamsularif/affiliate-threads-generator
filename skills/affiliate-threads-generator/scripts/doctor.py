@@ -8,12 +8,13 @@ Checks
 ------
 1. the plugin is installed and its modules import
 2. the effective settings resolve (spreadsheet, tab, guardrail knobs)
-3. the Threads token works, and when it expires
-4. the Google Sheet is reachable through the bundled google-workspace skill
-5. the next eligible candidate, if any
-6. the bundled skill is present where Hermes loads it
-7. a cron job exists for this skill
-8. any publish that went live without its Sheet write landing
+3. where those settings came from — the host, ``config.yaml``, or the defaults
+4. the Threads token works, and when it expires
+5. the Google Sheet is reachable through the bundled google-workspace skill
+6. the next eligible candidate, if any
+7. the bundled skill is present where Hermes loads it
+8. a cron job exists for this skill
+9. any publish that went live without its Sheet write landing
 
 Exit codes
 ----------
@@ -116,7 +117,41 @@ def main(argv: list[str] | None = None) -> int:
         }
     )
 
-    # ---- 3. Threads token ------------------------------------------------
+    # ---- 3. where the settings came from ---------------------------------
+    try:
+        source = _bridge.load("runtime").settings_source()
+    except Exception as exc:  # noqa: BLE001
+        source = {"source": "unknown", "path": "", "warning": f"{type(exc).__name__}: {exc}"}
+
+    kind = source.get("source")
+    if kind == "host":
+        detail = "resolved by the Hermes host context"
+    elif kind == "config_file":
+        detail = f"{source.get('settings', 0)} setting(s) read from {source.get('path')}"
+    elif kind == "defaults":
+        detail = f"nothing set in {source.get('path')} — defaults and environment are in effect"
+    else:
+        detail = f"settings source unknown ({kind})"
+
+    warning = str(source.get("warning") or "")
+    checks.append(
+        {
+            "check": "plugin_settings",
+            "ok": not warning,
+            "detail": f"{detail} — {warning}" if warning else detail,
+            "hint": (
+                "These scripts read plugins.entries.affiliate-threads-generator.settings.* "
+                "themselves when they run outside Hermes, and that read failed. Install PyYAML "
+                "for the interpreter that runs them (`python3 -m pip install pyyaml`), or run "
+                "them with the interpreter Hermes uses. Until then the defaults and the "
+                "environment win here, which can differ from what threads_publish enforces."
+            )
+            if warning
+            else None,
+        }
+    )
+
+    # ---- 4. Threads token ------------------------------------------------
     if not settings.credentials_configured:
         checks.append(
             {
@@ -160,7 +195,7 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as exc:  # noqa: BLE001
             checks.append({"check": "threads_api", "ok": False, "detail": f"{type(exc).__name__}: {exc}"})
 
-    # ---- 4 + 5. Sheets and the next candidate ----------------------------
+    # ---- 5 + 6. Sheets and the next candidate ----------------------------
     sheet = None
     if args.no_network:
         checks.append({"check": "sheets", "ok": True, "detail": "skipped (--no-network)"})
@@ -200,7 +235,7 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as exc:  # noqa: BLE001
             checks.append({"check": "next_candidate", "ok": False, "detail": f"{type(exc).__name__}: {exc}"})
 
-    # ---- 6. the bundled skill --------------------------------------------
+    # ---- 7. the bundled skill --------------------------------------------
     # The skill ships inside the plugin and the plugin registers it, so this
     # checks the copy Hermes actually loads. Nothing is installed into
     # ~/.hermes/skills/ and nothing needs to be.
@@ -221,10 +256,10 @@ def main(argv: list[str] | None = None) -> int:
         }
     )
 
-    # ---- 7. cron job ------------------------------------------------------
+    # ---- 8. cron job ------------------------------------------------------
     checks.append(_cron_check())
 
-    # ---- 8. unsynced publishes -------------------------------------------
+    # ---- 9. unsynced publishes -------------------------------------------
     unsynced = _unsynced_publishes()
     checks.append(
         {

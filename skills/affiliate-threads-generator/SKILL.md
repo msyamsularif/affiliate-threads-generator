@@ -5,11 +5,12 @@ description: >-
   Use for any request to create, regenerate, hold, cancel or approve Threads
   affiliate content — "buatkan content berikutnya", "generate lagi", "hold dulu
   yang ini", "saya approve", "regenerate tapi angle-nya lebih ke traveller".
-  Runs the full pipeline: deterministic candidate selection, description-first
-  research, angle discovery and scoring, a one-line point of view, narrative
-  planning with a critic pass, drafting, an antislop audit, the affiliate
-  editorial and evidence reviews, then a Telegram preview that waits for a human
-  decision. Never publishes on its own.
+  Runs the full pipeline: deterministic candidate selection, review-first
+  research (the seller's description is background, never evidence), angle
+  discovery and scoring, a one-line point of view, narrative planning with a
+  critic pass, drafting, an antislop audit, the affiliate editorial and evidence
+  reviews, then a Telegram preview that waits for a human decision. Never
+  publishes on its own.
 version: 1.0.2
 author: Affiliate Threads
 license: MIT
@@ -235,7 +236,10 @@ Read the candidate's full row (including `Description`) before moving on:
 python3 ${HERMES_SKILL_DIR}/scripts/select_candidate.py --id 12 --full
 ```
 
-### Step 2 — Research (description-first, Shopee-aware)
+The description orients you — what the product is, how it is described — but it
+is the seller's own copy. Never treat it as evidence; Step 2 says what counts.
+
+### Step 2 — Research (review-first, Shopee-aware)
 
 The `Affiliate URL` points at Shopee, which blocks automated access. **A failed
 fetch is expected, not a pipeline failure.** Never attempt to bypass CAPTCHA,
@@ -243,20 +247,25 @@ anti-bot or auth walls — that is a hard rule, not a preference.
 
 Confidence tiers, highest first:
 
-1. **`Description` column** — trusted/verified. The operator wrote it for this
-   product. Everything anchors here.
-2. **Fetched product page** (only if it genuinely succeeds) — "seller marketing
-   claim" tier. Not automatically true.
-3. **External web/review research** — "review-derived observation" tier. Search
-   the web generally; do not scrape Shopee.
-4. **Inference** — reasonable deduction from 1-3. Always hedged.
-5. **Unsupported** — never used as a factual claim. Remove or rewrite it.
+1. **Independent evidence** — external web and review research: category norms,
+   forum and community discussion, comparison articles, video reviews. Search
+   generally; do not scrape Shopee. Nothing in this tier is written by someone
+   selling the product, which is why the thread's substance comes from here.
+2. **Seller material** — the `Description` column and, if it loads, the product
+   page. The operator wrote the description and the seller wrote the page; both
+   are self-description, so they are **background, not proof**. Use them for
+   orientation — what the product is, who it is for, the physical details — and
+   attribute anything taken from them ("Klaim di deskripsi produknya..."). They
+   may not become the thread's main material: a thread that paraphrases the
+   seller's copy is an advertisement wearing a hook.
+3. **Inference** — reasonable deduction from 1-2. Always hedged.
+4. **Unsupported** — never used as a factual claim. Remove or rewrite it.
 
-If tiers 2 and 3 both come back thin, shift to a **category-level**
+If tiers 1 and 2 both come back thin, shift to a **category-level**
 problem/observation framing instead of inventing product-specific detail.
 
-Also build a **visual profile** while researching: shape, colour, material,
-distinctive physical features. You will need it in Step 7.
+Also build a **visual profile** from what the material actually shows: shape,
+colour, material, distinctive physical features. You will need it in Step 7.
 
 Full procedure: `references/evidence-sourcing.md`.
 
@@ -314,7 +323,7 @@ a different angle from Step 3 rather than looping forever.
 
 ### Step 5 — Thread generation
 
-Write **3-6 posts**. Dynamic — post length varies, and not every thread is the
+Write **3-10 posts**. Dynamic — post length varies, and not every thread is the
 same shape. Rotate the narrative structure across runs; never default to
 `Hook → 3 benefits → CTA`. The structures are in
 `references/content-rules.md`.
@@ -364,6 +373,12 @@ structural signals: `excessive_signposting`, `repeated_transition_density`,
 `excessive_enumeration`, `product_detail_density`. None of them blocks, and none
 of them is proof that the text is AI-written — treat each as a reason to look
 again.
+
+The lint follows the publish mode, so pass `--stage` when you are linting
+something other than a whole thread. Under `publish_mode: two_stage` the thread
+body is correctly missing the affiliate URL and the disclosure — both belong to
+the link reply — and the script says so instead of flagging them. Lint that reply
+with `--stage link`.
 
 Do not show the human a draft that still has violations.
 
@@ -424,6 +439,13 @@ Without the external skills it reads
 That is a normal configuration, not a defect: never present a draft as
 anti-slop-audited when the skills were not loaded.
 
+**When `publish_mode` is `two_stage`,** the copy you preview has no affiliate
+link and no disclosure in it — both are deferred to the link reply. Say so on the
+preview (replace the `Link:` line with something like
+`🔗 Link: belum dipasang — akan jadi reply setelah post dapat view`), because
+"approve" now means "publish this thread", not "publish this thread and its
+link". Never let the human approve expecting a link that is not in the copy.
+
 Then **stop**. Do not publish. Do not ask "should I publish?" in a way that makes
 approval the default. Wait.
 
@@ -433,12 +455,22 @@ approval the default. Wait.
 
 Full semantics, including edge cases and exact wording: `references/telegram-actions.md`.
 
-| Reply                             | Action                                                                                               |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| approve / setuju / post aja / gas | Call `threads_publish` with the Product ID from the preview and the exact copy. Then report the URL. |
-| hold                              | `set_status.py <ID> Hold`. No publish.                                                               |
-| cancel / jangan dipublish         | `set_status.py <ID> Cancel`. No publish.                                                             |
-| regenerate <constraint>           | Step 3 again, same Product ID, same research unless new info is needed.                              |
+| Reply                             | Action                                                                                                                                                         |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| approve / setuju / post aja / gas | Call `threads_publish` with the Product ID from the preview and the exact copy. Then report the URL.                                                           |
+| pasang linknya / tambahkan link   | Two-stage mode only. Preview the one-post link reply, wait for approval, then call `threads_publish` with the same Product ID, `stage: "link"`, and that post. |
+| hold                              | `set_status.py <ID> Hold`. No publish.                                                                                                                         |
+| cancel / jangan dipublish         | `set_status.py <ID> Cancel`. No publish.                                                                                                                       |
+| regenerate <constraint>           | Step 3 again, same Product ID, same research unless new info is needed.                                                                                        |
+
+**Two-stage publishing (`publish_mode: two_stage`).** Approval publishes the
+thread only; the row then reads the link-pending status (default `Link Pending`)
+instead of `Done`, and the affiliate link is still owed. Nothing attaches it on
+its own and no timer does it — the link goes out when the human says the post has
+enough views, as a reply to the last post of the thread. That reply is its own
+publish: one post, the affiliate URL plus the disclosure, previewed and approved
+the same way. `/affiliate-threads status` lists the threads waiting for their
+link.
 
 **Approval must be explicit, in the current turn, for the product on screen.**
 Silence is not approval. An earlier "approve" for a different product is not
@@ -453,16 +485,19 @@ thread's novelty check possible.
 
 ## Pitfalls
 
-| Symptom                                           | What is actually happening                                                                                    |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `threads_publish` returns `stage: "precondition"` | The Sheet row changed — probably held or cancelled after the preview. Report it; do not retry.                |
-| `stage: "guardrails"`                             | The copy breaks a hard rule. Fix the listed violations and show a new preview.                                |
-| `stage: "credentials"`                            | No `THREADS_ACCESS_TOKEN`. Setup problem, not a content problem.                                              |
-| `stage: "publish"` with a rate-limit code         | Threads allows 250 posts / 1000 replies per 24h. Wait; do not hammer it.                                      |
-| `status: "published_sheet_write_failed"`          | **The thread is live.** Do not publish again. Re-call with the same `product_id` — it only repairs the Sheet. |
-| Shopee page fetch failed                          | Expected. Move to description-first framing; do not retry with a bypass.                                      |
-| `select_candidate.py` returns `candidate: null`   | Nothing is `Ready To Generate`. Say so and stop.                                                              |
-| Human replies with just "ok"                      | Ambiguous. Ask which of approve/hold/cancel they mean.                                                        |
+| Symptom                                           | What is actually happening                                                                                           |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `threads_publish` returns `stage: "precondition"` | The Sheet row changed — probably held or cancelled after the preview. Report it; do not retry.                       |
+| `stage: "guardrails"`                             | The copy breaks a hard rule. Fix the listed violations and show a new preview.                                       |
+| `stage: "credentials"`                            | No `THREADS_ACCESS_TOKEN`. Setup problem, not a content problem.                                                     |
+| `stage: "publish"` with a rate-limit code         | Threads allows 250 posts / 1000 replies per 24h. Wait; do not hammer it.                                             |
+| `status: "published_sheet_write_failed"`          | **The thread is live.** Do not publish again. Re-call with the same `product_id` — it only repairs the Sheet.        |
+| Shopee page fetch failed                          | Expected. Research from independent sources instead; do not retry with a bypass.                                     |
+| `select_candidate.py` returns `candidate: null`   | Nothing is `Ready To Generate`. Say so and stop.                                                                     |
+| Human replies with just "ok"                      | Ambiguous. Ask which of approve/hold/cancel they mean.                                                               |
+| A link card shows on the post with the URL        | Threads builds it from the first URL in a text-only post. No API removes it — say so instead of promising otherwise. |
+| `stage: "input"` on a link reply                  | The link stage publishes one post. `posts` must hold exactly one item — the reply, with the URL and the disclosure.  |
+| A row is stuck on `Link Pending`                  | The thread is live and its link reply was never approved. Preview that reply and wait; do not republish the thread.  |
 
 ## Verification
 
@@ -478,10 +513,13 @@ Before you send the preview, confirm all of these are true:
 - [ ] The anti-slop audit ran as an audit of the draft, not only as writing advice
 - [ ] The affiliate editorial review ran after it
 - [ ] Every factual claim traces to a named evidence tier
+- [ ] The thread's substance comes from independent evidence, not from the seller's description
+- [ ] Anything taken from the seller's material is attributed to the seller
 - [ ] No fabricated first-hand experience
 - [ ] A trade-off or limitation is present when the angle has room for one, and it is real
-- [ ] Disclosure is present, short, and on the same post as the affiliate URL
+- [ ] Disclosure is present, in the shape the configuration asks for, on the post carrying the affiliate URL
 - [ ] The ending gives the reader something useful instead of summarizing
-- [ ] `validate_thread.py` reports zero violations
+- [ ] `validate_thread.py` reports zero violations (with the stage the draft is for)
+- [ ] In two-stage mode the preview says the link is deferred, and the thread body really has no URL in it
 - [ ] The preview shows the Product ID explicitly
 - [ ] You stopped and waited instead of publishing

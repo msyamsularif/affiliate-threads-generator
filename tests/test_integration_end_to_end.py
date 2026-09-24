@@ -144,6 +144,18 @@ def call(args: dict) -> dict:
     return json.loads(tools.threads_publish(args))
 
 
+def install_transport(monkeypatch: pytest.MonkeyPatch, transport) -> None:  # noqa: ANN001
+    """Point the tool at a scripted Threads transport."""
+
+    def factory(access_token, user_id="", **kwargs):  # noqa: ANN001, ANN202
+        module = importlib.import_module("atg_plugin.threads_client")
+        return module.ThreadsClient(
+            access_token, user_id, transport=transport, sleep=lambda _s: None, max_retries=0
+        )
+
+    monkeypatch.setattr(tools, "ThreadsClient", factory)
+
+
 class TestFullPublishCycle:
     def test_publishes_and_records_the_row(self, end_to_end) -> None:  # noqa: ANN001
         before = end_to_end["read_sheet"]()
@@ -226,6 +238,74 @@ class TestFullPublishCycle:
         assert result["stage"] == "sheets_read"
         assert "google_api.py" in result["error"]
         assert result["hint"]
+
+
+class TestTwoStageCycle:
+    """The deferred-link flow, through the real Sheet plumbing.
+
+    Nothing here is new plumbing except the mode: the first call parks the row in
+    the link-pending status, the second attaches the affiliate link as a reply,
+    and the Sheet's own state is what tells the second call which half it is.
+    """
+
+    THREAD = [
+        {"text": "Klaim 6 jam per charge itu menarik, tapi ada satu hal yang jarang dibahas."},
+        {"text": "Dari spesifikasi produknya: BT 5.3 dan IPX4."},
+        {"text": "Keterbatasannya: angka 6 jam itu untuk volume normal."},
+    ]
+    LINK_REPLY = [{"text": f"Detail lengkapnya di sini: {AFFILIATE_URL} #ad"}]
+
+    def test_the_thread_goes_out_first_and_the_link_follows(self, end_to_end, monkeypatch) -> None:  # noqa: ANN001
+        runtime.context().settings["publish_mode"] = "two_stage"
+        transport = scripted_transport(
+            happy_path_responses(posts=3)
+            + [
+                (200, {"id": "container-link"}),
+                (200, {"id": "container-link", "status": "FINISHED"}),
+                (200, {"id": "media-link"}),
+            ]
+        )
+        install_transport(monkeypatch, transport)
+
+        first = call({"product_id": "2", "posts": self.THREAD, "confirm_publish": True})
+
+        assert first["ok"] is True, first
+        assert first["status"] == "published_awaiting_link"
+        after_first = end_to_end["read_sheet"]()
+        assert after_first[2][6] == "Link Pending"
+        assert after_first[2][5] == "https://www.threads.net/@tester/post/media-1"
+        assert "shope.ee" not in json.dumps(self.THREAD)
+
+        second = call({"product_id": "2", "posts": self.LINK_REPLY, "confirm_publish": True})
+
+        assert second["ok"] is True, second
+        assert second["status"] == "link_reply_published"
+        assert second["link_media_id"] == "media-link"
+        after_second = end_to_end["read_sheet"]()
+        assert after_second[2][6] == "Done"
+        assert after_second[2][5] == after_first[2][5]  # the thread URL is unchanged
+        # The reply really was a reply: it answers the last post of the thread.
+        assert transport.calls[-3][2]["reply_to_id"] == "media-3"
+        assert ledger.get("2")["link_sheet_synced"] is True
+
+    def test_the_reply_is_still_held_to_the_hard_rules(self, end_to_end, monkeypatch) -> None:  # noqa: ANN001
+        runtime.context().settings["publish_mode"] = "two_stage"
+        transport = scripted_transport(happy_path_responses(posts=3))
+        install_transport(monkeypatch, transport)
+        call({"product_id": "2", "posts": self.THREAD, "confirm_publish": True})
+        calls = len(transport.calls)
+
+        result = call(
+            {
+                "product_id": "2",
+                "posts": [{"text": "Linknya ada di bio ya."}],
+                "confirm_publish": True,
+            }
+        )
+
+        assert result["stage"] == "guardrails"
+        assert len(transport.calls) == calls
+        assert end_to_end["read_sheet"]()[2][6] == "Link Pending"
 
 
 class TestPythonCompatibility:

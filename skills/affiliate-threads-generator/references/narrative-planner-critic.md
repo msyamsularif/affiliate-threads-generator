@@ -36,11 +36,11 @@ affiliate_intensity: 2 # ~80% value / 20% product
 narrative_structure: <the structure used this time — rotated across runs>
 
 must_include:
-  - <specific detail from tier 1-2 evidence>
+  - <specific detail from tier-1 evidence, or a tier-2 seller claim attributed to the seller>
   - <the real trade-off, when the angle has room for one>
   - <disclosure>
 must_not_claim:
-  - <anything tier 5>
+  - <anything unsupported (tier 4)>
   - <any first-hand experience>
   - <any invented weakness>
 
@@ -147,8 +147,11 @@ or does it merely summarize what came before? A summary is not an ending.
 
 ### 8. Are the claims supported?
 
-Walk the evidence ledger. Every claim must map to tier 1-3. Anything tier 4 must
-be visibly hedged in the copy. Anything tier 5 is removed, not softened.
+Walk the evidence ledger. Every claim must map to tier 1-3, and the thread's
+substance has to come from tier 1 — a thread built out of the seller's own
+description is a paraphrase with a hook, and it fails here. Anything unsupported
+(tier 4) is removed, not softened; anything taken from seller material (tier 2)
+is attributed to the seller in the copy.
 
 ### 9. Is the angle too similar to recent content?
 

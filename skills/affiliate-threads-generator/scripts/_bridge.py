@@ -5,6 +5,12 @@ The scripts and the `threads_publish` tool must agree exactly — a draft that
 passes `validate_thread.py` and then fails at publish time would be a bug. Rather
 than duplicating the rules, the scripts import the plugin's own modules.
 
+That includes the operator's settings: the plugin reads
+``plugins.entries.<id>.settings.*`` from Hermes' ``config.yaml`` itself when it
+runs outside Hermes, so a customised guardrail is enforced here too. If that
+read fails, ``settings_note()`` says so and the caller prints it — a lint that
+ran with different rules must never look like a clean bill of health.
+
 Locating the plugin:
 
 1. ``$HERMES_HOME/plugins/affiliate-threads-generator``
@@ -97,3 +103,19 @@ def load(module_name: str):
 
 def plugin_path() -> Path:
     return Path(plugin_package().__path__[0])  # type: ignore[attr-defined]
+
+
+def settings_note() -> str:
+    """A one-line warning when the plugin's own settings could not be read.
+
+    The scripts enforce the same rules as ``threads_publish`` by importing the
+    plugin's modules, and those read ``plugins.entries.<id>.settings.*`` from
+    Hermes' ``config.yaml`` when there is no host context. That read can fail
+    (no PyYAML, a construct the fallback parser refuses). When it does, the
+    defaults are in effect — which is exactly the divergence the scripts must
+    not be quiet about.
+    """
+    try:
+        return str(load("runtime").settings_note() or "")
+    except Exception:  # noqa: BLE001 - a missing plugin is reported elsewhere
+        return ""

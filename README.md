@@ -137,7 +137,7 @@ Full instructions: [`docs/installation.md`](docs/installation.md).
 | 7   | Disclosure stays visible                   | `threads_publish` requires a disclosure marker + the affiliate URL                                                                                                                      |
 | 8   | Failed publish never changes Status        | Sheet write happens only after a confirmed media ID                                                                                                                                     |
 | 9   | AI cannot reach Threads any other way      | No credential or publish path exists outside the tool                                                                                                                                   |
-| 10  | Shopee anti-bot is never bypassed          | Skill instructions; research is description-first                                                                                                                                       |
+| 10  | Shopee anti-bot is never bypassed          | Skill instructions; research is review-first and never depends on the seller's page                                                                                                     |
 | 11  | No secret ships in the repository          | Declared as names only (`requires_env` / `optional_env` + skill frontmatter); Hermes prompts for them at install and owns the values — see [`docs/credentials.md`](docs/credentials.md) |
 
 ---

@@ -27,6 +27,8 @@ than trusting anything the model reported.
 - `confirm_publish` — must be `true`. Set it only after explicit human approval.
 - `approval_note` — optional quote of the human's own words, for the audit log.
 - `topic_tag` — optional, root post only, 1-50 chars, no `.` or `&`.
+- `stage` — `auto` (default), `thread` or `link`. Only meaningful under
+  `publish_mode: two_stage`; see below.
 
 ## What it checks before doing anything
 
@@ -39,14 +41,15 @@ In this order. Any failure returns an error and **publishes nothing**.
 5. **`Status` is exactly the eligible value** — default `Ready To Generate`.
 6. **`Threads URL` is empty.**
 7. **Hard content guardrails:**
-   - post count between `min_posts` (3) and `max_posts` (6)
+   - post count between `min_posts` (3) and `max_posts` (10)
    - no empty posts
    - ≤ 500 characters per post, counting emoji as their UTF-8 byte length
    - ≤ 5 unique links per post
    - `image_url`, if present, is `https://`
    - no fabricated first-hand experience (blocked phrase list)
-   - a disclosure marker is present in some post
-   - the row's `Affiliate URL` actually appears in some post
+   - a disclosure marker is present in some post (stage `thread` under two-stage
+     mode defers this to the link reply)
+   - the row's `Affiliate URL` actually appears in some post (same deferral)
 8. **`THREADS_ACCESS_TOKEN`** resolves.
 
 ## What it does
@@ -149,12 +152,71 @@ Nothing new was published. The Sheet was behind by one write and is now correct.
 | `publish`      | The Threads API refused                                 | Report. Nothing was recorded.               |
 | `sheets_write` | Sheet write failed after a publish                      | Re-call to repair                           |
 
+## Two-stage publishing (deferred affiliate link)
+
+Default is `publish_mode: single`: the thread and its link go out in one call.
+Under `publish_mode: two_stage` the link is deliberately left out of the thread
+and posted later, as a reply, so the post can collect views without a commercial
+link on it.
+
+```
+stage 1  stage: "thread"   the thread                -> Status = link_pending_status
+stage 2  stage: "link"     one reply, the link + tag -> Status = Done
+```
+
+- `stage: "auto"` (the default) reads the Sheet: an eligible row starts the
+  thread, a row sitting in `link_pending_status` gets its reply. `thread` and
+  `link` say which half you mean, and are refused if the row disagrees.
+- Stage `thread` publishes the copy as given, without requiring the affiliate
+  URL or a disclosure — neither exists in the copy yet. It writes the permalink
+  and `link_pending_status` to the row, which is what makes the next call a
+  different call.
+- Stage `link` takes **exactly one** post in `posts`: the reply. It must carry
+  the row's `Affiliate URL` and satisfy the disclosure rule, and it is posted as
+  a reply to the last post of the thread (the media id is in the ledger, not in
+  the Sheet).
+- Both stages need `confirm_publish` and both are escalated to the approval gate.
+  The human approves the thread, then approves the link.
+- The reply is published with `reply_to_id`, so it appears inside the thread —
+  the root post is never republished.
+
+The statuses it can return:
+
+| `status`                            | Meaning                                                                                                                           |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `published_awaiting_link`           | Stage 1 is live; the row is parked in `link_pending_status`.                                                                      |
+| `link_reply_published`              | Stage 2 is live; the row is `Done`.                                                                                               |
+| `link_published_sheet_write_failed` | The reply is live but the Sheet still says pending. **Do not post it again.** Re-call stage `link` and it only repairs the Sheet. |
+
+If the ledger has no record of the thread, stage `link` refuses: a reply needs
+the media id of the post it answers, and only the ledger holds it. Post the reply
+by hand in the Threads app and set the row to `Done` in that case.
+
 ## Rate limits
 
 Threads allows **250 published posts and 1000 replies per 24 hours** per profile.
 A 5-post thread costs 1 post + 4 replies. Hitting the limit returns a rate-limit
 error code; the tool reports it and nothing is recorded. Wait — do not retry in a
 loop.
+
+## Link cards
+
+Threads builds a preview card for the first URL in a text-only post. That is the
+platform's own behaviour, and there is no way to turn it off:
+
+- **`link_attachment` cannot remove the card.** It only chooses _which_ URL gets
+  one, and only on a `media_type=TEXT` post. The plugin does not send it, because
+  the affiliate URL has to be in the copy anyway and a second URL would only count
+  against the per-post link limit.
+- The card follows the **first** URL in the post, so the post carrying the
+  affiliate link should keep it as that post's only URL.
+- Link previews are a text-only feature: an `IMAGE` post carries no link card.
+- Threads counts unique URLs per post and rejects a post with more than 5. That
+  is the same number as `max_links_per_post`, which refuses the copy before the
+  API ever sees it.
+
+If the human asks for the card to be removed, the honest answer is that no API
+can do it.
 
 ## What the tool will never do
 

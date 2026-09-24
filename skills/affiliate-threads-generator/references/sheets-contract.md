@@ -6,15 +6,15 @@ true.
 
 ## Columns
 
-| Col | Field           | Meaning                                                                        |
-| --- | --------------- | ------------------------------------------------------------------------------ |
-| A   | `ID`            | Unique product/content identifier. Numeric IDs sort first.                     |
-| B   | `Product`       | Product name                                                                   |
-| C   | `Description`   | Operator-written product description — **the primary trusted research source** |
-| D   | `Affiliate URL` | The affiliate URL supplied by the operator                                     |
-| E   | `Category`      | Product category                                                               |
-| F   | `Threads URL`   | Published Threads URL. **Blank before publication.**                           |
-| G   | `Status`        | Current workflow state                                                         |
+| Col | Field           | Meaning                                                                                                        |
+| --- | --------------- | -------------------------------------------------------------------------------------------------------------- |
+| A   | `ID`            | Unique product/content identifier. Numeric IDs sort first.                                                     |
+| B   | `Product`       | Product name                                                                                                   |
+| C   | `Description`   | Operator-written product description — the seller's own framing: **background for the writer, never evidence** |
+| D   | `Affiliate URL` | The affiliate URL supplied by the operator                                                                     |
+| E   | `Category`      | Product category                                                                                               |
+| F   | `Threads URL`   | Published Threads URL. **Blank before publication.**                                                           |
+| G   | `Status`        | Current workflow state                                                                                         |
 
 A header row is optional. When A1 is `ID`, the first data row is row 2; otherwise
 data starts at row 1. Everything in this skill handles both.
@@ -33,6 +33,11 @@ plugin was not told about.
 | `Hold`              | Human paused it             | No                    |
 | `Cancel`            | Human rejected it           | No                    |
 | `Done`              | Published                   | No                    |
+
+Under `publish_mode: two_stage` there is one more, written by the tool: the
+link-pending status (default `Link Pending`) means the thread is live and its
+link reply has not been posted yet. It is never eligible and never `Done`, which
+is what stops the row from being published twice while it waits.
 
 Only `Ready To Generate` is ever eligible. There is no fallback, no "closest
 match", and no case-insensitive approximation. A row whose status is
@@ -79,7 +84,9 @@ mismatch.
 
 `Status=Done` plus `Threads URL`. This happens inside the publish tool, after a
 confirmed media ID, and nowhere else. **You never write these two fields
-yourself.**
+yourself.** Under `publish_mode: two_stage` the first half of the publish writes
+the `Threads URL` plus the link-pending status instead of `Done`, and the status
+only becomes `Done` when the deferred link reply goes out.
 
 ## What you must never do to the Sheet
 
@@ -93,14 +100,14 @@ yourself.**
 
 ## Common situations
 
-| Situation                       | What it means                    | What to do                                                 |
-| ------------------------------- | -------------------------------- | ---------------------------------------------------------- |
-| No row has `Ready To Generate`  | Nothing to generate              | Tell the human. Stop. Do not pick another status.          |
-| Two rows share an ID            | Data problem                     | Report it; do not guess which one is meant                 |
-| A row has no `Affiliate URL`    | CTA cannot be built              | `threads_publish` refuses. Ask the operator to fill it in. |
-| A row has no `Description`      | Only tier 3-4 evidence available | Shift to category-level framing, or ask for a description  |
-| `Threads URL` is already filled | Already published                | Not eligible. Report it.                                   |
-| Status is blank                 | Not eligible                     | Report it. Do not assume it means ready.                   |
+| Situation                       | What it means                          | What to do                                                 |
+| ------------------------------- | -------------------------------------- | ---------------------------------------------------------- |
+| No row has `Ready To Generate`  | Nothing to generate                    | Tell the human. Stop. Do not pick another status.          |
+| Two rows share an ID            | Data problem                           | Report it; do not guess which one is meant                 |
+| A row has no `Affiliate URL`    | CTA cannot be built                    | `threads_publish` refuses. Ask the operator to fill it in. |
+| A row has no `Description`      | Only independent research is available | Research the category, or ask the operator to fill it in   |
+| `Threads URL` is already filled | Already published                      | Not eligible. Report it.                                   |
+| Status is blank                 | Not eligible                           | Report it. Do not assume it means ready.                   |
 
 ## Duplicate-publish protection
 

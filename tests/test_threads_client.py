@@ -81,6 +81,17 @@ class TestPublishThread:
         assert creates[0][2]["topic_tag"] == "powerbank"
         assert "topic_tag" not in creates[1][2]
 
+    def test_no_link_attachment_is_sent(self) -> None:
+        """Threads builds the preview card from the post text itself, and no API
+        parameter removes it — so the client does not pretend otherwise. Sending
+        `link_attachment` would also count as a second link against the limit."""
+        transport = scripted_transport(happy_path_responses(posts=1))
+        make_client(transport).publish_thread(
+            [{"text": "detail: https://shope.ee/abc123"}], container_wait_seconds=0
+        )
+        create = next(call for call in transport.calls if call[1].endswith("/threads"))
+        assert "link_attachment" not in create[2]
+
     def test_empty_post_list_is_rejected(self) -> None:
         client = make_client(scripted_transport([]))
         with pytest.raises(threads_client.ThreadsAPIError):

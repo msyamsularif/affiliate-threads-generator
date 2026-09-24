@@ -172,6 +172,18 @@ config_schema:
     description: >-
       Refuse to publish when no post carries a disclosure marker.
 
+  disclosure_style:
+    type: str
+    default: "marker"
+    choices: [marker, tag]
+    label: "Disclosure style"
+    description: >-
+      "marker" accepts any configured marker in any post. "tag" requires a
+      hashtag marker on the final post — the one carrying the link — and treats
+      that tag alone as the disclosure, so no sentence mentioning commission is
+      needed. "tag" ignores the sentence-form markers ("komisi", "link
+      afiliasi", ...). Unrecognised values fall back to "marker".
+
   disclosure_markers:
     type: list
     default:
@@ -186,7 +198,10 @@ config_schema:
       - "paid partnership"
       - "iklan berbayar"
     label: "Disclosure markers"
-    description: "Any one of these appearing in a post satisfies the disclosure requirement."
+    description: >-
+      Any one of these appearing in a post satisfies the disclosure requirement
+      under disclosure_style "marker". Under "tag" only the hashtag entries are
+      consulted, and only on the final post.
 
   require_affiliate_url:
     type: bool
@@ -214,8 +229,11 @@ config_schema:
 
   max_posts:
     type: int
-    default: 6
+    default: 10
     label: "Maximum posts per thread"
+    description: >-
+      Upper bound on thread length. Raises the ceiling high enough for the
+      multi-sub-thread shape; min_posts still applies.
 
   min_posts:
     type: int
@@ -240,6 +258,28 @@ config_schema:
       Seconds to wait between creating a media container and publishing it.
       Threads recommends ~30s for media uploads; text-only containers are ready
       almost immediately.
+
+  publish_mode:
+    type: str
+    default: "single"
+    choices: [single, two_stage]
+    label: "Publish mode"
+    description: >-
+      "single" publishes the thread and its affiliate link in one call. "two_stage"
+      publishes the thread first and parks the row in link_pending_status; the
+      link then goes out as a reply, as a second approved call, so it can be
+      added after the post has been seen. Unrecognised values fall back to
+      "single".
+
+  link_pending_status:
+    type: str
+    default: "Link Pending"
+    label: "Link-pending status"
+    description: >-
+      Status written after the first half of a two-stage publish: the thread is
+      live, the affiliate link is not posted yet. Keep it distinct from the other
+      statuses — a value that collides with the eligible, done, hold, cancel or
+      in-progress status is rejected and the default is used instead.
 
   # --- Structural soft signals (warnings only, never blocks) ----------------
   #

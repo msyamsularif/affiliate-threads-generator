@@ -63,6 +63,10 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False), file=sys.stderr)
         return 1
 
+    note = _bridge.settings_note()
+    if note:
+        print(f"note: {note}", file=sys.stderr)
+
     settings = config.resolve(
         {"spreadsheet_id": args.spreadsheet_id, "sheet_tab": args.sheet_tab}
     )

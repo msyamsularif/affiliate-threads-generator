@@ -280,22 +280,10 @@ def validate_thread(
                 )
 
     # ---- affiliate disclosure (hard rule) --------------------------------
-    if settings.require_disclosure:
-        markers = tuple(marker.lower() for marker in settings.disclosure_markers)
-        if not any(
-            marker in str(post.get("text") or "").lower()
-            for post in posts
-            for marker in markers
-        ):
-            report.violations.append(
-                Finding(
-                    "missing_disclosure",
-                    "No post carries an affiliate disclosure. Add one of: "
-                    + ", ".join(settings.disclosure_markers[:6])
-                    + ". Reducing the hard-sell tone is fine; hiding the commercial "
-                    "relationship is not.",
-                )
-            )
+    if settings.require_disclosure and not _disclosure_hit(posts, settings):
+        report.violations.append(
+            Finding("missing_disclosure", _missing_disclosure_message(settings))
+        )
 
     # ---- affiliate URL (hard rule) ---------------------------------------
     if settings.require_affiliate_url:
@@ -471,4 +459,54 @@ def _spec_token_hits(texts: Sequence[str]) -> list[str]:
 def _contains_disclosure_signal(posts: Sequence[dict[str, Any]]) -> bool:
     return any(
         _DISCLOSURE_SIGNAL_RE.search(str(post.get("text") or "")) for post in posts
+    )
+
+
+def _hashtag_markers(markers: Sequence[str]) -> list[str]:
+    """Markers written as a tag (``#ad``) — what the ``tag`` style accepts."""
+    return [marker for marker in markers if marker.strip().startswith("#")]
+
+
+def _disclosure_hit(posts: Sequence[dict[str, Any]], settings: Settings) -> str:
+    """The marker that satisfies the disclosure rule, or ``""``.
+
+    ``marker`` (the default) accepts any configured marker in any post. ``tag``
+    asks for a hashtag on the final post — the post that carries the link — and
+    accepts nothing else, because a bare ``#ad`` there is the whole disclosure.
+    """
+    if settings.disclosure_style == "tag":
+        final_post = str(posts[-1].get("text") or "").lower()
+        for tag in _hashtag_markers(settings.disclosure_markers):
+            if tag.lower() in final_post:
+                return tag
+        return ""
+
+    lowered = [str(post.get("text") or "").lower() for post in posts]
+    for marker in settings.disclosure_markers:
+        if any(marker.lower() in text for text in lowered):
+            return marker
+    return ""
+
+
+def _missing_disclosure_message(settings: Settings) -> str:
+    if settings.disclosure_style != "tag":
+        return (
+            "No post carries an affiliate disclosure. Add one of: "
+            + ", ".join(settings.disclosure_markers[:6])
+            + ". Reducing the hard-sell tone is fine; hiding the commercial "
+            "relationship is not."
+        )
+
+    tags = _hashtag_markers(settings.disclosure_markers)
+    if not tags:
+        return (
+            'disclosure_style is "tag", but disclosure_markers holds no hashtag marker, so no '
+            'post can satisfy it. Add one (for example "#ad") or set disclosure_style back to '
+            '"marker".'
+        )
+    return (
+        "The final post carries no disclosure tag. This configuration asks for a hashtag on the "
+        "last post — one of "
+        + ", ".join(tags[:6])
+        + " — and that tag alone is the disclosure: no sentence about commission is needed."
     )

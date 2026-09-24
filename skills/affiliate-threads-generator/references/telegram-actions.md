@@ -52,11 +52,15 @@ to make impossible.
 2. Hermes' approval gate shows the human the copy and asks for confirmation. This
    is a second, out-of-band confirmation — it exists because an instruction to the
    model is not a guarantee.
-3. The tool re-reads the Sheet. If `Status` is no longer `Ready To Generate`, it
+3. The tool re-reads the Sheet and decides which stage this call is: an eligible
+   row is the thread, and a row parked in the link-pending status is the deferred
+   link reply (under `publish_mode: two_stage`). If `Status` is neither, it
    refuses.
 4. The tool runs the hard guardrails. If any fail, it refuses and lists them.
 5. The tool publishes through the official Threads Graph API.
-6. Only on a confirmed media ID: `Status=Done` and `Threads URL` are written.
+6. Only on a confirmed media ID: `Status=Done` and `Threads URL` are written — or,
+   for the first half of a two-stage publish, `Status=<link_pending_status>` so
+   the row is visibly unfinished.
 
 ### After a successful publish
 
@@ -68,8 +72,39 @@ Report, briefly:
 📊 Sheet updated: Status=Done
 ```
 
+Under `publish_mode: two_stage`, the first publish is not the end of it:
+
+```
+✅ Thread live (link belum dipasang) — Product ID <ID>
+🔗 <threads url>
+📊 Sheet: Status=Link Pending
+
+Bilang ke manusia: kalau postnya sudah dapat view, tinggal bilang
+"pasang linknya" dan aku tambahkan link afiliasinya sebagai reply.
+```
+
 Then save the content-memory note (`content_id`, `angle_type`, `topic`,
 `hook_pattern`) so the next run's novelty check works.
+
+### The deferred link reply (two-stage mode)
+
+The link goes out only when the human asks for it — there is no timer and nothing
+attaches it by itself.
+
+- Trigger: "pasang linknya sekarang", "tambahkan linknya", "udah cukup view-nya".
+- Call `threads_publish` with the same Product ID, `stage: "link"`, and `posts`
+  holding exactly one post: the reply, carrying the affiliate URL and the
+  disclosure (`#ad` at the end is enough under `disclosure_style: tag`).
+- Show that reply as a preview first, with the Product ID, and wait for the
+  approval — a publish is a publish, and this one goes on a public thread.
+- It is refused if the row is not in the link-pending status, so once it has gone
+  out it cannot be posted twice.
+- If it returns `link_published_sheet_write_failed`, the reply is live: do not
+  post it again, re-call stage `link` and it only repairs the Sheet.
+
+If the human decides the thread reads better without the link, `set_status.py <ID>
+Done` is **not** available either (Done belongs to the tool). Cancel or hold the
+row instead, or leave it parked and say that the link was never posted.
 
 ### After a failed publish
 
@@ -82,6 +117,11 @@ Then save the content-memory note (`content_id`, `angle_type`, `topic`,
 - `published_sheet_write_failed` → **the thread is live.** Do not publish again.
   Re-call `threads_publish` with the same `product_id`; the tool will only repair
   the Sheet.
+- `link_published_sheet_write_failed` → **the link reply is live.** Same rule:
+  re-call with the same `product_id` and stage `link`, and it only repairs the
+  Sheet.
+- `input` on a link stage → `posts` did not hold exactly one post. Send the reply
+  alone.
 
 ## Hold
 

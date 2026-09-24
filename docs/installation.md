@@ -176,6 +176,7 @@ A healthy setup looks like:
 ```
   ✓ plugin: found at .../plugins/affiliate-threads-generator (v1.0.2)
   ✓ settings: spreadsheet=... tab=Sheet1 eligible='Ready To Generate' disclosure=required
+  ✓ plugin_settings: 3 setting(s) read from ~/.hermes/config.yaml
   ✓ threads_api: @yourhandle (id 1234567890); token valid=True, expires in 58.4 days
   ✓ sheets: 12 data row(s) in Sheet1; google_api=/.../google_api.py
   ✓ next_candidate: ID 3 — Wireless Earbuds X (row 5)
@@ -183,7 +184,7 @@ A healthy setup looks like:
   ✓ cron_job: affiliate-threads-generator [0 8 * * 0,1,3,5] next=... enabled=True
   ✓ unsynced_publishes: none
 
-8/8 checks passed.
+9/9 checks passed.
 ```
 
 Any `✗` line comes with a `→` hint telling you exactly what to fix.

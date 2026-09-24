@@ -60,6 +60,26 @@ class TestApprovalGate:
         assert "truncated" in directive["message"]
         assert len(directive["message"]) < 5000
 
+    def test_a_deferred_link_reply_says_which_stage_it_is(self, ctx) -> None:  # noqa: ANN001
+        directive = hooks.on_pre_tool_call(
+            tool_name="threads_publish",
+            args={"product_id": "12", "posts": [{"text": "link"}], "stage": "link"},
+        )
+        assert "link reply" in directive["message"].lower()
+
+    def test_the_thread_stage_is_labelled_too(self, ctx) -> None:  # noqa: ANN001
+        directive = hooks.on_pre_tool_call(
+            tool_name="threads_publish",
+            args={"product_id": "12", "posts": [{"text": "a"}], "stage": "thread"},
+        )
+        assert "Stage: the thread itself" in directive["message"]
+
+    def test_an_unspecified_stage_stays_unspecified(self, ctx) -> None:  # noqa: ANN001
+        directive = hooks.on_pre_tool_call(
+            tool_name="threads_publish", args={"product_id": "12", "posts": [{"text": "a"}]}
+        )
+        assert "Stage:" not in directive["message"]
+
     def test_a_missing_product_id_still_gates(self, ctx) -> None:  # noqa: ANN001
         directive = hooks.on_pre_tool_call(tool_name="threads_publish", args={})
         assert directive is not None
@@ -142,6 +162,15 @@ class TestAuditTrail:
         assert entry["ok"] is False
         assert entry["stage"] == "precondition"
         assert "Hold" in entry["error"]
+
+    def test_the_publish_stage_is_audited(self, ctx) -> None:  # noqa: ANN001
+        """The audit trail has to say whether the thread or its link reply went out."""
+        hooks.on_post_tool_call(
+            tool_name="threads_publish",
+            args={"product_id": "12", "posts": [{"text": "a"}], "stage": "link"},
+            result=json.dumps({"ok": True, "status": "link_reply_published"}),
+        )
+        assert runtime.state_get(AUDIT_KEY, default=[])[0]["publish_stage"] == "link"
 
     def test_threads_check_is_also_audited(self, ctx) -> None:  # noqa: ANN001
         hooks.on_post_tool_call(
