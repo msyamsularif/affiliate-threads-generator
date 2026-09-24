@@ -174,7 +174,7 @@ python3 "$SKILL_DIR/scripts/doctor.py"
 A healthy setup looks like:
 
 ```
-  ✓ plugin: found at .../plugins/affiliate-threads-generator (v1.1.0)
+  ✓ plugin: found at .../plugins/affiliate-threads-generator (v1.1.1)
   ✓ settings: spreadsheet=... tab=Sheet1 eligible='Ready To Generate' topic_tag=required
   ✓ plugin_settings: 3 setting(s) read from ~/.hermes/config.yaml
   ✓ threads_api: @yourhandle (id 1234567890); token valid=True, expires in 58.4 days
