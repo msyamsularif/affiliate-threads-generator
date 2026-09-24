@@ -41,7 +41,7 @@ CONFIG_YAML = textwrap.dedent(
             sheet_tab: "Candidates"
             require_affiliate_url: true
             disclosure_markers:
-              - "#iklan"
+              - "iklan berbayar"
               - "link afiliasi"
             blocked_phrases:
               - '\\bproduk ini wajib punya\\b'
@@ -127,7 +127,7 @@ class TestConfigFile:
     def test_settings_reach_config_resolve(self, configured: Path) -> None:  # noqa: ARG002
         resolved = config.resolve()
         assert resolved.sheet_tab == "Candidates"
-        assert resolved.disclosure_markers == ("#iklan", "link afiliasi")
+        assert resolved.disclosure_markers == ("iklan berbayar", "link afiliasi")
         assert resolved.blocked_phrases == (r"\bproduk ini wajib punya\b",)
         assert resolved.max_posts == 4
         assert resolved.columns["status"] == "H"
@@ -221,7 +221,7 @@ class TestFallbackParserAgreesWithPyYaml:
         assert warning == "" and fallback_warning == ""
         assert actual == expected
         assert actual["blocked_phrases"] == [r"\bproduk ini wajib punya\b"]
-        assert actual["disclosure_markers"] == ["#iklan", "link afiliasi"]
+        assert actual["disclosure_markers"] == ["iklan berbayar", "link afiliasi"]
 
     def test_comments_and_quotes_are_handled(self) -> None:
         text = textwrap.dedent(
@@ -287,7 +287,7 @@ class TestLintMatchesPublish:
         {"text": "Kapasitas besar biasanya berarti berat."},
         {"text": "Yang sering disebut di review: kabel USB-C ikut di dalamnya."},
         {"text": "Untuk skenario seperti ini, satu kabel saja sudah cukup."},
-        {"text": f"#iklan {AFFILIATE_URL}"},
+        {"text": f"Iklan berbayar. {AFFILIATE_URL}"},
     ]
 
     DRAFT_TOO_LONG = [
@@ -295,7 +295,7 @@ class TestLintMatchesPublish:
         {"text": "b"},
         {"text": "c"},
         {"text": "d"},
-        {"text": f"#iklan {AFFILIATE_URL}"},
+        {"text": f"Iklan berbayar. {AFFILIATE_URL}"},
     ]
 
     def test_the_lint_uses_the_customised_limits(
@@ -309,7 +309,7 @@ class TestLintMatchesPublish:
     def test_a_draft_outside_the_operator_markers_is_refused(
         self, configured: Path, validate_thread_script: ModuleType, tmp_path: Path  # noqa: ARG002
     ) -> None:
-        posts = [*self.DRAFT_OK[:3], {"text": f"#afiliasi {AFFILIATE_URL}"}]
+        posts = [*self.DRAFT_OK[:3], {"text": f"Komisi: {AFFILIATE_URL}"}]
         exit_code, payload, _ = lint(validate_thread_script, tmp_path, posts)
         assert exit_code == 1
         assert "missing_disclosure" in {item["code"] for item in payload["violations"]}
@@ -353,7 +353,7 @@ class TestLintMatchesPublish:
         assert sheet.writes == []
 
     def test_publish_refuses_a_marker_the_lint_refused(self, configured: Path, publish_env) -> None:  # noqa: ANN001, ARG002
-        posts = [*self.DRAFT_OK[:3], {"text": f"#afiliasi {AFFILIATE_URL}"}]
+        posts = [*self.DRAFT_OK[:3], {"text": f"Komisi: {AFFILIATE_URL}"}]
         publish_env(FakeSheet([make_row(affiliate_url=AFFILIATE_URL)]))
         result = json.loads(
             tools.threads_publish(
@@ -398,7 +398,7 @@ TWO_STAGE_CONFIG = textwrap.dedent(
           settings:
             publish_mode: "two_stage"
             disclosure_markers:
-              - "#iklan"
+              - "iklan berbayar"
               - "link afiliasi"
     """
 )
@@ -413,7 +413,7 @@ class TestTwoStageParity:
         {"text": "Yang sering disebut di review: kabel USB-C ikut di dalamnya."},
         {"text": "Untuk skenario seperti ini, satu kabel sudah cukup."},
     ]
-    REPLY = [{"text": f"Detail lengkapnya di sini: {AFFILIATE_URL} #iklan"}]
+    REPLY = [{"text": f"Detail lengkapnya di sini: {AFFILIATE_URL}\n\nIklan berbayar."}]
 
     @pytest.fixture
     def two_stage_config(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
@@ -503,7 +503,7 @@ TOPIC_TAG_OPTIONAL_CONFIG = textwrap.dedent(
           settings:
             require_topic_tag: false
             disclosure_markers:
-              - "#iklan"
+              - "iklan berbayar"
               - "link afiliasi"
     """
 )
@@ -518,7 +518,7 @@ class TestTopicTagParity:
         {"text": "Kapasitas besar biasanya berarti berat."},
         {"text": "Yang sering disebut di review: kabel USB-C ikut di dalamnya."},
         {"text": "Untuk skenario seperti ini, satu kabel saja sudah cukup."},
-        {"text": f"#iklan {AFFILIATE_URL}"},
+        {"text": f"Iklan berbayar. {AFFILIATE_URL}"},
     ]
 
     @pytest.fixture

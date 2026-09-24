@@ -226,7 +226,7 @@ class TestFullPublishCycle:
         posts = [
             {"text": "a"},
             {"text": "b"},
-            {"text": "#afiliasi https://shope.ee/SOMETHING-ELSE"},
+            {"text": "Link afiliasi. https://shope.ee/SOMETHING-ELSE"},
         ]
         result = call({"product_id": "2", "posts": posts, "confirm_publish": True})
         assert result["stage"] == "guardrails"
@@ -258,7 +258,7 @@ class TestTwoStageCycle:
         {"text": "Dari spesifikasi produknya: BT 5.3 dan IPX4."},
         {"text": "Keterbatasannya: angka 6 jam itu untuk volume normal."},
     ]
-    LINK_REPLY = [{"text": f"Detail lengkapnya di sini: {AFFILIATE_URL} #ad"}]
+    LINK_REPLY = [{"text": f"Detail lengkapnya di sini: {AFFILIATE_URL}\n\nLink afiliasi."}]
 
     def test_the_thread_goes_out_first_and_the_link_follows(self, end_to_end, monkeypatch) -> None:  # noqa: ANN001
         runtime.context().settings["publish_mode"] = "two_stage"

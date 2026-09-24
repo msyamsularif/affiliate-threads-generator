@@ -116,25 +116,24 @@ how the wrong row gets published.
 
 These are enforced by `threads_publish` in code. Nothing here is a suggestion.
 
-| Setting                   | Default                                                                                                                                        | Effect                                                                   |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `require_disclosure`      | `true`                                                                                                                                         | Refuse to publish when no post carries a disclosure marker               |
-| `disclosure_style`        | `marker` (`marker` or `tag`)                                                                                                                   | How the disclosure has to be written — see below                         |
-| `disclosure_markers`      | `#ad`, `#ads`, `#affiliate`, `#afiliasi`, `link afiliasi`, `affiliate link`, `tautan afiliasi`, `komisi`, `paid partnership`, `iklan berbayar` | Any one satisfies the requirement under `marker`                         |
-| `require_affiliate_url`   | `true`                                                                                                                                         | The row's `Affiliate URL` must appear in some post                       |
-| `require_topic_tag`       | `true`                                                                                                                                         | A thread may not publish without a topic tag — see below                 |
-| `allowed_hashtags`        | `[]`                                                                                                                                           | Hashtags the copy may keep, beyond the disclosure markers                |
-| `blocked_phrases`         | 11 regex patterns                                                                                                                              | The fabricated-personal-experience ban. Case-insensitive.                |
-| `min_posts` / `max_posts` | `3` / `10`                                                                                                                                     | Thread length bounds                                                     |
-| `max_chars_per_post`      | `500`                                                                                                                                          | Threads' own limit; emoji count as their UTF-8 byte length               |
-| `max_links_per_post`      | `5`                                                                                                                                            | Threads rejects more                                                     |
-| `container_wait_seconds`  | `5`                                                                                                                                            | Pause between container creation and publishing                          |
-| `publish_mode`            | `single` (`single` or `two_stage`)                                                                                                             | Whether the affiliate link publishes with the thread or as a later reply |
-| `link_pending_status`     | `Link Pending`                                                                                                                                 | Where a two-stage row parks between the two publishes                    |
+| Setting                   | Default                                                                                       | Effect                                                                   |
+| ------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `require_disclosure`      | `true`                                                                                        | Refuse to publish when no post carries a disclosure marker               |
+| `disclosure_markers`      | `link afiliasi`, `affiliate link`, `tautan afiliasi`, `komisi`, `paid partnership`, `iklan berbayar` | Any one satisfies the requirement — a short sentence, never a hashtag    |
+| `require_affiliate_url`   | `true`                                                                                        | The row's `Affiliate URL` must appear in some post                       |
+| `require_topic_tag`       | `true`                                                                                        | A thread may not publish without a topic tag — see below                 |
+| `allowed_hashtags`        | `[]`                                                                                          | Hashtags the copy may keep — empty by default, no hashtag belongs there  |
+| `blocked_phrases`         | 11 regex patterns                                                                             | The fabricated-personal-experience ban. Case-insensitive.                |
+| `min_posts` / `max_posts` | `3` / `10`                                                                                    | Thread length bounds                                                     |
+| `max_chars_per_post`      | `500`                                                                                         | Threads' own limit; emoji count as their UTF-8 byte length               |
+| `max_links_per_post`      | `5`                                                                                           | Threads rejects more                                                     |
+| `container_wait_seconds`  | `5`                                                                                           | Pause between container creation and publishing                          |
+| `publish_mode`            | `single` (`single` or `two_stage`)                                                            | Whether the affiliate link publishes with the thread or as a later reply |
+| `link_pending_status`     | `Link Pending`                                                                                | Where a two-stage row parks between the two publishes                    |
 
 ### Hashtags and topic tags
 
-Threads gives a post exactly **one** clickable tag, calls it a *topic tag*, and
+Threads gives a post exactly **one** clickable tag, calls it a _topic tag_, and
 reads it from the `topic_tag` publish argument rather than from the copy. When
 that topic has a Threads community, the post is also surfaced inside the
 community — the platform's real discovery mechanism. So the plugin treats that
@@ -145,11 +144,11 @@ defect rather than a tactic.
   tag goes in the `topic_tag` argument as the bare topic (1-50 characters, no
   `.` or `&`, no leading `#`). It is metadata: it never appears in the copy, and
   the replies carry none.
-- **`allowed_hashtags` (`[]`)** — the only hashtags the copy may keep are the
-  configured `disclosure_markers` (that is how `disclosure_style: tag` works).
-  Anything else is a hard failure, `hashtag_in_copy`: a trail of
-  `#fyp #racunshopee` at the end of a reply changes nothing about distribution
-  and reads as spam. Add a token here only if you genuinely want it in the text.
+- **`allowed_hashtags` (`[]`)** — empty by default, because the copy carries no
+  hashtags at all. There is no hashtag disclosure either: `#ad` at the end is
+  not used, reads as an unclear tag, and is refused like any other hashtag
+  (`hashtag_in_copy`). Add a token here only if you genuinely want it in the
+  text.
 
 To publish untagged instead:
 
@@ -185,23 +184,24 @@ plugins:
 
 Don't. The specification is explicit that the disclosure stays clear — the goal
 is a lower hard-sell tone, not a hidden commercial relationship. If the wording
-feels clumsy, change the _style_ rather than turning the check off:
+feels clumsy, change the wording, not the check: one short sentence is enough,
+and it does not have to mention commission.
 
-| `disclosure_style` | What satisfies the rule                                                                                                                                                                                                                                                                          |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `marker` (default) | Any configured `disclosure_markers` entry, in any post. "Link afiliasi." on the post with the URL is the usual form.                                                                                                                                                                             |
-| `tag`              | A hashtag marker (one of the `#...` entries, e.g. `#ad`) on the **final** post — the one carrying the link in single mode, the link reply in two-stage mode. That tag alone is the disclosure, so no sentence about commission is needed. Sentence-form markers are not consulted in this style. |
-
-```yaml
-plugins:
-  entries:
-    affiliate-threads-generator:
-      settings:
-        disclosure_style: "tag"
+```
+Link afiliasi.
 ```
 
-Under `tag`, `... #ad` at the end of the last post is a complete disclosure. What
-is never allowed is dropping it, burying it, or putting it somewhere the reader
+```
+Detail produknya:
+https://...
+
+Link afiliasi.
+```
+
+The usual place is the post carrying the link. There is no hashtag form: a
+`#...` entry in `disclosure_markers` is dropped (the defaults are sentences), and
+`#ad` in the copy is refused by `hashtag_in_copy`. What is never allowed is
+dropping the disclosure, burying it, or putting it somewhere the reader
 following the link will not have seen. See
 `skills/affiliate-threads-generator/references/editorial-rules.md`.
 
@@ -318,21 +318,16 @@ plugins:
         max_posts: 5
         require_approval_prompt: true
         disclosure_markers:
-          - "#afiliasi"
           - "link afiliasi"
           - "komisi"
-        # Optional: a bare hashtag on the final post is the whole disclosure.
-        # disclosure_style: "tag"
-        #
         # Optional: publish the thread first and attach the link as a reply
         # once the post has been seen. Two approvals, two publishes.
         # publish_mode: "two_stage"
         # link_pending_status: "Link Pending"
         #
-        # Optional: allow a hashtag in the copy (empty means only the
-        # disclosure markers are allowed). The topic tag is separate and is
-        # required by default: it travels in the topic_tag argument, not in the
-        # text.
+        # Optional: allow a hashtag in the copy (empty means no hashtags at all,
+        # which is the default). The topic tag is separate and is required by
+        # default: it travels in the topic_tag argument, not in the text.
         # allowed_hashtags: ["#ootd"]
         # require_topic_tag: false
 ```

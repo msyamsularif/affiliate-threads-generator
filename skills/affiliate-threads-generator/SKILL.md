@@ -166,13 +166,13 @@ reset — ask.
 All scripts live in this skill's directory. `${HERMES_SKILL_DIR}` is substituted
 for you when the skill loads.
 
-| Need                              | Command                                                                    |
-| --------------------------------- | -------------------------------------------------------------------------- |
-| Pick the next candidate           | `python3 ${HERMES_SKILL_DIR}/scripts/select_candidate.py`                  |
-| Set a status (hold/cancel/resume) | `python3 ${HERMES_SKILL_DIR}/scripts/set_status.py <PRODUCT_ID> <STATUS>`  |
+| Need                              | Command                                                                                          |
+| --------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Pick the next candidate           | `python3 ${HERMES_SKILL_DIR}/scripts/select_candidate.py`                                        |
+| Set a status (hold/cancel/resume) | `python3 ${HERMES_SKILL_DIR}/scripts/set_status.py <PRODUCT_ID> <STATUS>`                        |
 | Lint a draft before showing it    | `python3 ${HERMES_SKILL_DIR}/scripts/validate_thread.py --file draft.json --topic-tag "<topic>"` |
-| Health check                      | `python3 ${HERMES_SKILL_DIR}/scripts/doctor.py`                            |
-| Threads token status / refresh    | `python3 ${HERMES_SKILL_DIR}/scripts/threads_token.py status`              |
+| Health check                      | `python3 ${HERMES_SKILL_DIR}/scripts/doctor.py`                                                  |
+| Threads token status / refresh    | `python3 ${HERMES_SKILL_DIR}/scripts/threads_token.py status`                                    |
 
 | Tool                                                            | Use                                                              |
 | --------------------------------------------------------------- | ---------------------------------------------------------------- |
@@ -335,8 +335,9 @@ the opening shapes in `references/hook-patterns.md`.
 becomes clickable, it is called a topic tag, and it is passed to
 `threads_publish` as `topic_tag` — metadata, not copy. A hashtag trail at the end
 of a reply buys no reach and is the clearest tell that a thread is an ad; the
-tool refuses it (`hashtag_in_copy`). The only hashtags allowed in the copy are the
-configured disclosure markers. Pick the one topic a reader would search for —
+tool refuses it (`hashtag_in_copy`). That includes `#ad`: a hashtag is not a
+disclosure here — the disclosure is a short sentence like "Link afiliasi." — and
+nothing is allowlisted by default. Pick the one topic a reader would search for —
 the conversation, not the product name — within the platform's limits (1-50
 characters, no `.` or `&`, no leading `#`). Details: `references/content-rules.md`.
 
@@ -388,9 +389,11 @@ that only talks the reader toward the link ("klik link di bawah", "link di bio",
 AI-written — treat each as a reason to look again.
 
 Three violations are newer to the list and easy to trip: `hashtag_in_copy` (a
-`#tag` that is not a configured disclosure marker), `topic_tag_missing` (no topic
-tag was passed while `require_topic_tag` is on), and `topic_tag_invalid` (the tag
-breaks the platform's own limits — that publish would have failed at the API).
+`#tag` in the copy — any hashtag, `#ad` included, since a hashtag is not a
+disclosure and only explicitly allowlisted tokens may stay), `topic_tag_missing`
+(no topic tag was passed while `require_topic_tag` is on), and `topic_tag_invalid`
+(the tag breaks the platform's own limits — that publish would have failed at the
+API).
 
 The lint follows the publish mode, so pass `--stage` when you are linting
 something other than a whole thread. Under `publish_mode: two_stage` the thread
@@ -481,8 +484,8 @@ Full semantics, including edge cases and exact wording: `references/telegram-act
 
 | Reply                             | Action                                                                                                                                                         |
 | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| approve / setuju / post aja / gas | Call `threads_publish` with the Product ID from the preview, the exact copy, and the preview's topic tag. Then report the URL.                                   |
-| ganti tag-nya jadi <X>            | Change only the topic tag, checked against the platform's limits, and re-show the topic line. The copy does not move — the tag is metadata.                     |
+| approve / setuju / post aja / gas | Call `threads_publish` with the Product ID from the preview, the exact copy, and the preview's topic tag. Then report the URL.                                 |
+| ganti tag-nya jadi <X>            | Change only the topic tag, checked against the platform's limits, and re-show the topic line. The copy does not move — the tag is metadata.                    |
 | pasang linknya / tambahkan link   | Two-stage mode only. Preview the one-post link reply, wait for approval, then call `threads_publish` with the same Product ID, `stage: "link"`, and that post. |
 | hold                              | `set_status.py <ID> Hold`. No publish.                                                                                                                         |
 | cancel / jangan dipublish         | `set_status.py <ID> Cancel`. No publish.                                                                                                                       |
@@ -510,23 +513,23 @@ thread's novelty check possible.
 
 ## Pitfalls
 
-| Symptom                                           | What is actually happening                                                                                           |
-| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `threads_publish` returns `stage: "precondition"` | The Sheet row changed — probably held or cancelled after the preview. Report it; do not retry.                       |
-| `stage: "guardrails"`                             | The copy breaks a hard rule. Fix the listed violations and show a new preview.                                       |
-| `stage: "credentials"`                            | No `THREADS_ACCESS_TOKEN`. Setup problem, not a content problem.                                                     |
-| `stage: "publish"` with a rate-limit code         | Threads allows 250 posts / 1000 replies per 24h. Wait; do not hammer it.                                             |
-| `status: "published_sheet_write_failed"`          | **The thread is live.** Do not publish again. Re-call with the same `product_id` — it only repairs the Sheet.        |
-| Shopee page fetch failed                          | Expected. Research from independent sources instead; do not retry with a bypass.                                     |
-| `select_candidate.py` returns `candidate: null`   | Nothing is `Ready To Generate`. Say so and stop.                                                                     |
-| Human replies with just "ok"                      | Ambiguous. Ask which of approve/hold/cancel they mean.                                                               |
+| Symptom                                           | What is actually happening                                                                                                                                                                                                                            |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `threads_publish` returns `stage: "precondition"` | The Sheet row changed — probably held or cancelled after the preview. Report it; do not retry.                                                                                                                                                        |
+| `stage: "guardrails"`                             | The copy breaks a hard rule. Fix the listed violations and show a new preview.                                                                                                                                                                        |
+| `stage: "credentials"`                            | No `THREADS_ACCESS_TOKEN`. Setup problem, not a content problem.                                                                                                                                                                                      |
+| `stage: "publish"` with a rate-limit code         | Threads allows 250 posts / 1000 replies per 24h. Wait; do not hammer it.                                                                                                                                                                              |
+| `status: "published_sheet_write_failed"`          | **The thread is live.** Do not publish again. Re-call with the same `product_id` — it only repairs the Sheet.                                                                                                                                         |
+| Shopee page fetch failed                          | Expected. Research from independent sources instead; do not retry with a bypass.                                                                                                                                                                      |
+| `select_candidate.py` returns `candidate: null`   | Nothing is `Ready To Generate`. Say so and stop.                                                                                                                                                                                                      |
+| Human replies with just "ok"                      | Ambiguous. Ask which of approve/hold/cancel they mean.                                                                                                                                                                                                |
 | A link card shows on the post with the URL        | Threads builds it from the first URL in a text-only post, and no API removes it. An image post carries no card at all, and `publish_mode: two_stage` keeps the card off every value post — say that instead of promising a removal the API cannot do. |
-| `hashtag_in_copy`                                 | A `#tag` that is not a configured disclosure marker is in the copy. Drop the trail: the topic is metadata (`topic_tag`), and only the disclosure marker may stay in the text. |
-| `topic_tag_missing`                               | `require_topic_tag` is on (the default) and nothing was passed. Choose the topic a reader would search for — not the product name — show it on the preview, and pass it to `threads_publish`. |
-| `topic_tag_invalid`                               | The tag breaks the platform's limits: 1-50 characters, no `.` or `&`, no leading `#`, one line. |
-| `funnel_phrase` warning                           | Copy like "klik link di bawah" or "cek reply" points at the link instead of giving a reason to click it. Rewrite it as something the reader gets. |
-| `stage: "input"` on a link reply                  | The link stage publishes one post. `posts` must hold exactly one item — the reply, with the URL and the disclosure.  |
-| A row is stuck on `Link Pending`                  | The thread is live and its link reply was never approved. Preview that reply and wait; do not republish the thread.  |
+| `hashtag_in_copy`                                 | A `#tag` is in the copy — including `#ad`, which is not a disclosure here. Drop the trail: the disclosure is a sentence, the topic is metadata (`topic_tag`), and only explicitly allowlisted tokens may stay in the text.                                                                         |
+| `topic_tag_missing`                               | `require_topic_tag` is on (the default) and nothing was passed. Choose the topic a reader would search for — not the product name — show it on the preview, and pass it to `threads_publish`.                                                         |
+| `topic_tag_invalid`                               | The tag breaks the platform's limits: 1-50 characters, no `.` or `&`, no leading `#`, one line.                                                                                                                                                       |
+| `funnel_phrase` warning                           | Copy like "klik link di bawah" or "cek reply" points at the link instead of giving a reason to click it. Rewrite it as something the reader gets.                                                                                                     |
+| `stage: "input"` on a link reply                  | The link stage publishes one post. `posts` must hold exactly one item — the reply, with the URL and the disclosure.                                                                                                                                   |
+| A row is stuck on `Link Pending`                  | The thread is live and its link reply was never approved. Preview that reply and wait; do not republish the thread.                                                                                                                                   |
 
 ## Verification
 
@@ -545,12 +548,12 @@ Before you send the preview, confirm all of these are true:
 - [ ] The thread's substance comes from independent evidence, not from the seller's description
 - [ ] Anything taken from the seller's material is attributed to the seller
 - [ ] No fabricated first-hand experience
-- [ ] No post carries a hashtag beyond the configured disclosure marker
+- [ ] No post carries a hashtag at all — no `#ad` either, since a hashtag is not a disclosure
 - [ ] Exactly one topic tag is chosen, it names the conversation rather than the product, and the preview shows it
 - [ ] The topic tag respects the platform's limits (1-50 characters, no `.` or `&`, no leading `#`)
 - [ ] The `hook_pattern` is not a repeat of the last two threads
 - [ ] A trade-off or limitation is present when the angle has room for one, and it is real
-- [ ] Disclosure is present, in the shape the configuration asks for, on the post carrying the affiliate URL
+- [ ] Disclosure is present as a short sentence (never a hashtag) on the post carrying the affiliate URL
 - [ ] The ending gives the reader something useful instead of summarizing
 - [ ] `validate_thread.py` reports zero violations — run it with `--topic-tag` and the stage the draft is for
 - [ ] In two-stage mode the preview says the link is deferred, and the thread body really has no URL in it

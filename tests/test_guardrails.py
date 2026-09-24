@@ -156,79 +156,55 @@ class TestDisclosure:
         assert "missing_disclosure" not in {item.code for item in report.violations}
 
 
-class TestTagDisclosureStyle:
-    """``disclosure_style: tag`` — a bare hashtag on the final post is the whole
-    disclosure. The operator chooses this when a commission sentence reads as
-    hard-sell; the commercial relationship still has to be visible, so the tag
-    is required on the post carrying the link."""
+class TestDisclosureIsASentence:
+    """The disclosure is a sentence in the copy — never a hashtag.
 
-    @pytest.fixture
-    def tag_settings(self, settings: config.Settings) -> config.Settings:
-        import dataclasses
-
-        return dataclasses.replace(settings, disclosure_style="tag")
+    ``#ad`` at the end is not used: it reads as an unclear tag, and a hashtag
+    anywhere in the copy is refused by ``hashtag_in_copy`` anyway, so a hashtag
+    can never be what satisfies this rule."""
 
     def codes(self, report: guardrails.GuardrailReport) -> set[str]:
         return {item.code for item in report.violations}
 
-    def test_a_bare_tag_on_the_final_post_is_enough(self, tag_settings: config.Settings) -> None:
+    def test_a_sentence_marker_satisfies_the_rule(self, settings: config.Settings) -> None:
         posts = [
             {"text": "Kapasitas besar biasanya berarti berat."},
             {"text": "Yang sering disebut di review: kabel USB-C ikut di dalamnya."},
             {"text": "Untuk skenario seperti ini, satu kabel sudah cukup."},
+            {"text": "https://shope.ee/abc123\n\nLink afiliasi."},
+        ]
+        report = guardrails.validate_thread(posts, settings, affiliate_url="https://shope.ee/abc123")
+        assert "missing_disclosure" not in self.codes(report)
+
+    def test_a_hashtag_is_not_a_disclosure(self, settings: config.Settings) -> None:
+        posts = [
+            {"text": "a"},
+            {"text": "b"},
             {"text": "https://shope.ee/abc123 #ad"},
         ]
-        report = guardrails.validate_thread(posts, tag_settings, affiliate_url="https://shope.ee/abc123")
-        assert "missing_disclosure" not in self.codes(report)
-        assert not any("komisi" in str(post["text"]) for post in posts)
-
-    def test_the_tag_must_be_on_the_final_post(self, tag_settings: config.Settings) -> None:
-        posts = [
-            {"text": "Post pembuka #ad"},
-            {"text": "b"},
-            {"text": "https://shope.ee/abc123"},
-        ]
-        report = guardrails.validate_thread(posts, tag_settings, affiliate_url="https://shope.ee/abc123")
+        report = guardrails.validate_thread(posts, settings, affiliate_url="https://shope.ee/abc123")
         assert "missing_disclosure" in self.codes(report)
+        assert "hashtag_in_copy" in self.codes(report)
 
-    def test_a_sentence_marker_alone_does_not_satisfy_the_tag_style(
-        self, tag_settings: config.Settings
-    ) -> None:
-        posts = [
-            {"text": "a"},
-            {"text": "b"},
-            {"text": "Link afiliasi: https://shope.ee/abc123"},
-        ]
-        report = guardrails.validate_thread(posts, tag_settings, affiliate_url="https://shope.ee/abc123")
-        assert "missing_disclosure" in self.codes(report)
-
-    def test_an_unknown_hashtag_is_not_a_marker(self, tag_settings: config.Settings) -> None:
-        posts = [
-            {"text": "a"},
-            {"text": "b"},
-            {"text": "https://shope.ee/abc123 #promo"},
-        ]
-        report = guardrails.validate_thread(posts, tag_settings, affiliate_url="https://shope.ee/abc123")
-        assert "missing_disclosure" in self.codes(report)
-
-    def test_a_tag_style_without_hashtag_markers_says_why(self, settings: config.Settings) -> None:
+    def test_a_hashtag_shaped_marker_is_ignored(self) -> None:
+        """A ``#...`` marker can never be satisfied — the hashtag rule refuses it
+        — so it is not consulted, even when a configuration still names one."""
         import dataclasses
 
-        broken = dataclasses.replace(
-            settings, disclosure_style="tag", disclosure_markers=("komisi",)
+        configured = dataclasses.replace(
+            config.Settings(require_topic_tag=False), disclosure_markers=("#iklan",)
         )
-        posts = [{"text": "a"}, {"text": "b"}, {"text": "https://shope.ee/abc123 #ad"}]
-        report = guardrails.validate_thread(posts, broken, affiliate_url="https://shope.ee/abc123")
-        violation = next(item for item in report.violations if item.code == "missing_disclosure")
-        assert "no hashtag marker" in violation.message
+        posts = [{"text": "a"}, {"text": "b"}, {"text": "https://shope.ee/abc123 #iklan"}]
+        report = guardrails.validate_thread(posts, configured, affiliate_url="https://shope.ee/abc123")
+        assert "missing_disclosure" in self.codes(report)
 
-    def test_the_default_style_still_reads_any_marker_anywhere(
+    def test_any_configured_sentence_marker_works_wherever_it_sits(
         self, settings: config.Settings
     ) -> None:
         posts = [
             {"text": "a"},
             {"text": "b"},
-            {"text": "https://shope.ee/abc123 Link afiliasi."},
+            {"text": "https://shope.ee/abc123\n\nLink afiliasi."},
         ]
         report = guardrails.validate_thread(posts, settings, affiliate_url="https://shope.ee/abc123")
         assert "missing_disclosure" not in self.codes(report)
@@ -236,12 +212,12 @@ class TestTagDisclosureStyle:
 
 class TestAffiliateUrl:
     def test_missing_from_row_is_rejected(self, settings: config.Settings) -> None:
-        posts = [{"text": "a"}, {"text": "b"}, {"text": "#afiliasi"}]
+        posts = [{"text": "a"}, {"text": "b"}, {"text": "Link afiliasi."}]
         report = guardrails.validate_thread(posts, settings, affiliate_url="")
         assert "affiliate_url_missing_from_row" in {item.code for item in report.violations}
 
     def test_not_in_thread_is_rejected(self, settings: config.Settings) -> None:
-        posts = [{"text": "a"}, {"text": "b"}, {"text": "#afiliasi https://other.example"}]
+        posts = [{"text": "a"}, {"text": "b"}, {"text": "Link afiliasi. https://other.example"}]
         report = guardrails.validate_thread(
             posts, settings, affiliate_url="https://shope.ee/abc123"
         )
@@ -251,7 +227,7 @@ class TestAffiliateUrl:
         posts = [
             {"text": "a"},
             {"text": "b"},
-            {"text": "#afiliasi https://shope.ee/abc123/"},
+            {"text": "Link afiliasi. https://shope.ee/abc123/"},
         ]
         report = guardrails.validate_thread(
             posts, settings, affiliate_url="https://shope.ee/abc123"
@@ -264,7 +240,7 @@ class TestSoftWarnings:
         posts = [
             {"text": "Produk ini praktis dan nyaman digunakan."},
             {"text": "b"},
-            {"text": "#afiliasi https://shope.ee/abc123"},
+            {"text": "Link afiliasi. https://shope.ee/abc123"},
         ]
         report = guardrails.validate_thread(
             posts, settings, affiliate_url="https://shope.ee/abc123"
@@ -281,7 +257,7 @@ class TestSoftWarnings:
         posts = [
             {"text": "Penting untuk dicatat bahwa ini bagus."},
             {"text": "b"},
-            {"text": "#afiliasi https://shope.ee/abc123"},
+            {"text": "Link afiliasi. https://shope.ee/abc123"},
         ]
         report = guardrails.validate_thread(
             posts, settings, affiliate_url="https://shope.ee/abc123"
@@ -294,7 +270,7 @@ class TestSoftWarnings:
             {"text": "Powerbank Z juga ..."},
             {"text": "Powerbank Z lagi ..."},
             {"text": "Powerbank Z terakhir ..."},
-            {"text": "#afiliasi https://shope.ee/abc123"},
+            {"text": "Link afiliasi. https://shope.ee/abc123"},
         ]
         report = guardrails.validate_thread(
             posts,
@@ -329,7 +305,7 @@ class TestStructuralSignals:
             {"text": "Jadi, kapasitas besar selalu berarti berat."},
             {"text": "Makanya, yang paling sering dipakai justru yang paling ringan."},
             {"text": "Kesimpulannya, ini bukan buat semua orang."},
-            {"text": "#afiliasi https://shope.ee/abc123"},
+            {"text": "Link afiliasi. https://shope.ee/abc123"},
         ]
         report = guardrails.validate_thread(
             posts, settings, affiliate_url="https://shope.ee/abc123"
@@ -341,7 +317,7 @@ class TestStructuralSignals:
         posts = [
             {"text": "Beratnya menjadi alasan utama orang melewatinya."},
             {"text": "Kapasitas menjadi alasan orang membelinya."},
-            {"text": "#afiliasi https://shope.ee/abc123"},
+            {"text": "Link afiliasi. https://shope.ee/abc123"},
         ]
         report = guardrails.validate_thread(
             posts, settings, affiliate_url="https://shope.ee/abc123"
@@ -352,7 +328,7 @@ class TestStructuralSignals:
         posts = [
             {"text": "Dua catatan: Pertama, kapasitasnya besar. Kedua, beratnya ikut naik."},
             {"text": "b"},
-            {"text": "#afiliasi https://shope.ee/abc123"},
+            {"text": "Link afiliasi. https://shope.ee/abc123"},
         ]
         report = guardrails.validate_thread(
             posts, settings, affiliate_url="https://shope.ee/abc123"
@@ -363,7 +339,7 @@ class TestStructuralSignals:
         posts = [
             {"text": "Pertama kali lihat, ukurannya terlihat kecil."},
             {"text": "Kedua kalinya, baru terasa bedanya."},
-            {"text": "#afiliasi https://shope.ee/abc123"},
+            {"text": "Link afiliasi. https://shope.ee/abc123"},
         ]
         report = guardrails.validate_thread(
             posts, settings, affiliate_url="https://shope.ee/abc123"
@@ -374,7 +350,7 @@ class TestStructuralSignals:
         posts = [
             {"text": "Mari kita bahas daya tahannya."},
             {"text": "Yang perlu kamu tahu soal kapasitasnya."},
-            {"text": "#afiliasi https://shope.ee/abc123"},
+            {"text": "Link afiliasi. https://shope.ee/abc123"},
         ]
         report = guardrails.validate_thread(
             posts, settings, affiliate_url="https://shope.ee/abc123"
@@ -385,7 +361,7 @@ class TestStructuralSignals:
         posts = [
             {"text": "20000mAh, 22.5W, 380g, 15cm, 6 jam, 2 liter."},
             {"text": "b"},
-            {"text": "#afiliasi https://shope.ee/abc123"},
+            {"text": "Link afiliasi. https://shope.ee/abc123"},
         ]
         report = guardrails.validate_thread(
             posts, settings, affiliate_url="https://shope.ee/abc123"
@@ -400,7 +376,7 @@ class TestStructuralSignals:
             {"text": "Jadi, satu."},
             {"text": "Makanya, dua."},
             {"text": "Kesimpulannya, tiga."},
-            {"text": "#afiliasi https://shope.ee/abc123"},
+            {"text": "Link afiliasi. https://shope.ee/abc123"},
         ]
         report = guardrails.validate_thread(
             posts, relaxed, affiliate_url="https://shope.ee/abc123"
@@ -416,7 +392,7 @@ class TestStructuralSignals:
                 )
             },
             {"text": "Mari kita bahas. Yang perlu kamu tahu: ini panjang."},
-            {"text": "#afiliasi https://shope.ee/abc123"},
+            {"text": "Link afiliasi. https://shope.ee/abc123"},
         ]
         report = guardrails.validate_thread(
             posts, settings, affiliate_url="https://shope.ee/abc123"
@@ -437,7 +413,7 @@ class TestHashtags:
         posts = [
             {"text": "a"},
             {"text": "b"},
-            {"text": "#afiliasi https://shope.ee/abc123\n\n#rekomendasi #belanjaonline"},
+            {"text": "Link afiliasi. https://shope.ee/abc123\n\n#rekomendasi #belanjaonline"},
         ]
         report = guardrails.validate_thread(
             posts, settings, affiliate_url="https://shope.ee/abc123"
@@ -446,16 +422,30 @@ class TestHashtags:
         assert violation.post_index == 2
         assert violation.detail["tags"] == ["rekomendasi", "belanjaonline"]
 
-    def test_the_disclosure_marker_may_stay(self, settings: config.Settings) -> None:
+    def test_a_sentence_marker_leaves_the_draft_clean(self, settings: config.Settings) -> None:
         posts = [
             {"text": "a"},
             {"text": "b"},
-            {"text": "#afiliasi https://shope.ee/abc123"},
+            {"text": "Link afiliasi. https://shope.ee/abc123"},
         ]
         report = guardrails.validate_thread(
             posts, settings, affiliate_url="https://shope.ee/abc123"
         )
         assert report.ok, [item.as_dict() for item in report.violations]
+
+    def test_a_disclosure_hashtag_is_refused_like_any_other(
+        self, settings: config.Settings
+    ) -> None:
+        """``#ad`` was once the tag-style disclosure; it is a plain hashtag now."""
+        posts = [
+            {"text": "a"},
+            {"text": "b"},
+            {"text": "https://shope.ee/abc123 #ad"},
+        ]
+        report = guardrails.validate_thread(
+            posts, settings, affiliate_url="https://shope.ee/abc123"
+        )
+        assert "hashtag_in_copy" in self.codes(report)
 
     def test_the_operator_allowlist_can_keep_a_tag(self, settings: config.Settings) -> None:
         import dataclasses
@@ -464,14 +454,14 @@ class TestHashtags:
         posts = [
             {"text": "a"},
             {"text": "b"},
-            {"text": "#afiliasi https://shope.ee/abc123\n\n#ootd"},
+            {"text": "Link afiliasi. https://shope.ee/abc123\n\n#ootd"},
         ]
         report = guardrails.validate_thread(
             posts, allowed, affiliate_url="https://shope.ee/abc123"
         )
         assert "hashtag_in_copy" not in self.codes(report)
 
-        posts[-1]["text"] = "#afiliasi https://shope.ee/abc123\n\n#promo"
+        posts[-1]["text"] = "Link afiliasi. https://shope.ee/abc123\n\n#promo"
         report = guardrails.validate_thread(
             posts, allowed, affiliate_url="https://shope.ee/abc123"
         )
@@ -499,7 +489,7 @@ class TestFunnelLanguage:
         posts = [
             {"text": "Kapasitas besar biasanya berarti berat."},
             {"text": "Kalau mau detail lengkapnya, klik link di bawah ya."},
-            {"text": "#afiliasi https://shope.ee/abc123"},
+            {"text": "Link afiliasi. https://shope.ee/abc123"},
         ]
         report = guardrails.validate_thread(
             posts, settings, affiliate_url="https://shope.ee/abc123"
@@ -511,7 +501,7 @@ class TestFunnelLanguage:
         posts = [
             {"text": "Kapasitas besar biasanya berarti berat."},
             {"text": "Detail produknya ada di sini, buat yang penasaran ukurannya."},
-            {"text": "#afiliasi https://shope.ee/abc123"},
+            {"text": "Link afiliasi. https://shope.ee/abc123"},
         ]
         report = guardrails.validate_thread(
             posts, settings, affiliate_url="https://shope.ee/abc123"
@@ -527,7 +517,7 @@ class TestTopicTag:
     POSTS = [
         {"text": "Kapasitas besar biasanya berarti berat."},
         {"text": "Yang sering disebut di review: kabel USB-C ikut di dalamnya."},
-        {"text": "#afiliasi https://shope.ee/abc123"},
+        {"text": "Link afiliasi. https://shope.ee/abc123"},
     ]
 
     def codes(self, report: guardrails.GuardrailReport) -> set[str]:

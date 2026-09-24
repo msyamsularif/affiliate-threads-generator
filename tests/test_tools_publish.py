@@ -195,7 +195,7 @@ class TestGuardrails:
         posts = [
             {"text": "Aku sudah coba ini seminggu."},
             {"text": "b"},
-            {"text": f"#afiliasi {AFFILIATE_URL}"},
+            {"text": f"Link afiliasi. {AFFILIATE_URL}"},
         ]
         result = call({"product_id": "12", "posts": posts, "confirm_publish": True})
         assert result["stage"] == "guardrails"
@@ -207,7 +207,7 @@ class TestGuardrails:
         posts = [
             {"text": "Produk ini praktis dan nyaman digunakan."},
             {"text": "b"},
-            {"text": f"#afiliasi {AFFILIATE_URL}"},
+            {"text": f"Link afiliasi. {AFFILIATE_URL}"},
         ]
         result = call({"product_id": "12", "posts": posts, "confirm_publish": True})
         assert result["ok"] is True
@@ -223,7 +223,7 @@ class TestTopicTag:
     POSTS = [
         {"text": "a"},
         {"text": "b"},
-        {"text": f"#afiliasi {AFFILIATE_URL}"},
+        {"text": f"Link afiliasi. {AFFILIATE_URL}"},
     ]
 
     def codes(self, result: dict) -> set[str]:
@@ -279,7 +279,7 @@ class TestTopicTag:
         sheet = publish_env(FakeSheet([make_row()]))
         posts = [
             *self.POSTS[:2],
-            {"text": f"#afiliasi {AFFILIATE_URL}\n\n#fyp #racunshopee"},
+            {"text": f"Link afiliasi. {AFFILIATE_URL}\n\n#fyp #racunshopee"},
         ]
         result = call({"product_id": "12", "posts": posts, "confirm_publish": True})
         assert result["stage"] == "guardrails"
@@ -294,7 +294,7 @@ class TestCredentials:
         posts = [
             {"text": "a"},
             {"text": "b"},
-            {"text": f"#afiliasi {AFFILIATE_URL}"},
+            {"text": f"Link afiliasi. {AFFILIATE_URL}"},
         ]
         result = call({"product_id": "12", "posts": posts, "confirm_publish": True})
         assert result["stage"] == "credentials"
@@ -309,7 +309,7 @@ class TestHappyPath:
             {"text": "a"},
             {"text": "b"},
             {"text": "c"},
-            {"text": f"#afiliasi {AFFILIATE_URL}"},
+            {"text": f"Link afiliasi. {AFFILIATE_URL}"},
         ]
 
         result = call({"product_id": "12", "posts": posts, "confirm_publish": True})
@@ -344,7 +344,7 @@ class TestHappyPath:
         posts = [
             {"text": "a"},
             {"text": "b"},
-            {"text": f"#afiliasi {AFFILIATE_URL}"},
+            {"text": f"Link afiliasi. {AFFILIATE_URL}"},
         ]
 
         result = call({"product_id": "12", "posts": posts, "confirm_publish": True})
@@ -368,7 +368,7 @@ class TestHappyPath:
         posts = [
             {"text": "a"},
             {"text": "b"},
-            {"text": f"#afiliasi {AFFILIATE_URL}"},
+            {"text": f"Link afiliasi. {AFFILIATE_URL}"},
         ]
         result = call({"product_id": "12", "posts": posts, "confirm_publish": True})
         assert result["ok"] is False
@@ -383,7 +383,7 @@ class TestSheetWriteFailureRecovery:
         posts = [
             {"text": "a"},
             {"text": "b"},
-            {"text": f"#afiliasi {AFFILIATE_URL}"},
+            {"text": f"Link afiliasi. {AFFILIATE_URL}"},
         ]
 
         result = call({"product_id": "12", "posts": posts, "confirm_publish": True})
@@ -403,7 +403,7 @@ class TestSheetWriteFailureRecovery:
         posts = [
             {"text": "a"},
             {"text": "b"},
-            {"text": f"#afiliasi {AFFILIATE_URL}"},
+            {"text": f"Link afiliasi. {AFFILIATE_URL}"},
         ]
 
         first = call({"product_id": "12", "posts": posts, "confirm_publish": True})
@@ -433,7 +433,7 @@ class TestSheetWriteFailureRecovery:
         posts = [
             {"text": "a"},
             {"text": "b"},
-            {"text": f"#afiliasi {AFFILIATE_URL}"},
+            {"text": f"Link afiliasi. {AFFILIATE_URL}"},
         ]
 
         call({"product_id": "12", "posts": posts, "confirm_publish": True})
@@ -452,7 +452,7 @@ class TestSheetWriteFailureRecovery:
         posts = [
             {"text": "a"},
             {"text": "b"},
-            {"text": f"#afiliasi {AFFILIATE_URL}"},
+            {"text": f"Link afiliasi. {AFFILIATE_URL}"},
         ]
         call({"product_id": "12", "posts": posts, "confirm_publish": True})
 
@@ -513,7 +513,7 @@ class TestTwoStagePublish:
         {"text": "Yang sering disebut di review: kabel USB-C ikut di dalamnya."},
         {"text": "Untuk skenario seperti ini, satu kabel sudah cukup."},
     ]
-    LINK_REPLY = [{"text": f"Detail lengkapnya di sini: {AFFILIATE_URL} #ad"}]
+    LINK_REPLY = [{"text": f"Detail lengkapnya di sini: {AFFILIATE_URL}\n\nLink afiliasi."}]
     LINK_RESPONSES = [
         (200, {"id": "container-link"}),
         (200, {"id": "container-link", "status": "FINISHED"}),

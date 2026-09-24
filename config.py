@@ -93,12 +93,6 @@ def _as_int(value: Any, default: int) -> int:  # noqa: ANN401
         return default
 
 
-def _disclosure_style(value: Any) -> str:  # noqa: ANN401
-    """``tag`` or ``marker``; anything unrecognised falls back to ``marker``."""
-    text = str(value or "").strip().lower()
-    return text if text in DISCLOSURE_STYLES else DEFAULT_DISCLOSURE_STYLE
-
-
 def _publish_mode(value: Any) -> str:  # noqa: ANN401
     """``two_stage`` or ``single``; anything unrecognised falls back to ``single``."""
     text = str(value or "").strip().lower()
@@ -179,10 +173,6 @@ def _as_columns(value: Any) -> dict[str, str]:  # noqa: ANN401
 
 
 DEFAULT_DISCLOSURE_MARKERS: tuple[str, ...] = (
-    "#ad",
-    "#ads",
-    "#affiliate",
-    "#afiliasi",
     "link afiliasi",
     "affiliate link",
     "tautan afiliasi",
@@ -191,15 +181,18 @@ DEFAULT_DISCLOSURE_MARKERS: tuple[str, ...] = (
     "iklan berbayar",
 )
 
-#: How the disclosure has to be written.
-#:
-#: ``marker`` — any configured marker, in any post (the default, and the most
-#: permissive shape).
-#: ``tag`` — a hashtag marker from ``disclosure_markers`` must appear in the
-#: final post. A bare ``#ad`` there is enough; no sentence mentioning commission
-#: is needed, and markers of the sentence form do not satisfy it.
-DISCLOSURE_STYLES: tuple[str, ...] = ("marker", "tag")
-DEFAULT_DISCLOSURE_STYLE = "marker"
+#: The disclosure is a short sentence in the copy — never a hashtag. ``#ad`` at
+#: the end reads as an unclear tag, and a hashtag in the text is refused by
+#: ``hashtag_in_copy`` anyway (Threads makes one tag per post clickable, and that
+#: tag is the ``topic_tag`` metadata, not the disclosure). ``#...`` entries in a
+#: configured marker list are therefore dropped here; if that leaves nothing, the
+#: documented defaults are used rather than a marker set that can never be
+#: satisfied.
+def _disclosure_markers(value: Any) -> tuple[str, ...]:  # noqa: ANN401
+    markers = _as_str_list(value, DEFAULT_DISCLOSURE_MARKERS)
+    kept = tuple(marker for marker in markers if not marker.strip().startswith("#"))
+    return kept or DEFAULT_DISCLOSURE_MARKERS
+
 
 #: How the affiliate link reaches the thread.
 #:
@@ -266,9 +259,9 @@ class Settings:
 
     # Publish guardrails
     require_disclosure: bool = True
-    #: ``marker``: any configured marker, anywhere. ``tag``: a hashtag marker on
-    #: the final post, which is enough on its own — see ``DISCLOSURE_STYLES``.
-    disclosure_style: str = DEFAULT_DISCLOSURE_STYLE
+    #: Short sentences in the copy that satisfy the disclosure requirement — a
+    #: ``#...`` entry is dropped by ``_disclosure_markers``, because the
+    #: disclosure is never a hashtag.
     disclosure_markers: tuple[str, ...] = field(
         default_factory=lambda: DEFAULT_DISCLOSURE_MARKERS
     )
@@ -278,9 +271,9 @@ class Settings:
     #: community when its topic has one — and it is metadata: it travels in the
     #: ``topic_tag`` argument, never in the copy.
     require_topic_tag: bool = True
-    #: Hashtag-shaped tokens the copy may still contain. Empty by default: only
-    #: the disclosure markers are allowed, because Threads makes exactly one tag
-    #: per post clickable and that tag is set through ``topic_tag``.
+    #: Hashtag-shaped tokens the copy may still contain. Empty by default: the
+    #: copy carries no hashtags at all, because Threads makes exactly one tag per
+    #: post clickable and that tag is set through ``topic_tag``.
     allowed_hashtags: tuple[str, ...] = field(
         default_factory=lambda: DEFAULT_ALLOWED_HASHTAGS
     )
@@ -362,7 +355,6 @@ class Settings:
             "eligible_status": self.eligible_status,
             "done_status": self.done_status,
             "require_disclosure": self.require_disclosure,
-            "disclosure_style": self.disclosure_style,
             "require_affiliate_url": self.require_affiliate_url,
             "require_topic_tag": self.require_topic_tag,
             "allowed_hashtags": list(self.allowed_hashtags),
@@ -409,10 +401,7 @@ def resolve(overrides: dict[str, Any] | None = None) -> Settings:
         cancel_status=str(_lookup("cancel_status", "Cancel")).strip(),
         in_progress_status=str(_lookup("in_progress_status", "In Progress")).strip(),
         require_disclosure=_as_bool(_lookup("require_disclosure", True), True),
-        disclosure_style=_disclosure_style(_lookup("disclosure_style", DEFAULT_DISCLOSURE_STYLE)),
-        disclosure_markers=_as_str_list(
-            _lookup("disclosure_markers", None), DEFAULT_DISCLOSURE_MARKERS
-        ),
+        disclosure_markers=_disclosure_markers(_lookup("disclosure_markers", None)),
         require_affiliate_url=_as_bool(_lookup("require_affiliate_url", True), True),
         require_topic_tag=_as_bool(_lookup("require_topic_tag", True), True),
         allowed_hashtags=_as_str_list(

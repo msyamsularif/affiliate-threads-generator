@@ -1,15 +1,15 @@
 # Hook patterns
 
 Post 1 has one job: earn the next post. `references/content-rules.md` rotates the
-narrative *structure*; this file rotates the *shape of the opening sentence*.
+narrative _structure_; this file rotates the _shape of the opening sentence_.
 
 Three different axes, deliberately separate:
 
-| Thing               | Question it answers                              |
-| ------------------- | ------------------------------------------------ |
-| angle               | what conversation is this thread having?         |
-| narrative structure | in what order does the reader move through it?   |
-| hook pattern        | what shape is sentence one?                      |
+| Thing               | Question it answers                            |
+| ------------------- | ---------------------------------------------- |
+| angle               | what conversation is this thread having?       |
+| narrative structure | in what order does the reader move through it? |
+| hook pattern        | what shape is sentence one?                    |
 
 Two threads can share an angle and still open nothing alike, which is why the
 hook gets its own vocabulary.
@@ -26,20 +26,20 @@ dibahas?"_ — never _"aku baru tahu ini kemarin"_.
 Pick one per thread, and rotate it: if the last two content notes used the same
 `hook_pattern`, choose a different one even if it fits slightly less well.
 
-| Pattern            | Shape                                                   | Example                                                                  |
-| ------------------ | ------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `question`         | the question the reader is already asking               | "Kenapa colokan hotel selalu di tempat yang paling nggak mungkin dijangkau?" |
-| `observation`      | something true that nobody has put into words           | "Kebanyakan orang beli power bank berdasarkan mAh, bukan jarak colokannya." |
-| `contrarian`       | push back on the received wisdom, with evidence behind it | "Saran saya justru kebalikannya: jangan cari yang paling besar."       |
-| `mistake_callout`  | name a common, recoverable error                        | "Kesalahan paling umum: beli berdasarkan angka terbesar di kotaknya."    |
-| `boundary`         | draw who this is for, and who it is not                 | "Kalau kamu cuma butuh buat charge sekali sehari, ini overkill."         |
-| `scenario`         | one specific scene, tight enough to recognise           | "Naik kereta 6 jam, colokan cuma ada di gerbong makan."                  |
-| `comparison_open`  | two real options, with a verdict that depends on the reader | "Dua-duanya bagus. Bedanya cuma satu: yang satu buat di tas, yang satu buat di saku." |
-| `myth`             | a belief that does not survive contact with the facts   | "'mAh gede = tahan lama' cuma benar kalau wattnya ikut naik."            |
-| `cost_statement`   | state the trade in one line                             | "Kamu dapat kapasitas, kamu bayar pakai berat."                          |
-| `category_flag`    | what to check before buying anything in this category   | "Yang sering kelewat waktu beli alat masak: tiga hal ini."               |
-| `late_awareness`   | rhetorical "why is this not discussed?" — never a personal discovery claim | "Kenapa ukuran 30 cm jarang dibahas untuk produk sekelas ini?" |
-| `direct_address`   | name the reader and their situation                     | "Kalau kamu masak tiap hari, bagian ini yang perlu kamu baca."           |
+| Pattern           | Shape                                                                      | Example                                                                               |
+| ----------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `question`        | the question the reader is already asking                                  | "Kenapa colokan hotel selalu di tempat yang paling nggak mungkin dijangkau?"          |
+| `observation`     | something true that nobody has put into words                              | "Kebanyakan orang beli power bank berdasarkan mAh, bukan jarak colokannya."           |
+| `contrarian`      | push back on the received wisdom, with evidence behind it                  | "Saran saya justru kebalikannya: jangan cari yang paling besar."                      |
+| `mistake_callout` | name a common, recoverable error                                           | "Kesalahan paling umum: beli berdasarkan angka terbesar di kotaknya."                 |
+| `boundary`        | draw who this is for, and who it is not                                    | "Kalau kamu cuma butuh buat charge sekali sehari, ini overkill."                      |
+| `scenario`        | one specific scene, tight enough to recognise                              | "Naik kereta 6 jam, colokan cuma ada di gerbong makan."                               |
+| `comparison_open` | two real options, with a verdict that depends on the reader                | "Dua-duanya bagus. Bedanya cuma satu: yang satu buat di tas, yang satu buat di saku." |
+| `myth`            | a belief that does not survive contact with the facts                      | "'mAh gede = tahan lama' cuma benar kalau wattnya ikut naik."                         |
+| `cost_statement`  | state the trade in one line                                                | "Kamu dapat kapasitas, kamu bayar pakai berat."                                       |
+| `category_flag`   | what to check before buying anything in this category                      | "Yang sering kelewat waktu beli alat masak: tiga hal ini."                            |
+| `late_awareness`  | rhetorical "why is this not discussed?" — never a personal discovery claim | "Kenapa ukuran 30 cm jarang dibahas untuk produk sekelas ini?"                        |
+| `direct_address`  | name the reader and their situation                                        | "Kalau kamu masak tiap hari, bagian ini yang perlu kamu baca."                        |
 
 ### The tricky ones
 
@@ -55,16 +55,16 @@ If a hook only works when the writer has used the product, take another pattern.
 
 ## Choosing
 
-| Angle type                                  | Patterns that usually fit              |
-| ------------------------------------------- | -------------------------------------- |
-| `problem`                                   | `question`, `scenario`, `direct_address` |
-| `observation`, `hidden_feature`             | `observation`, `late_awareness`        |
-| `myth`, `contrarian`                        | `myth`, `contrarian`                   |
-| `trade_off`, `unexpected_drawback`          | `cost_statement`, `boundary`           |
-| `who_should_skip`, `who_is_this_for`        | `boundary`, `direct_address`           |
-| `mistake`, `checklist`, `decision_guide`    | `mistake_callout`, `category_flag`     |
-| `comparison`                                | `comparison_open`                      |
-| `use_case`                                  | `scenario`                             |
+| Angle type                               | Patterns that usually fit                |
+| ---------------------------------------- | ---------------------------------------- |
+| `problem`                                | `question`, `scenario`, `direct_address` |
+| `observation`, `hidden_feature`          | `observation`, `late_awareness`          |
+| `myth`, `contrarian`                     | `myth`, `contrarian`                     |
+| `trade_off`, `unexpected_drawback`       | `cost_statement`, `boundary`             |
+| `who_should_skip`, `who_is_this_for`     | `boundary`, `direct_address`             |
+| `mistake`, `checklist`, `decision_guide` | `mistake_callout`, `category_flag`       |
+| `comparison`                             | `comparison_open`                        |
+| `use_case`                               | `scenario`                               |
 
 A starting point, not a rule. The critic's second question — does post 1 open a
 loop that only reading on can close? — is what actually decides.

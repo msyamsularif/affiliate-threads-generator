@@ -483,19 +483,19 @@ SEKARANG"_. The CTA says what the reader gets; it never points at the link
 or funnels toward it (_"cek link di bawah"_, _"link-nya di reply"_, _"cek
 reply"_, _"DM aku"_, scarcity lines). Those patterns come back from
 `validate_thread.py` as the soft `funnel_phrase` signal. Disclosure must
-remain explicit but lightweight, and the operator picks the style:
+remain explicit but lightweight: one short sentence in the copy.
 
-- `disclosure_style: marker` (default) — any configured marker, in any
-  post. "Link afiliasi." on the same post as the URL is the usual form.
-- `disclosure_style: tag` — a hashtag marker (`#ad`) on the final post,
-  which is the post carrying the link in single mode and the link reply
-  itself in two-stage mode. That tag alone is the disclosure; no sentence
-  mentioning commission is needed, which is the form to prefer when a
-  sentence reads as hard-sell.
+- _"Link afiliasi."_ on the same post as the URL is the usual form; the
+  configured `disclosure_markers` list holds sentence forms only
+  ("affiliate link", "tautan afiliasi", "komisi", "iklan berbayar", ...).
+- There is no hashtag form. `#ad` at the end is not used — it reads as an
+  unclear tag, and any hashtag in the copy is refused by
+  `hashtag_in_copy`; a `#...` entry in a configured marker list is dropped
+  on the way in.
 
-`threads_publish` refuses to publish either way when the configured shape
-is missing. The goal is reducing hard-sell tone, not concealing the
-commercial relationship.
+`threads_publish` refuses to publish when the disclosure is missing. The
+goal is reducing hard-sell tone, not concealing the commercial
+relationship.
 
 ### 10.11 Deferred Link Publishing (optional)
 
@@ -523,7 +523,7 @@ a normal path, not a degraded fallback.
 
 ### 10.13 Hashtags, Topic Tags, and Community Reach
 
-Threads gives a post exactly **one** clickable tag — a *topic tag* — and
+Threads gives a post exactly **one** clickable tag — a _topic tag_ — and
 reads it from the `topic_tag` publish argument rather than from the copy. A
 topic that has a Threads community also surfaces the post inside that
 community, which is the platform's real discovery mechanism.
@@ -531,19 +531,19 @@ community, which is the platform's real discovery mechanism.
 So the pipeline:
 
 - keeps hashtags out of the copy entirely. `hashtag_in_copy` is a hard
-guardrail; the only hashtags any post may contain are the configured
-disclosure markers (`#ad` and friends, which is how `disclosure_style: tag`
-works);
+  guardrail: the copy carries none — not even `#ad`, which is not a
+  disclosure — unless the operator explicitly allowlists a token
+  (`allowed_hashtags`, empty by default);
 - requires one topic tag per thread by default (`require_topic_tag`),
-validated against the platform's own limits before anything is sent — 1-50
-characters, no `.` or `&`, no leading `#`, one line (`topic_tag_missing`,
-`topic_tag_invalid`);
+  validated against the platform's own limits before anything is sent — 1-50
+  characters, no `.` or `&`, no leading `#`, one line (`topic_tag_missing`,
+  `topic_tag_invalid`);
 - shows that tag in the Telegram preview, so the human approves it before it
-is published;
+  is published;
 - treats teaser copy as a warning (`funnel_phrase`), not as a tactic;
 - documents link-card behaviour honestly: no API removes the card, value
-posts carry no URL at all, an `IMAGE` post carries no card, and under
-`publish_mode: two_stage` the card only ever appears on the link reply.
+  posts carry no URL at all, an `IMAGE` post carries no card, and under
+  `publish_mode: two_stage` the card only ever appears on the link reply.
 
 ---
 
@@ -673,13 +673,12 @@ Meta Threads (official Graph API)
     characteristics and never invent unverified features.
 11. Do not fabricate personal experience.
 12. Do not fabricate product facts, criticism, or unsupported claims.
-13. Affiliate disclosure must remain clear — either a configured marker
-    anywhere in the thread, or, under `disclosure_style: tag`, a hashtag
-    on the post that carries the link.
-14. Copy carries no hashtags beyond the configured disclosure markers.
-    Every thread publishes under exactly one topic tag, chosen for the
-    conversation rather than the product, shown in the preview, and
-    validated against the platform's limits before the API sees it.
+13. Affiliate disclosure must remain clear: a short sentence in the copy
+    ("Link afiliasi."), never a hashtag. `#ad` at the end is not used.
+14. Copy carries no hashtags at all. Every thread publishes under exactly
+    one topic tag, chosen for the conversation rather than the product,
+    shown in the preview, and validated against the platform's limits
+    before the API sees it.
 15. The product should naturally support the story, never be forced into
     it.
 16. Final content should be worth reading even without the affiliate
@@ -725,12 +724,11 @@ Meta Threads (official Graph API)
 [ ] Evidence Checker removes/softens untraceable claims
 [ ] antislop + antislop-copywriting audit runs before the affiliate
     editorial and evidence reviews (bounded to 2 revision rounds)
-[ ] Affiliate disclosure present, short, and in the shape the configured
-    disclosure style requires (a marker anywhere, or a hashtag on the
-    post carrying the link)
-[ ] No hashtags in the copy beyond the configured disclosure markers; one
-    topic tag per thread, shown in the preview and validated against the
-    platform's limits
+[ ] Affiliate disclosure present as a short sentence (never a hashtag)
+    on the post carrying the link
+[ ] No hashtags in the copy at all — `#ad` included; one topic tag per
+    thread, shown in the preview and validated against the platform's
+    limits
 [ ] The opening hook pattern rotates across runs and is recorded in the
     content note
 [ ] Optional two-stage mode: the thread publishes first, the affiliate

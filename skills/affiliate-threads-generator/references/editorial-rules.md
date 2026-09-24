@@ -102,10 +102,7 @@ The CTA and the disclosure come after that ending. They do not replace it.
 ## 8. Disclosure — explicit but lightweight
 
 The disclosure is mandatory and stays on the post that carries the affiliate URL.
-It does not need to be a paragraph. Which shape counts is the operator's setting:
-
-- `disclosure_style: marker` (default) — any configured marker, anywhere.
-  Preferred forms:
+It does not need to be a paragraph — one short sentence is enough:
 
 ```
 Link afiliasi.
@@ -122,10 +119,9 @@ https://...
 Link afiliasi.
 ```
 
-- `disclosure_style: tag` — a hashtag marker, `#ad`, on the **final** post. That
-  tag alone is the disclosure: no sentence about commission is needed, which is
-  the form to prefer when a sentence reads as hard-sell. It has to be on the last
-  post, because that is the one carrying the link.
+There is **no hashtag form**. `#ad` at the end is not used: it reads as an
+unclear tag rather than a disclosure, and a hashtag anywhere in the copy is
+refused by `hashtag_in_copy` anyway. The disclosure is always a sentence.
 
 Under `publish_mode: two_stage` the link — and therefore the disclosure — belongs
 to the link reply, not to the thread body. The thread then carries no "link
@@ -135,7 +131,7 @@ promising a link.
 The wording may vary as long as the commercial relationship is clear. What is not
 allowed is hiding it, burying it under hashtags, or dropping it because the
 ending reads better without it. `threads_publish` refuses to publish a thread
-that does not satisfy the configured style, and that check is code, not judgement.
+that does not satisfy the disclosure rule, and that check is code, not judgement.
 
 ## 9. Reach: the topic tag, not hashtags
 
@@ -145,7 +141,8 @@ Threads community, the post is also surfaced inside the community — the one
 mechanism here that meaningfully widens the audience.
 
 - Hashtags in the text are not a reach tactic on Threads; they are a tell. The
-  only ones allowed anywhere in the copy are the configured disclosure markers.
+  copy carries none — `#ad` included, since a hashtag is not a disclosure — and
+  the only tokens that can stay are ones the operator explicitly allowlists.
 - The topic tag has to be earned by the thread: the conversation the reader is
   actually reading. A tag that only makes sense because something is for sale
   does not get followed, and it mislabels the post.

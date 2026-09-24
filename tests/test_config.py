@@ -141,23 +141,27 @@ class TestResolve:
         assert config.resolve().require_disclosure is True
 
     def test_list_setting_accepts_json(self, ctx) -> None:  # noqa: ANN001
-        ctx.settings["disclosure_markers"] = '["#ad", "#iklan"]'
-        assert config.resolve().disclosure_markers == ("#ad", "#iklan")
+        ctx.settings["disclosure_markers"] = '["link afiliasi", "iklan berbayar"]'
+        assert config.resolve().disclosure_markers == ("link afiliasi", "iklan berbayar")
 
     def test_list_setting_accepts_comma_separated_text(self, ctx) -> None:  # noqa: ANN001
-        ctx.settings["disclosure_markers"] = "#ad, #iklan"
-        assert config.resolve().disclosure_markers == ("#ad", "#iklan")
+        ctx.settings["disclosure_markers"] = "link afiliasi, iklan berbayar"
+        assert config.resolve().disclosure_markers == ("link afiliasi", "iklan berbayar")
 
-    def test_disclosure_style_defaults_to_marker(self, ctx) -> None:  # noqa: ANN001
-        assert config.resolve().disclosure_style == "marker"
+    def test_hashtag_markers_are_dropped(self, ctx) -> None:  # noqa: ANN001
+        """A ``#...`` marker can never be satisfied — the hashtag rule refuses it
+        — so the disclosure is a sentence and the entry is ignored."""
+        ctx.settings["disclosure_markers"] = '["#ad", "link afiliasi"]'
+        assert config.resolve().disclosure_markers == ("link afiliasi",)
 
-    def test_disclosure_style_accepts_tag(self, ctx) -> None:  # noqa: ANN001
-        ctx.settings["disclosure_style"] = "TAG"
-        assert config.resolve().disclosure_style == "tag"
+    def test_a_marker_list_of_only_hashtags_falls_back_to_the_defaults(self, ctx) -> None:  # noqa: ANN001
+        ctx.settings["disclosure_markers"] = '["#ad"]'
+        assert config.resolve().disclosure_markers == config.DEFAULT_DISCLOSURE_MARKERS
 
-    def test_an_unknown_disclosure_style_falls_back_to_marker(self, ctx) -> None:  # noqa: ANN001
-        ctx.settings["disclosure_style"] = "hashtag"
-        assert config.resolve().disclosure_style == "marker"
+    def test_the_default_disclosure_markers_are_sentences(self) -> None:
+        assert all(
+            not marker.startswith("#") for marker in config.DEFAULT_DISCLOSURE_MARKERS
+        )
 
     def test_publish_mode_defaults_to_single(self, ctx) -> None:  # noqa: ANN001
         resolved = config.resolve()

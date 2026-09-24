@@ -19,15 +19,15 @@ conversation.**
 
 ## Action table
 
-| Human message (any phrasing)                                       | Action                                                                                                             | Result                                                                   |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| Human message (any phrasing)                                       | Action                                                                                                                                        | Result                                                                   |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | "Saya approve." · "setuju" · "post aja" · "gas" · "publish it"     | Call `threads_publish` with the Product ID on screen, `confirm_publish: true`, the exact copy from the preview, and the preview's `topic_tag` | Success → `Status=Done`, `Threads URL` saved. Failure → Sheet untouched. |
-| "ganti tag-nya jadi <X>." · "topic-nya ubah jadi <X>."              | Change only the `topic_tag`, re-check it against the platform's limits, and re-show the topic line                                                                                  | Same copy, new tag → approve again                                       |
-| "Hold dulu yang ini." · "tahan dulu" · "nanti aja"                 | `set_status.py <ID> Hold`                                                                                          | `Status=Hold`. No publish.                                               |
-| "Yang ini jangan dipublish." · "batal" · "cancel" · "skip"         | `set_status.py <ID> Cancel`                                                                                        | `Status=Cancel`. No publish.                                             |
-| "Regenerate tapi angle-nya lebih ke orang yang sering travelling." | Back to Step 3 with the new constraint                                                                             | Same Product ID, same research, new angle → new preview                  |
-| "Lanjut" · "next" with no product on screen                        | Ask which product                                                                                                  | —                                                                        |
-| "ok" · "ya" · "sip" alone                                          | Ambiguous — ask which of approve/hold/cancel                                                                       | —                                                                        |
+| "ganti tag-nya jadi <X>." · "topic-nya ubah jadi <X>."             | Change only the `topic_tag`, re-check it against the platform's limits, and re-show the topic line                                            | Same copy, new tag → approve again                                       |
+| "Hold dulu yang ini." · "tahan dulu" · "nanti aja"                 | `set_status.py <ID> Hold`                                                                                                                     | `Status=Hold`. No publish.                                               |
+| "Yang ini jangan dipublish." · "batal" · "cancel" · "skip"         | `set_status.py <ID> Cancel`                                                                                                                   | `Status=Cancel`. No publish.                                             |
+| "Regenerate tapi angle-nya lebih ke orang yang sering travelling." | Back to Step 3 with the new constraint                                                                                                        | Same Product ID, same research, new angle → new preview                  |
+| "Lanjut" · "next" with no product on screen                        | Ask which product                                                                                                                             | —                                                                        |
+| "ok" · "ya" · "sip" alone                                          | Ambiguous — ask which of approve/hold/cancel                                                                                                  | —                                                                        |
 
 ## Approve — the strict version
 
@@ -95,7 +95,7 @@ attaches it by itself.
 - Trigger: "pasang linknya sekarang", "tambahkan linknya", "udah cukup view-nya".
 - Call `threads_publish` with the same Product ID, `stage: "link"`, and `posts`
   holding exactly one post: the reply, carrying the affiliate URL and the
-  disclosure (`#ad` at the end is enough under `disclosure_style: tag`).
+  disclosure sentence (`Link afiliasi.` is enough — there is no hashtag form).
 - Show that reply as a preview first, with the Product ID, and wait for the
   approval — a publish is a publish, and this one goes on a public thread.
 - It is refused if the row is not in the link-pending status, so once it has gone

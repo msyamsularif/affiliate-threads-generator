@@ -92,19 +92,14 @@ def extract_hashtags(text: str) -> list[str]:
 
 
 def _hashtags_allowed(settings: Settings) -> set[str]:
-    """Tags the copy may keep: the disclosure markers, plus any allowlist.
+    """Tags the copy may keep: ``allowed_hashtags``, and nothing else.
 
-    ``#ad`` has to be legal in the copy — under ``disclosure_style: tag`` it is
-    the whole disclosure — and an operator who genuinely wants a token like
-    ``#ootd`` can add it to ``allowed_hashtags``.
+    Empty by default. The copy carries no hashtags at all — not even ``#ad``,
+    which is not a disclosure here — unless an operator deliberately allowlists
+    a token like ``#ootd``.
     """
     allowed = {
         str(tag).strip().lower().lstrip("#") for tag in settings.allowed_hashtags if str(tag).strip()
-    }
-    allowed |= {
-        marker.strip().lower().lstrip("#")
-        for marker in settings.disclosure_markers
-        if marker.strip().startswith("#")
     }
     return {tag for tag in allowed if tag}
 
@@ -244,16 +239,16 @@ _SPEC_TOKEN_RE = re.compile(
 )
 
 _DISCLOSURE_SIGNAL_RE = re.compile(
-    r"(#ad\b|#ads\b|#affiliate\b|#afiliasi\b|afiliasi|affiliate|komisi|berbayar|sponsor|paid partnership)",
+    r"(afiliasi|affiliate|komisi|berbayar|sponsor|paid partnership)",
     re.IGNORECASE,
 )
 
 #: Hashtag-shaped tokens. Threads is not Instagram: exactly one tag per post is
 #: clickable, it is called a topic tag, and it is set through the API's
 #: ``topic_tag`` parameter instead of being written into the copy. A trail of
-#: hashtags at the end of a reply therefore buys nothing and reads as spam, so
-#: the copy carries none — except the configured disclosure marker, which is how
-#: ``disclosure_style: tag`` works.
+#: hashtags at the end of a reply therefore buys nothing and reads as spam — and
+#: a hashtag is not a disclosure either — so the copy carries none unless the
+#: operator explicitly allowlists a token (``allowed_hashtags``).
 _HASHTAG_RE = re.compile(r"#(\w+)", re.UNICODE)
 
 #: The platform's own limits, from the Threads API's ``topic_tag`` parameter.
@@ -402,8 +397,9 @@ def validate_thread(
     # ---- hashtags in the copy (hard rule) --------------------------------
     # Threads turns exactly one tag per post into a clickable topic and that tag
     # is set through `topic_tag`. Hashtags written into the copy cannot add
-    # reach, so they only make the post look like a listing. The configured
-    # disclosure markers are exempt — that is how `disclosure_style: tag` works.
+    # reach, so they only make the post look like a listing — and a hashtag is
+    # not a disclosure either (the disclosure is a short sentence). The copy
+    # therefore carries none, unless the operator allowlists a token.
     allowed_tags = _hashtags_allowed(settings)
     for index, post in enumerate(posts):
         offenders = [
@@ -417,8 +413,9 @@ def validate_thread(
                     f"{listed} in the copy. Threads is not Instagram: one tag per post becomes the "
                     "topic tag, and that tag is set through the topic_tag parameter instead of "
                     "being written in the text. Hashtags left in the copy add no reach and read as "
-                    "spam — put the topic in topic_tag and drop the trail. Only the configured "
-                    "disclosure markers may stay.",
+                    "spam — put the topic in topic_tag and drop the trail. A hashtag is not a "
+                    "disclosure either: the disclosure is a short sentence. Only hashtags the "
+                    "operator explicitly allowlists (allowed_hashtags) may stay.",
                     post_index=index,
                     detail={"tags": offenders},
                 )
@@ -654,51 +651,43 @@ def _contains_disclosure_signal(posts: Sequence[dict[str, Any]]) -> bool:
     )
 
 
-def _hashtag_markers(markers: Sequence[str]) -> list[str]:
-    """Markers written as a tag (``#ad``) — what the ``tag`` style accepts."""
-    return [marker for marker in markers if marker.strip().startswith("#")]
+def _sentence_markers(settings: Settings) -> tuple[str, ...]:
+    """Disclosure markers that are sentences, not hashtags.
+
+    ``config.resolve()`` drops ``#...`` entries on the way in; this keeps the
+    rule true for a ``Settings`` built directly too — the copy may never be
+    asked to satisfy a disclosure that the hashtag rule would refuse.
+    """
+    return tuple(
+        marker for marker in settings.disclosure_markers if not marker.strip().startswith("#")
+    )
 
 
 def _disclosure_hit(posts: Sequence[dict[str, Any]], settings: Settings) -> str:
-    """The marker that satisfies the disclosure rule, or ``""``.
+    """The sentence marker that satisfies the disclosure rule, or ``""``.
 
-    ``marker`` (the default) accepts any configured marker in any post. ``tag``
-    asks for a hashtag on the final post — the post that carries the link — and
-    accepts nothing else, because a bare ``#ad`` there is the whole disclosure.
+    Any configured marker, in any post — usually the one carrying the link. The
+    disclosure is a short sentence; a hashtag is never it (that is
+    ``hashtag_in_copy``'s job to refuse).
     """
-    if settings.disclosure_style == "tag":
-        final_post = str(posts[-1].get("text") or "").lower()
-        for tag in _hashtag_markers(settings.disclosure_markers):
-            if tag.lower() in final_post:
-                return tag
-        return ""
-
     lowered = [str(post.get("text") or "").lower() for post in posts]
-    for marker in settings.disclosure_markers:
+    for marker in _sentence_markers(settings):
         if any(marker.lower() in text for text in lowered):
             return marker
     return ""
 
 
 def _missing_disclosure_message(settings: Settings) -> str:
-    if settings.disclosure_style != "tag":
+    markers = _sentence_markers(settings)
+    if not markers:
         return (
-            "No post carries an affiliate disclosure. Add one of: "
-            + ", ".join(settings.disclosure_markers[:6])
-            + ". Reducing the hard-sell tone is fine; hiding the commercial "
-            "relationship is not."
-        )
-
-    tags = _hashtag_markers(settings.disclosure_markers)
-    if not tags:
-        return (
-            'disclosure_style is "tag", but disclosure_markers holds no hashtag marker, so no '
-            'post can satisfy it. Add one (for example "#ad") or set disclosure_style back to '
-            '"marker".'
+            "No post carries an affiliate disclosure, and disclosure_markers holds no sentence "
+            'marker to look for. Add one (for example "link afiliasi") — the disclosure is a '
+            "short sentence, never a hashtag."
         )
     return (
-        "The final post carries no disclosure tag. This configuration asks for a hashtag on the "
-        "last post — one of "
-        + ", ".join(tags[:6])
-        + " — and that tag alone is the disclosure: no sentence about commission is needed."
+        "No post carries an affiliate disclosure. Add one of: "
+        + ", ".join(markers[:6])
+        + ". One short sentence is enough — the disclosure is a sentence in the copy, never a "
+        "hashtag. Reducing the hard-sell tone is fine; hiding the commercial relationship is not."
     )

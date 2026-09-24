@@ -58,16 +58,18 @@ reading as a content farm.
 ## 3. Hashtags, topic tags, and reach
 
 Threads is not Instagram. Exactly **one** tag per post becomes clickable, it is
-called a *topic tag*, and it is set through `threads_publish`'s `topic_tag`
+called a _topic tag_, and it is set through `threads_publish`'s `topic_tag`
 argument — not typed into the copy. When that topic has a Threads community, the
 post is also surfaced inside the community. That is the reach this mechanism
 buys, and it is the whole mechanism.
 
 - **No hashtags in the copy.** `threads_publish` refuses them
-  (`hashtag_in_copy`). The only ones it accepts are the configured disclosure
-  markers, like `#ad` under `disclosure_style: tag`. A trail at the end of a
-  reply changes nothing about how the post is distributed, and it is the single
-  clearest tell that a thread is an ad.
+  (`hashtag_in_copy`) — including `#ad`, which is not a disclosure here (the
+  disclosure is a short sentence, section 7). The only hashtags that may stay are
+  ones the operator explicitly allowlists (`allowed_hashtags`), and there are
+  none by default. A trail at the end of a reply changes nothing about how the
+  post is distributed, and it is the single clearest tell that a thread is an
+  ad.
 - **Exactly one topic tag per thread**, chosen in the planner and passed as
   `topic_tag`. It belongs to the root post; the replies carry none.
 - **The tag is the conversation, not the product** — `sensory play`,
@@ -205,14 +207,15 @@ because the ending reads better without it. `threads_publish` refuses to publish
 without the disclosure the configuration asks for, and the affiliate URL must
 appear in a post.
 
-Which shape counts is the operator's choice (`disclosure_style`):
+There is **no hashtag form**. `#ad` at the end is not used: it reads as an
+unclear tag, and on Threads a `#…` in the text is not what makes a post
+discoverable — the topic tag is. A hashtag in the copy is refused by the tool
+(`hashtag_in_copy`).
 
-- `marker` (default) — any configured marker, anywhere: "Link afiliasi." on the
-  post with the URL is the usual form.
-- `tag` — a hashtag marker, `#ad`, on the **final** post. That tag alone is the
-  whole disclosure: no sentence mentioning commission is needed, and this is the
-  form to reach for when a sentence reads as hard-sell. It has to be on the last
-  post, which is the one carrying the link.
+Which marker counts is a configuration detail (sentence forms, any post —
+usually the one carrying the link). "Link afiliasi." is the usual one; the
+configured list can also hold "affiliate link", "tautan afiliasi", "komisi",
+"iklan berbayar" and friends.
 
 ### When the link is deferred (`publish_mode: two_stage`)
 
@@ -222,16 +225,17 @@ all — both belong to the link reply that goes out later. So:
 - Do not write "link afiliasi di reply berikutnya" teasers or "cek reply"
   prompts. The thread has to stand on its own without promising a link.
 - The reply is its own piece of copy: one post, the affiliate URL, and the
-  disclosure in the configured style (`... #ad` is enough under `tag`).
+  disclosure sentence — `Link afiliasi.` is enough.
 
 ## 8. Post-by-post rules
 
 - **3-10 posts.** Dynamic. A 3-post thread that lands is better than a padded 10.
 - **Post length varies.** One sentence in one post is fine. Uniform construction
   is a warning sign, not a standard.
-- **No post carries a hashtag.** The only hashtag allowed anywhere is the
-  configured disclosure marker; the topic tag is metadata (`topic_tag`), not
-  text.
+- **No post carries a hashtag.** None at all — not even `#ad`, which is not a
+  disclosure here and is refused like any other hashtag. The disclosure is a
+  sentence; the topic tag is metadata (`topic_tag`), not text; only tokens the
+  operator explicitly allowlists may stay.
 - **Post 1** earns the next post. No product mention.
 - **The product enters when the reader already has a reason to care.** Post 3-4
   is the normal range, not a rule. Never post 1.

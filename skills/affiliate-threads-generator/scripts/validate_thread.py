@@ -195,7 +195,6 @@ def main(argv: list[str] | None = None) -> int:
             "min_posts": check_settings.min_posts,
             "max_posts": check_settings.max_posts,
             "require_disclosure": check_settings.require_disclosure,
-            "disclosure_style": check_settings.disclosure_style,
             "require_affiliate_url": check_settings.require_affiliate_url,
             "require_topic_tag": check_settings.require_topic_tag,
             "topic_tag_max_chars": guardrails.TOPIC_TAG_MAX_CHARS,

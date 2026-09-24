@@ -170,27 +170,13 @@ config_schema:
     default: true
     label: "Require affiliate disclosure"
     description: >-
-      Refuse to publish when no post carries a disclosure marker.
-
-  disclosure_style:
-    type: str
-    default: "marker"
-    choices: [marker, tag]
-    label: "Disclosure style"
-    description: >-
-      "marker" accepts any configured marker in any post. "tag" requires a
-      hashtag marker on the final post — the one carrying the link — and treats
-      that tag alone as the disclosure, so no sentence mentioning commission is
-      needed. "tag" ignores the sentence-form markers ("komisi", "link
-      afiliasi", ...). Unrecognised values fall back to "marker".
+      Refuse to publish when no post carries a disclosure marker. The
+      disclosure is a short sentence in the copy ("Link afiliasi.") — never a
+      hashtag.
 
   disclosure_markers:
     type: list
     default:
-      - "#ad"
-      - "#ads"
-      - "#affiliate"
-      - "#afiliasi"
       - "link afiliasi"
       - "affiliate link"
       - "tautan afiliasi"
@@ -199,9 +185,10 @@ config_schema:
       - "iklan berbayar"
     label: "Disclosure markers"
     description: >-
-      Any one of these appearing in a post satisfies the disclosure requirement
-      under disclosure_style "marker". Under "tag" only the hashtag entries are
-      consulted, and only on the final post.
+      Sentence-form markers: any one of these appearing in a post satisfies the
+      disclosure requirement. A "#..." entry is dropped, because a hashtag is
+      not a disclosure here — hashtags in the copy are refused by the
+      hashtag_in_copy guardrail.
 
   require_affiliate_url:
     type: bool
@@ -247,10 +234,10 @@ config_schema:
     label: "Allowed hashtags in the copy"
     description: >-
       Hashtag-shaped tokens the copy may keep, e.g. "#ootd". Empty by default:
-      the only hashtags allowed in a post are the disclosure markers. Threads
-      makes exactly one tag per post clickable and that tag is set through the
-      topic_tag argument, so a hashtag trail in the copy adds nothing and
-      reads as spam. Strings are matched without the leading "#".
+      the copy carries no hashtags at all — not even "#ad", which is not a
+      disclosure. Threads makes exactly one tag per post clickable and that tag
+      is set through the topic_tag argument, so a hashtag trail adds nothing
+      and reads as spam. Strings are matched without the leading "#".
 
   max_posts:
     type: int
