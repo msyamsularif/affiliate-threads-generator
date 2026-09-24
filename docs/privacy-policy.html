@@ -1,0 +1,880 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Privacy Policy · AIffiliate</title>
+    <meta
+      name="description"
+      content="What the AIffiliate app and the Affiliate Threads plugin read, where it is kept, and how to delete it."
+    />
+    <!-- Deliberately self-contained: no external fonts, scripts, or images, so the page makes no third-party requests. -->
+    <script>
+      (function () {
+        var stored = null;
+        try {
+          stored = localStorage.getItem("theme");
+        } catch (error) {}
+        var prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+        var theme =
+          stored === "dark" || stored === "light"
+            ? stored
+            : prefersDark
+              ? "dark"
+              : "light";
+        document.documentElement.setAttribute("data-theme", theme);
+      })();
+    </script>
+    <style>
+      :root {
+        --paper: #faf8f4;
+        --panel: #f1ece3;
+        --ink: #1d1b18;
+        --ink-2: #56524b;
+        --accent: #8c3d10;
+        --rule: #dad3c7;
+        --control: #6e685d;
+        --serif: Georgia, "Iowan Old Style", "Times New Roman", serif;
+        --sans:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+        --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        color-scheme: light;
+      }
+
+      :root[data-theme="dark"] {
+        --paper: #141210;
+        --panel: #1c1a16;
+        --ink: #ece8e1;
+        --ink-2: #b3aca0;
+        --accent: #e3a878;
+        --rule: #3b352c;
+        --control: #8a8275;
+        color-scheme: dark;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme]) {
+          --paper: #141210;
+          --panel: #1c1a16;
+          --ink: #ece8e1;
+          --ink-2: #b3aca0;
+          --accent: #e3a878;
+          --rule: #3b352c;
+          --control: #8a8275;
+          color-scheme: dark;
+        }
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html {
+        -webkit-text-size-adjust: 100%;
+      }
+
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font-family: var(--serif);
+        font-size: 1.0625rem;
+        line-height: 1.65;
+        overflow-wrap: break-word;
+      }
+
+      .skip {
+        position: absolute;
+        top: 0;
+        left: 1rem;
+        z-index: 5;
+        transform: translateY(-150%);
+        padding: 0.75rem 1rem;
+        background: var(--paper);
+        color: var(--ink);
+        border: 2px solid var(--accent);
+        border-radius: 6px;
+        font-family: var(--sans);
+        font-size: 0.9rem;
+      }
+      .skip:focus {
+        transform: none;
+      }
+
+      .masthead-inner,
+      .wrap,
+      .footer-inner {
+        max-width: 44rem;
+        margin: 0 auto;
+        padding-left: clamp(1rem, 4vw, 2.5rem);
+        padding-right: clamp(1rem, 4vw, 2.5rem);
+      }
+
+      .masthead {
+        border-bottom: 1px solid var(--rule);
+      }
+      .masthead-inner {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.25rem 1.25rem;
+        padding-top: 0.4rem;
+        padding-bottom: 0.4rem;
+      }
+      .wordmark {
+        margin: 0;
+        font-family: var(--sans);
+        font-size: 0.95rem;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+      }
+      .topnav {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem 1.25rem;
+      }
+      .topnav a {
+        display: inline-flex;
+        align-items: center;
+        min-height: 44px;
+        font-family: var(--sans);
+        font-size: 0.9rem;
+        color: var(--ink);
+        text-decoration: underline;
+        text-decoration-color: var(--rule);
+        text-underline-offset: 3px;
+      }
+      .topnav a:hover {
+        color: var(--accent);
+        text-decoration-color: var(--accent);
+      }
+      .theme {
+        display: inline-flex;
+        align-items: center;
+        min-height: 44px;
+        padding: 0.4rem 0.85rem;
+        font-family: var(--sans);
+        font-size: 0.9rem;
+        color: var(--ink);
+        background: transparent;
+        border: 1px solid var(--control);
+        border-radius: 6px;
+        cursor: pointer;
+      }
+      .theme:hover {
+        background: var(--panel);
+      }
+      .theme[aria-pressed="true"] {
+        color: var(--accent);
+        border-color: var(--accent);
+      }
+
+      .title-block {
+        padding-top: clamp(2.25rem, 6vw, 3.5rem);
+      }
+      h1 {
+        margin: 0 0 0.85rem;
+        font-size: clamp(1.9rem, 1.4rem + 2vw, 2.6rem);
+        font-weight: 600;
+        line-height: 1.12;
+        letter-spacing: -0.01em;
+      }
+      .lede {
+        margin: 0 0 1.1rem;
+        font-size: 1.125rem;
+      }
+      .stamp {
+        margin: 0;
+        font-family: var(--sans);
+        font-size: 0.85rem;
+        color: var(--ink-2);
+      }
+
+      .summary {
+        margin-top: 1.9rem;
+        padding: clamp(1.15rem, 4vw, 1.6rem) clamp(1.15rem, 4vw, 1.6rem) 1.35rem;
+        background: var(--panel);
+        border: 1px solid var(--rule);
+        border-radius: 6px;
+      }
+      .summary h2 {
+        margin: 0 0 0.6rem;
+        font-family: var(--sans);
+        font-size: 0.95rem;
+        font-weight: 600;
+      }
+      .summary ul {
+        margin: 0;
+        padding-left: 1.15rem;
+      }
+      .summary li + li {
+        margin-top: 0.45rem;
+      }
+
+      .toc {
+        margin-top: 2.25rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid var(--rule);
+      }
+      .toc h2 {
+        margin: 0 0 0.35rem;
+        font-family: var(--sans);
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--ink-2);
+      }
+      .toc ol {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .toc a {
+        display: flex;
+        align-items: center;
+        min-height: 44px;
+        font-family: var(--sans);
+        font-size: 0.9rem;
+        color: var(--ink);
+        text-decoration: none;
+      }
+      .toc a:hover {
+        color: var(--accent);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+      .toc .n {
+        flex: none;
+        width: 1.6rem;
+        color: var(--accent);
+        font-variant-numeric: tabular-nums;
+      }
+      @media (min-width: 37.5rem) {
+        .toc ol {
+          columns: 2;
+          column-gap: 2rem;
+        }
+      }
+
+      .policy section {
+        padding-top: clamp(2.25rem, 5vw, 2.9rem);
+      }
+      .policy h2 {
+        margin: 0 0 0.7rem;
+        font-size: clamp(1.25rem, 1.1rem + 0.7vw, 1.5rem);
+        font-weight: 600;
+        line-height: 1.3;
+        letter-spacing: -0.005em;
+      }
+      .policy h2 .n {
+        margin-right: 0.45rem;
+        color: var(--accent);
+        font-variant-numeric: tabular-nums;
+      }
+      .policy h3 {
+        margin: 1.8rem 0 0.4rem;
+        font-family: var(--sans);
+        font-size: 0.95rem;
+        font-weight: 600;
+      }
+      .policy p {
+        margin: 0 0 1rem;
+      }
+      .policy ul,
+      .policy ol {
+        margin: 0 0 1rem;
+        padding-left: 1.2rem;
+      }
+      .policy li + li {
+        margin-top: 0.45rem;
+      }
+      .policy dl {
+        margin: 0 0 1rem;
+      }
+      .policy dt {
+        margin-top: 1rem;
+        font-family: var(--sans);
+        font-size: 0.9rem;
+        font-weight: 600;
+      }
+      .policy dd {
+        margin: 0.2rem 0 0;
+      }
+      .note {
+        font-family: var(--sans);
+        font-size: 0.9rem;
+        color: var(--ink-2);
+      }
+      code {
+        padding: 0.08em 0.3em;
+        font-family: var(--mono);
+        font-size: 0.85em;
+        background: var(--panel);
+        border: 1px solid var(--rule);
+        border-radius: 4px;
+      }
+
+      .policy a,
+      .footer-inner a {
+        color: var(--accent);
+        text-decoration: underline;
+        text-underline-offset: 2px;
+        text-decoration-thickness: 1px;
+      }
+      .policy a:hover,
+      .footer-inner a:hover {
+        text-decoration-thickness: 2px;
+      }
+
+      a:focus-visible,
+      button:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+        border-radius: 3px;
+      }
+
+      footer {
+        margin-top: clamp(2.75rem, 7vw, 4rem);
+        border-top: 1px solid var(--rule);
+      }
+      .footer-inner {
+        padding-top: 1.4rem;
+        padding-bottom: 3rem;
+        font-family: var(--sans);
+        font-size: 0.85rem;
+        color: var(--ink-2);
+      }
+      .footer-inner p {
+        margin: 0;
+      }
+      .footer-inner p + p {
+        margin-top: 0.4rem;
+      }
+
+      @media print {
+        :root,
+        :root[data-theme="dark"] {
+          --paper: #fff;
+          --panel: #fff;
+          --ink: #111;
+          --ink-2: #333;
+          --accent: #111;
+          --rule: #bbb;
+          --control: #333;
+        }
+        .skip,
+        .masthead,
+        .toc {
+          display: none;
+        }
+      }
+    </style>
+    <noscript
+      ><style>
+        .theme {
+          display: none;
+        }
+      </style></noscript
+    >
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to the policy</a>
+    <header class="masthead">
+      <div class="masthead-inner">
+        <p class="wordmark">Affiliate Threads</p>
+        <nav class="topnav" aria-label="Site">
+          <a href="https://github.com/msyamsularif/affiliate-threads-generator"
+            >Repository</a
+          >
+          <button class="theme" id="theme" type="button" aria-pressed="false">
+            Dark theme
+          </button>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main" class="wrap">
+      <header class="title-block">
+        <h1>Privacy Policy</h1>
+        <p class="lede">
+          Affiliate Threads is a self-hosted plugin for Hermes Agent. It reads
+          product candidates from a Google Sheet you own, drafts Threads posts
+          with the AI model you have configured, and publishes them through
+          Meta's official Threads API, using the AIffiliate app you registered.
+          This page describes the data all of that involves, and where it goes.
+        </p>
+        <p class="stamp">
+          Last updated <time datetime="2026-09-24">24 September 2026</time>
+        </p>
+      </header>
+
+      <section class="summary" aria-labelledby="summary-heading">
+        <h2 id="summary-heading">The short version</h2>
+        <ul>
+          <li>
+            You run it yourself, on your machine, against accounts you own.
+            There is no hosted service.
+          </li>
+          <li>
+            It publishes to your Threads profile only, and only after you
+            approve the post.
+          </li>
+          <li>
+            AIffiliate asks Meta for two permissions: read your basic profile,
+            and publish content. Replies, followers, and insights are outside
+            what it can see.
+          </li>
+          <li>
+            The maintainers of this repository receive nothing from your
+            installation. Nothing is sold, shared, or used for advertising.
+          </li>
+        </ul>
+      </section>
+
+      <nav class="toc" aria-labelledby="toc-heading">
+        <h2 id="toc-heading">Contents</h2>
+        <ol>
+          <li>
+            <a href="#scope"><span class="n">1</span>What this policy covers</a>
+          </li>
+          <li>
+            <a href="#data"
+              ><span class="n">2</span>What the plugin reads and writes</a
+            >
+          </li>
+          <li>
+            <a href="#storage"><span class="n">3</span>Where it is stored</a>
+          </li>
+          <li>
+            <a href="#never"><span class="n">4</span>What it does not do</a>
+          </li>
+          <li>
+            <a href="#services"
+              ><span class="n">5</span>The services you connect</a
+            >
+          </li>
+          <li>
+            <a href="#retention"
+              ><span class="n">6</span>How long data is kept</a
+            >
+          </li>
+          <li>
+            <a href="#deletion"><span class="n">7</span>Deleting your data</a>
+          </li>
+          <li>
+            <a href="#security"><span class="n">8</span>Security</a>
+          </li>
+          <li>
+            <a href="#children"><span class="n">9</span>Children</a>
+          </li>
+          <li>
+            <a href="#changes"
+              ><span class="n">10</span>Changes to this policy</a
+            >
+          </li>
+          <li>
+            <a href="#contact"><span class="n">11</span>Contact</a>
+          </li>
+        </ol>
+      </nav>
+
+      <div class="policy">
+        <section id="scope" aria-labelledby="scope-heading">
+          <h2 id="scope-heading">
+            <span class="n">1.</span>What this policy covers
+          </h2>
+          <p>
+            This policy describes two things: AIffiliate, the Meta Threads app
+            you register and authorize, and the Affiliate Threads plugin in this
+            repository that publishes through it. It covers what the software
+            does with data.
+          </p>
+          <p>
+            Affiliate Threads is self-hosted. You install it on a machine you
+            control, connect accounts you own, and run it yourself. The
+            maintainers operate no service for it, so there is no account to
+            create and no data held on your behalf.
+          </p>
+          <p>
+            This policy does not cover Hermes Agent itself, Meta Threads, Google
+            Sheets, Telegram, or the AI provider you configure. Each of those
+            has its own privacy policy and terms.
+          </p>
+        </section>
+
+        <section id="data" aria-labelledby="data-heading">
+          <h2 id="data-heading">
+            <span class="n">2.</span>What the plugin reads and writes
+          </h2>
+          <p>
+            Everything below is either read from a service you connected or
+            written to a store on your machine. There is no other data flow.
+          </p>
+
+          <h3>From Meta Threads</h3>
+          <p>
+            Through the official Graph API, with two permissions:
+            <code>threads_basic</code> and <code>threads_content_publish</code>.
+          </p>
+          <dl>
+            <dt>Access token</dt>
+            <dd>
+              A long-lived token you generate during setup. It is valid for 60
+              days, can be renewed, and can be revoked at any moment.
+            </dd>
+            <dt>Profile</dt>
+            <dd>
+              Your Threads user id and username, read once from the profile
+              endpoint so the plugin knows which account it publishes to. The id
+              can be pinned in your credential store, or left to be resolved and
+              cached automatically.
+            </dd>
+            <dt>Posts</dt>
+            <dd>
+              The text and any image you approve, sent to the API for
+              publishing.
+            </dd>
+            <dt>Results</dt>
+            <dd>
+              The media id and permalink of each published post, kept so the
+              plugin can write the post's URL back to your sheet.
+            </dd>
+          </dl>
+          <p class="note">
+            Replies, mentions, follower lists, and insights are not requested
+            and cannot be read. AIffiliate never asks for those permissions.
+          </p>
+
+          <h3>From Google Sheets</h3>
+          <p>Read and written under your own Google authorization.</p>
+          <dl>
+            <dt>Candidate rows</dt>
+            <dd>
+              Product names, descriptions, affiliate URLs, categories, and
+              statuses, read from the sheet id you configure.
+            </dd>
+            <dt>Your answers</dt>
+            <dd>
+              The <code>Used</code> and <code>Testimonial</code> cells, which
+              hold your own account of using a product. They are written when
+              you answer the pipeline's question, and used exactly as you wrote
+              them.
+            </dd>
+            <dt>Results</dt>
+            <dd>
+              The Threads URL written back to a row once its post is live.
+            </dd>
+          </dl>
+
+          <h3>From Telegram</h3>
+          <p>
+            Previews, questions, and your approve, hold, or cancel decisions
+            pass through the Telegram bot you configured in Hermes. The messages
+            are delivered by Telegram and stored on your device like any other
+            chat.
+          </p>
+
+          <h3>On your machine</h3>
+          <dl>
+            <dt>Publish ledger</dt>
+            <dd>
+              Product ids, media ids, permalinks, timestamps, and publish mode
+              for the last 200 published products. It exists so that a retry
+              after a failure cannot post the same thread twice.
+            </dd>
+            <dt>Audit trail</dt>
+            <dd>
+              Up to 50 records of publish attempts, kept in plugin state and
+              appended to your Hermes log file.
+            </dd>
+            <dt>Settings</dt>
+            <dd>
+              The sheet id, tab name, and limits you set, in your Hermes
+              configuration file.
+            </dd>
+          </dl>
+        </section>
+
+        <section id="storage" aria-labelledby="storage-heading">
+          <h2 id="storage-heading">
+            <span class="n">3.</span>Where it is stored
+          </h2>
+          <p>All of it stays on the machine that runs Hermes.</p>
+          <dl>
+            <dt>Credentials</dt>
+            <dd>
+              The Threads token and sheet id, in the Hermes credential store:
+              <code>~/.hermes/.env</code>, or the secret manager you configured
+              instead.
+            </dd>
+            <dt>Runtime records</dt>
+            <dd>
+              The publish ledger and audit trail, under
+              <code>~/.hermes/plugin-data/</code>.
+            </dd>
+            <dt>Logs</dt>
+            <dd>Audit lines under <code>~/.hermes/logs/</code>.</dd>
+            <dt>Settings</dt>
+            <dd>In <code>~/.hermes/config.yaml</code>.</dd>
+          </dl>
+          <p>
+            This repository ships the names of the variables the plugin needs
+            and never their values. No secret is stored in any file here, and
+            the maintainers receive no copy of your data.
+          </p>
+        </section>
+
+        <section id="never" aria-labelledby="never-heading">
+          <h2 id="never-heading">
+            <span class="n">4.</span>What it does not do
+          </h2>
+          <ul>
+            <li>
+              No analytics, telemetry, or usage reporting. The plugin contains
+              no reporting component.
+            </li>
+            <li>No cookies, no tracking, no advertising, and no profiling.</li>
+            <li>
+              No reading of other people's Threads content. Replies, mentions,
+              followers, and insights are outside the permissions AIffiliate
+              requests.
+            </li>
+            <li>
+              No publishing without approval. Every publish passes Hermes' human
+              approval gate first, and a row is marked done only after the
+              Threads API confirms the post.
+            </li>
+            <li>
+              No invented first-hand claims. Your <code>Used</code> and
+              <code>Testimonial</code> answers are stored and used as written,
+              and the guardrails refuse experience claims your own words do not
+              support.
+            </li>
+            <li>No selling or sharing of your data with anyone.</li>
+          </ul>
+        </section>
+
+        <section id="services" aria-labelledby="services-heading">
+          <h2 id="services-heading">
+            <span class="n">5.</span>The services you connect
+          </h2>
+          <p>
+            You bring these accounts; the plugin passes each one only what it
+            needs to do its part.
+          </p>
+          <dl>
+            <dt>
+              Meta Threads (<a href="https://www.facebook.com/privacy/policy/"
+                >privacy policy</a
+              >)
+            </dt>
+            <dd>
+              Receives the posts you approve, the API calls needed to publish
+              them, and the token exchange made when you set up AIffiliate.
+            </dd>
+            <dt>
+              Google Sheets (<a href="https://policies.google.com/privacy"
+                >privacy policy</a
+              >)
+            </dt>
+            <dd>
+              Receives reads and writes on your spreadsheet, made with your own
+              Google authorization.
+            </dd>
+            <dt>
+              Telegram (<a href="https://telegram.org/privacy">privacy policy</a
+              >)
+            </dt>
+            <dd>
+              Delivers the messages between you and your bot, including previews
+              and approvals.
+            </dd>
+            <dt>Your AI provider</dt>
+            <dd>
+              Receives the prompts the pipeline builds, which include product
+              candidates from your sheet, research notes, and drafts. Which
+              company receives them depends on the model you configured in
+              Hermes.
+            </dd>
+            <dt>Research and image tools</dt>
+            <dd>
+              Anything you connected in Hermes for browsing, research, or image
+              generation handles public pages and prompts the same way it would
+              for any other task.
+            </dd>
+          </dl>
+        </section>
+
+        <section id="retention" aria-labelledby="retention-heading">
+          <h2 id="retention-heading">
+            <span class="n">6.</span>How long data is kept
+          </h2>
+          <ul>
+            <li>
+              The Threads token: 60 days at a time, renewable while it is valid,
+              and revocable at any moment. Renewing resets the clock.
+            </li>
+            <li>
+              The publish ledger: the most recent 200 records; older ones are
+              dropped as new ones arrive.
+            </li>
+            <li>The audit trail: the most recent 50 publish attempts.</li>
+            <li>
+              Sheet rows, settings, and logs: kept until you remove them. They
+              are files on your machine, under your control.
+            </li>
+          </ul>
+          <p>
+            Nothing is retained on infrastructure run by this project, because
+            no such infrastructure exists.
+          </p>
+        </section>
+
+        <section id="deletion" aria-labelledby="deletion-heading">
+          <h2 id="deletion-heading">
+            <span class="n">7.</span>Deleting your data
+          </h2>
+          <p>
+            Because the data lives with you, deletion is something you do
+            directly. Four steps cover all of it.
+          </p>
+          <ol>
+            <li>
+              Revoke access in Threads. Open your Threads account settings, go
+              to Website permissions, and remove AIffiliate. Its token stops
+              working immediately.
+            </li>
+            <li>
+              Remove the credentials. Delete the Threads token and sheet id from
+              the Hermes credential store (<code>~/.hermes/.env</code>, or the
+              secret manager you configured).
+            </li>
+            <li>
+              Delete the local records. Remove the plugin's directory under
+              <code>~/.hermes/plugin-data/</code>, plus any log lines you want
+              gone under <code>~/.hermes/logs/</code>.
+            </li>
+            <li>
+              Clear the sheet. Edit or delete the rows in your spreadsheet; the
+              sheet is the system's only state store, and it is yours.
+            </li>
+          </ol>
+          <p>
+            There is no deletion request to file with the maintainers, because
+            they hold no copy to delete.
+          </p>
+        </section>
+
+        <section id="security" aria-labelledby="security-heading">
+          <h2 id="security-heading"><span class="n">8.</span>Security</h2>
+          <ul>
+            <li>
+              No secrets in the repository. The plugin declares the names of the
+              variables it needs; Hermes prompts for the values, masks them
+              during entry, and stores them itself.
+            </li>
+            <li>
+              Values reach the plugin as environment variables at process start,
+              and child processes receive only the variables the plugin
+              declares.
+            </li>
+            <li>
+              Two Meta permissions, nothing more. AIffiliate cannot read
+              replies, followers, or insights, because it never asks for them.
+            </li>
+            <li>
+              A publish is written to your sheet only after the Threads API
+              confirms it, and the ledger stops a retry from posting twice.
+            </li>
+          </ul>
+          <p>
+            No system is perfectly secure. Keep the machine that runs Hermes
+            protected, and connect only the Threads account you intend the
+            plugin to publish to.
+          </p>
+        </section>
+
+        <section id="children" aria-labelledby="children-heading">
+          <h2 id="children-heading"><span class="n">9.</span>Children</h2>
+          <p>
+            The plugin is a publishing tool for the person running it. It is not
+            directed at children, and it does not knowingly process their data.
+            Meta's own terms set the age required to hold a Threads account.
+          </p>
+        </section>
+
+        <section id="changes" aria-labelledby="changes-heading">
+          <h2 id="changes-heading">
+            <span class="n">10.</span>Changes to this policy
+          </h2>
+          <p>
+            This page lives in the repository, next to the code it describes.
+            When the software's data handling changes, the page changes with it
+            in the same history, and the date at the top is updated.
+          </p>
+        </section>
+
+        <section id="contact" aria-labelledby="contact-heading">
+          <h2 id="contact-heading"><span class="n">11.</span>Contact</h2>
+          <p>
+            Questions or corrections: open an issue at
+            <a
+              href="https://github.com/msyamsularif/affiliate-threads-generator/issues"
+              >github.com/msyamsularif/affiliate-threads-generator/issues</a
+            >. For how each connected service handles data on its own side, use
+            the links in section 5.
+          </p>
+        </section>
+      </div>
+    </main>
+
+    <footer>
+      <div class="footer-inner">
+        <p>
+          Affiliate Threads is open source under the
+          <a
+            href="https://github.com/msyamsularif/affiliate-threads-generator/blob/main/LICENSE"
+            >MIT License</a
+          >. Bugs and questions go to the
+          <a
+            href="https://github.com/msyamsularif/affiliate-threads-generator/issues"
+            >issue tracker</a
+          >.
+        </p>
+        <p>
+          This page is one HTML file. It sets no cookies, loads nothing from
+          other sites, and sends no data anywhere.
+        </p>
+      </div>
+    </footer>
+
+    <script>
+      (function () {
+        var button = document.getElementById("theme");
+        var root = document.documentElement;
+        function sync() {
+          button.setAttribute(
+            "aria-pressed",
+            root.getAttribute("data-theme") === "dark" ? "true" : "false",
+          );
+        }
+        button.addEventListener("click", function () {
+          var next =
+            root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+          root.setAttribute("data-theme", next);
+          try {
+            localStorage.setItem("theme", next);
+          } catch (error) {}
+          sync();
+        });
+        sync();
+      })();
+    </script>
+  </body>
+</html>
