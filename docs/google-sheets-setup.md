@@ -8,33 +8,66 @@ true.
 
 A new Google Sheet with one tab (default name `Sheet1`). Row 1 is a header:
 
-|       | A    | B         | C             | D               | E          | F             | G        |
-| ----- | ---- | --------- | ------------- | --------------- | ---------- | ------------- | -------- |
-| **1** | `ID` | `Product` | `Description` | `Affiliate URL` | `Category` | `Threads URL` | `Status` |
+|       | A    | B         | C             | D               | E          | F             | G      | H             | I        |
+| ----- | ---- | --------- | ------------- | --------------- | ---------- | ------------- | ------ | ------------- | -------- |
+| **1** | `ID` | `Product` | `Description` | `Affiliate URL` | `Category` | `Threads URL` | `Used` | `Testimonial` | `Status` |
 
 A header row is optional — the loader detects `ID` in A1 and adjusts. Keep the
 header anyway; it makes the sheet readable for humans.
 
+If your sheet was created before the `Used`/`Testimonial` columns existed, bring
+it to this order — or remap the whole layout with the `columns` setting. A table
+left in the old order without remapping would have its `Status` read from the
+wrong cell, and nothing would look eligible.
+
 ### Column semantics
 
-| Column          | Who writes it      | Notes                                                                                                                                                                               |
-| --------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ID`            | Operator           | Unique. Numeric IDs sort first, ascending.                                                                                                                                          |
-| `Product`       | Operator           | Product name                                                                                                                                                                        |
-| `Description`   | Operator           | **Background material, written by the seller's side.** It orients the writer — what the product is, who it is for — and is never the thread's evidence. Keep it factual; see below. |
-| `Affiliate URL` | Operator           | Required when `require_affiliate_url` is on (default). Must appear in the published thread.                                                                                         |
-| `Category`      | Operator           | Used for category-level framing when product detail is thin                                                                                                                         |
-| `Threads URL`   | `threads_publish`  | Blank before publication. Never write it by hand.                                                                                                                                   |
-| `Status`        | Operator + scripts | See below                                                                                                                                                                           |
+| Column          | Who writes it                     | Notes                                                                                                                                                                               |
+| --------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ID`            | Operator                          | Unique. Numeric IDs sort first, ascending.                                                                                                                                          |
+| `Product`       | Operator                          | Product name                                                                                                                                                                        |
+| `Description`   | Operator                          | **Background material, written by the seller's side.** It orients the writer — what the product is, who it is for — and is never the thread's evidence. Keep it factual; see below. |
+| `Affiliate URL` | Operator                          | Required when `require_affiliate_url` is on (default). Must appear in the published thread.                                                                                         |
+| `Category`      | Operator                          | Used for category-level framing when product detail is thin                                                                                                                         |
+| `Threads URL`   | `threads_publish`                 | Blank before publication. Never write it by hand.                                                                                                                                   |
+| `Used`          | Operator (or `set_experience.py`) | `Yes` / `No`: whether the human has personally used the product. Blank = not answered yet — the pipeline asks before it researches.                                                 |
+| `Testimonial`   | Operator (or `set_experience.py`) | The human's own account of that use, stored verbatim. Meaningful only with `Used=Yes`; never a model paraphrase.                                                                    |
+| `Status`        | Operator + scripts                | See below                                                                                                                                                                           |
+
+### The experience answer (`Used` + `Testimonial`)
+
+Some products in the sheet will have been used by the operator and some will not.
+Before it researches, the pipeline asks — "pernah kamu pakai sendiri?" — and
+stores the answer with `set_experience.py`, which writes only these two cells:
+
+```bash
+python3 ${HERMES_SKILL_DIR}/scripts/set_experience.py 12 --used no
+python3 ${HERMES_SKILL_DIR}/scripts/set_experience.py 12 --used yes --testimonial "Dipakai 3 bulan, pas buat kerja."
+```
+
+- `Used=No` → the copy is observation-only; no first-hand claim may ship
+  (`fabricated_personal_experience`).
+- `Used=Yes` + a testimony → first-hand claims are allowed **inside what the
+  testimony says**, and nothing beyond it: no invented duration, outcome, or
+  number (`experience_detail_unsupported`), no person the testimony never mentions
+  (`experience_attribution_unsupported`), and the voice follows the witness.
+- Blank → the question is asked and the run waits for the answer; a table
+  without the two columns never asks, and every row validates as `none`.
+- Guarantee and absolute language ("dijamin", "100% ampuh") is refused in
+  **both** modes (`amplifier_language`).
+
+You can also type the answer into the sheet by hand. The script exists so the
+pipeline can store the human's words exactly as given — it never paraphrases
+them.
 
 ### Example rows
 
-| ID  | Product             | Description                                                               | Affiliate URL           | Category   | Threads URL | Status            |
-| --- | ------------------- | ------------------------------------------------------------------------- | ----------------------- | ---------- | ----------- | ----------------- |
-| 1   | Power Bank 20000mAh | Matte black, 380g, 22.5W PD, 2 port (USB-A + USB-C), kabel USB-C included | https://shope.ee/abc123 | Power Bank |             | Done              |
-| 2   | Wireless Earbuds X  | TWS, BT 5.3, 6 jam per charge, case 24 jam, IPX4, touch control           | https://shope.ee/def456 | Audio      |             | Ready To Generate |
-| 3   | Laptop Stand Alu    | Aluminium, lipat, 6 level tinggi, sampai 17 inci, bobot 620g              | https://shope.ee/ghi789 | Aksesoris  |             | In Progress       |
-| 4   | Tumbler 1L          | Stainless, tahan 12 jam panas, tutup anti bocor, 340g                     | https://shope.ee/jkl012 | Minuman    |             | Hold              |
+| ID  | Product             | Description                                                               | Affiliate URL           | Category   | Threads URL | Used | Testimonial | Status            |
+| --- | ------------------- | ------------------------------------------------------------------------- | ----------------------- | ---------- | ----------- | ---- | ----------- | ----------------- |
+| 1   | Power Bank 20000mAh | Matte black, 380g, 22.5W PD, 2 port (USB-A + USB-C), kabel USB-C included | https://shope.ee/abc123 | Power Bank |             |      |             | Done              |
+| 2   | Wireless Earbuds X  | TWS, BT 5.3, 6 jam per charge, case 24 jam, IPX4, touch control           | https://shope.ee/def456 | Audio      |             |      |             | Ready To Generate |
+| 3   | Laptop Stand Alu    | Aluminium, lipat, 6 level tinggi, sampai 17 inci, bobot 620g              | https://shope.ee/ghi789 | Aksesoris  |             |      |             | In Progress       |
+| 4   | Tumbler 1L          | Stainless, tahan 12 jam panas, tutup anti bocor, 340g                     | https://shope.ee/jkl012 | Minuman    |             |      |             | Hold              |
 
 Only row 2 is eligible. Everything else is skipped, whatever the request says.
 

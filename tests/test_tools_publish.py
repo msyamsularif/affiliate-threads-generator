@@ -31,6 +31,8 @@ def make_row(
     affiliate_url: str = AFFILIATE_URL,
     product: str = "Power Bank 20000mAh",
     row_number: int = 14,
+    used: str = "",
+    testimonial: str = "",
 ) -> sheets_client.Row:
     return sheets_client.Row(
         row_number=row_number,
@@ -42,6 +44,8 @@ def make_row(
             "category": "Power Bank",
             "threads_url": threads_url,
             "status": status,
+            "used": used,
+            "testimonial": testimonial,
         },
     )
 
@@ -178,17 +182,6 @@ class TestGuardrails:
         assert result["stage"] == "guardrails"
         assert "too_few_posts" in {item["code"] for item in result["violations"]}
         assert sheet.writes == []
-
-    def test_missing_disclosure_blocks_publishing(self, publish_env) -> None:  # noqa: ANN001
-        publish_env(FakeSheet([make_row()]))
-        posts = [
-            {"text": "a"},
-            {"text": "b"},
-            {"text": f"detail: {AFFILIATE_URL}"},
-        ]
-        result = call({"product_id": "12", "posts": posts, "confirm_publish": True})
-        assert result["stage"] == "guardrails"
-        assert "missing_disclosure" in {item["code"] for item in result["violations"]}
 
     def test_fabricated_experience_blocks_publishing(self, publish_env) -> None:  # noqa: ANN001
         publish_env(FakeSheet([make_row()]))
@@ -543,8 +536,8 @@ class TestTwoStagePublish:
         assert record["publish_mode"] == "two_stage"
         assert record["sheet_synced"] is True
 
-    def test_stage_one_needs_neither_the_link_nor_a_disclosure(self, two_stage) -> None:  # noqa: ANN001
-        """Both are deferred to the reply, which is where they can be honoured."""
+    def test_stage_one_does_not_need_the_link(self, two_stage) -> None:  # noqa: ANN001
+        """The link is deferred to the reply, which is where it can be honoured."""
         transport = scripted_transport(happy_path_responses(posts=3))
         two_stage(FakeSheet([make_row()]), transport)
 
@@ -588,7 +581,7 @@ class TestTwoStagePublish:
         assert "exactly one post" in result["error"]
         assert len(sheet.writes) == 1  # nothing new was written
 
-    def test_the_reply_must_carry_the_link_and_the_disclosure(self, two_stage) -> None:  # noqa: ANN001
+    def test_the_reply_must_carry_the_link(self, two_stage) -> None:  # noqa: ANN001
         transport = scripted_transport(happy_path_responses(posts=3))
         two_stage(FakeSheet([make_row()]), transport)
         call({"product_id": "12", "posts": self.THREAD, "confirm_publish": True})
@@ -600,7 +593,7 @@ class TestTwoStagePublish:
 
         assert result["stage"] == "guardrails"
         codes = {item["code"] for item in result["violations"]}
-        assert {"affiliate_url_not_in_thread", "missing_disclosure"} <= codes
+        assert "affiliate_url_not_in_thread" in codes
         assert len(transport.calls) == calls
 
     def test_a_second_reply_is_refused_by_the_sheets_own_state(self, two_stage) -> None:  # noqa: ANN001

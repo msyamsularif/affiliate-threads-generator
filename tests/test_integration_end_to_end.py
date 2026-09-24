@@ -67,9 +67,9 @@ else:
 '''
 
 SHEET = [
-    ["ID", "Product", "Description", "Affiliate URL", "Category", "Threads URL", "Status"],
-    ["1", "Power Bank 20000mAh", "Matte black, 380g", "https://shope.ee/aaa", "Power Bank", "https://t/x", "Done"],
-    ["2", "Wireless Earbuds X", "TWS, BT 5.3, 6 jam, IPX4", "https://shope.ee/bbb", "Audio", "", "Ready To Generate"],
+    ["ID", "Product", "Description", "Affiliate URL", "Category", "Threads URL", "Used", "Testimonial", "Status"],
+    ["1", "Power Bank 20000mAh", "Matte black, 380g", "https://shope.ee/aaa", "Power Bank", "https://t/x", "", "", "Done"],
+    ["2", "Wireless Earbuds X", "TWS, BT 5.3, 6 jam, IPX4", "https://shope.ee/bbb", "Audio", "", "", "", "Ready To Generate"],
 ]
 
 AFFILIATE_URL = "https://shope.ee/bbb"
@@ -78,9 +78,7 @@ POSTS = [
     {"text": "Klaim 6 jam per charge itu angka yang menarik, tapi ada satu hal yang jarang dibahas."},
     {"text": "Dari spesifikasi produknya: BT 5.3 dan IPX4. Kombinasi ini yang biasanya bikin beda di luar ruangan."},
     {"text": "Keterbatasannya: angka 6 jam itu untuk volume normal. Pasang volume penuh terus, angkanya turun."},
-    # The lightweight disclosure form: the same post carries the URL and one
-    # short line. It still satisfies the hard guardrail, which is the point.
-    {"text": f"Detail lengkapnya di sini:\n{AFFILIATE_URL}\n\nLink afiliasi."},
+    {"text": f"Detail lengkapnya di sini:\n{AFFILIATE_URL}"},
 ]
 
 
@@ -164,7 +162,7 @@ def install_transport(monkeypatch: pytest.MonkeyPatch, transport) -> None:  # no
 class TestFullPublishCycle:
     def test_publishes_and_records_the_row(self, end_to_end) -> None:  # noqa: ANN001
         before = end_to_end["read_sheet"]()
-        assert before[2][6] == "Ready To Generate"
+        assert before[2][8] == "Ready To Generate"
         assert before[2][5] == ""
 
         result = call(
@@ -180,10 +178,10 @@ class TestFullPublishCycle:
         assert result["status"] == "published"
 
         after = end_to_end["read_sheet"]()
-        assert after[2][6] == "Done"
+        assert after[2][8] == "Done"
         assert after[2][5] == "https://www.threads.net/@tester/post/media-1"
         # The other rows are untouched.
-        assert after[1][6] == "Done"
+        assert after[1][8] == "Done"
         assert after[1][5] == "https://t/x"
         assert after[0] == before[0]
 
@@ -211,7 +209,7 @@ class TestFullPublishCycle:
     def test_a_held_row_is_never_published(self, end_to_end) -> None:  # noqa: ANN001
         # Simulate the human replying "hold" between the preview and the approval.
         sheet = end_to_end["read_sheet"]()
-        sheet[2][6] = "Hold"
+        sheet[2][8] = "Hold"
         end_to_end["state_path"].write_text(json.dumps(sheet, ensure_ascii=False), encoding="utf-8")
 
         result = call({"product_id": "2", "posts": POSTS, "confirm_publish": True})
@@ -219,7 +217,7 @@ class TestFullPublishCycle:
         assert result["ok"] is False
         assert result["stage"] == "precondition"
         assert end_to_end["transport"].calls == []
-        assert end_to_end["read_sheet"]()[2][6] == "Hold"
+        assert end_to_end["read_sheet"]()[2][8] == "Hold"
 
     def test_guardrails_run_against_the_real_row(self, end_to_end) -> None:  # noqa: ANN001
         """The affiliate URL is taken from the Sheet, not from the caller."""
@@ -277,7 +275,7 @@ class TestTwoStageCycle:
         assert first["ok"] is True, first
         assert first["status"] == "published_awaiting_link"
         after_first = end_to_end["read_sheet"]()
-        assert after_first[2][6] == "Link Pending"
+        assert after_first[2][8] == "Link Pending"
         assert after_first[2][5] == "https://www.threads.net/@tester/post/media-1"
         assert "shope.ee" not in json.dumps(self.THREAD)
 
@@ -287,7 +285,7 @@ class TestTwoStageCycle:
         assert second["status"] == "link_reply_published"
         assert second["link_media_id"] == "media-link"
         after_second = end_to_end["read_sheet"]()
-        assert after_second[2][6] == "Done"
+        assert after_second[2][8] == "Done"
         assert after_second[2][5] == after_first[2][5]  # the thread URL is unchanged
         # The reply really was a reply: it answers the last post of the thread.
         assert transport.calls[-3][2]["reply_to_id"] == "media-3"
@@ -310,7 +308,7 @@ class TestTwoStageCycle:
 
         assert result["stage"] == "guardrails"
         assert len(transport.calls) == calls
-        assert end_to_end["read_sheet"]()[2][6] == "Link Pending"
+        assert end_to_end["read_sheet"]()[2][8] == "Link Pending"
 
 
 class TestPythonCompatibility:

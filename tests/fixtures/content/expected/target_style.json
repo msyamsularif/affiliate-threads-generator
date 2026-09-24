@@ -1,5 +1,5 @@
 {
-    "note": "Style target, not a template: point of view first, details selected, product earned, ending useful, disclosure one line. Must stay clean.",
+    "note": "Style target, not a template: point of view first, details selected, product earned, ending useful. Must stay clean.",
     "product_id": "12",
     "product_name": "Sensory Board 30cm",
     "affiliate_url": "https://shope.ee/abc123",
@@ -17,7 +17,7 @@
             "text": "Jadi produk ini lebih masuk untuk dimainkan sambil ditemani, bukan ditaruh lalu ditinggal."
         },
         {
-            "text": "Kalau mau lihat ukuran dan variannya:\nhttps://shope.ee/abc123\n\nLink afiliasi."
+            "text": "Kalau mau lihat ukuran dan variannya:\nhttps://shope.ee/abc123"
         }
     ]
 }

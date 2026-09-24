@@ -27,7 +27,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .config import Settings, column_index, column_letter
+from .config import Settings, column_index, column_letter, experience_mode
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +90,20 @@ class Row:
     def status(self) -> str:
         return self.get("status")
 
+    @property
+    def used(self) -> str:
+        """The row's experience answer: ``Yes`` / ``No`` / blank (not answered)."""
+        return self.get("used")
+
+    @property
+    def testimonial(self) -> str:
+        """The human's own account of using the product, stored verbatim."""
+        return self.get("testimonial")
+
+    def experience_mode(self) -> str:
+        """The guardrail mode this row resolves to (see ``config.experience_mode``)."""
+        return experience_mode(self.used, self.testimonial)
+
     def as_dict(self, *, include_description: bool = False) -> dict[str, Any]:
         payload: dict[str, Any] = {
             "row": self.row_number,
@@ -99,9 +113,12 @@ class Row:
             "status": self.status,
             "affiliate_url": self.affiliate_url,
             "threads_url": self.threads_url,
+            "used": self.used,
+            "experience_mode": self.experience_mode(),
         }
         if include_description:
             payload["description"] = self.description
+            payload["testimonial"] = self.testimonial
         return payload
 
 
@@ -304,6 +321,23 @@ class SheetClient:
 
     def write_status(self, row_number: int, status: str) -> None:
         self.write_fields(row_number, {"status": status})
+
+    def write_experience(self, row_number: int, *, used: str, testimonial: str) -> None:
+        """Record the row's experience answer — only the ``Used``/``Testimonial`` cells.
+
+        ``Used=No`` clears the testimony: an answer that the product was never
+        used must not leave an old account sitting beside it.
+        """
+        if not self.settings.experience_configured:
+            raise SheetError(
+                "the Used/Testimonial columns are not configured, so the answer cannot be stored",
+                stage="sheets_setup",
+                hint=(
+                    "Add `used` and `testimonial` to the columns setting (or use the default "
+                    'layout), then try again. Until then every row validates in "none" mode.'
+                ),
+            )
+        self.write_fields(row_number, {"used": used, "testimonial": testimonial})
 
 
 def _sort_key(row: Row) -> tuple[int, float | str, int]:

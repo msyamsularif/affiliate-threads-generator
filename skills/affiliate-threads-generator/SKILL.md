@@ -5,12 +5,13 @@ description: >-
   Use for any request to create, regenerate, hold, cancel or approve Threads
   affiliate content — "buatkan content berikutnya", "generate lagi", "hold dulu
   yang ini", "saya approve", "regenerate tapi angle-nya lebih ke traveller".
-  Runs the full pipeline: deterministic candidate selection, review-first
-  research (the seller's description is background, never evidence), angle
-  discovery and scoring, a one-line point of view, narrative planning with a
-  critic pass, drafting, an antislop audit, the affiliate editorial and evidence
-  reviews, then a Telegram preview that waits for a human decision. Never
-  publishes on its own.
+  Runs the full pipeline: deterministic candidate selection, the experience
+  check (asks whether the human has used the product before any research),
+  review-first research (the seller's description is background, never
+  evidence), angle discovery and scoring, a one-line point of view, narrative
+  planning with a critic pass, drafting, an antislop audit, the affiliate
+  editorial and evidence reviews, then a Telegram preview that waits for a
+  human decision. Never publishes on its own.
 version: 1.0.5
 author: Affiliate Threads
 license: MIT
@@ -97,7 +98,7 @@ If the affiliate link were removed, the thread must still be worth reading.
 - re-reads the Sheet and refuses unless the row's `Status` is exactly
   `Ready To Generate`
 - refuses unless the row's `Threads URL` is still empty
-- enforces the hard guardrails (length, links, disclosure, affiliate URL,
+- enforces the hard guardrails (length, links, affiliate URL,
   no fabricated first-hand experience)
 - asks the human for a second confirmation through Hermes' approval gate
 - writes `Status=Done` + `Threads URL` only after the posts are confirmed live
@@ -129,7 +130,7 @@ When they are available:
 
 1. Load both with `skill_view`.
 2. Apply them as an **audit** of the draft, not only as advice while writing.
-3. Never let anti-slop rules override affiliate evidence, disclosure, product
+3. Never let anti-slop rules override affiliate evidence, product
    fit, or safety requirements. They govern prose, not facts.
 4. After the anti-slop pass, run this plugin's affiliate editorial review —
    `references/editorial-rules.md`.
@@ -170,6 +171,7 @@ for you when the skill loads.
 | --------------------------------- | ------------------------------------------------------------------------------------------------ |
 | Pick the next candidate           | `python3 ${HERMES_SKILL_DIR}/scripts/select_candidate.py`                                        |
 | Set a status (hold/cancel/resume) | `python3 ${HERMES_SKILL_DIR}/scripts/set_status.py <PRODUCT_ID> <STATUS>`                        |
+| Record the experience answer      | `python3 ${HERMES_SKILL_DIR}/scripts/set_experience.py <PRODUCT_ID> --used no`                   |
 | Lint a draft before showing it    | `python3 ${HERMES_SKILL_DIR}/scripts/validate_thread.py --file draft.json --topic-tag "<topic>"` |
 | Health check                      | `python3 ${HERMES_SKILL_DIR}/scripts/doctor.py`                                                  |
 | Threads token status / refresh    | `python3 ${HERMES_SKILL_DIR}/scripts/threads_token.py status`                                    |
@@ -190,7 +192,8 @@ for you when the skill loads.
 
 Decide which of these you are doing, then follow only that branch:
 
-1. **Generate** (scheduled or manual) → Steps 1-8.
+1. **Generate** (scheduled or manual) → Steps 1-8, with the Step 1.5 question
+   whenever the experience answer is blank.
 2. **Hold / Cancel / Resume** → read `references/telegram-actions.md`, run
    `set_status.py`, confirm to the human, stop.
 3. **Approve** → read `references/telegram-actions.md`, then call
@@ -230,7 +233,8 @@ It re-reads the Sheet, filters to rows whose `Status` is exactly
   Never fall back to a different status, never invent a candidate.
 - Never process more than one row per request, scheduled or manual.
 
-Read the candidate's full row (including `Description`) before moving on:
+Read the candidate's full row — `Description`, and the `Used` / `Testimonial`
+answer — before moving on:
 
 ```bash
 python3 ${HERMES_SKILL_DIR}/scripts/select_candidate.py --id 12 --full
@@ -238,6 +242,54 @@ python3 ${HERMES_SKILL_DIR}/scripts/select_candidate.py --id 12 --full
 
 The description orients you — what the product is, how it is described — but it
 is the seller's own copy. Never treat it as evidence; Step 2 says what counts.
+
+### Step 1.5 — Experience check (ask-first)
+
+The row's `Used` and `Testimonial` columns decide the mode everything after this
+point is written and validated under. The mode comes from the Sheet — you never
+choose it:
+
+| Row state                            | Mode        | What the copy may claim                              |
+| ------------------------------------ | ----------- | ---------------------------------------------------- |
+| `Used=Yes` + non-empty `Testimonial` | `firsthand` | first-hand claims, traceable to the stored testimony |
+| `Used=No`                            | `none`      | no first-hand claim at all                           |
+| `Used=Yes`, empty testimony          | `none`      | ask once more for the testimony                      |
+| `Used` blank                         | —           | ask first (below), and never guess                   |
+
+**Blank → ask, then stop.** Send the question with the Product ID and the
+product name, and wait — do not research, draft, or skip ahead:
+
+```text
+📦 Product ID: <ID>
+🏷️ <Product> — <Category>
+Sebelum saya riset: produk ini pernah kamu pakai sendiri?
+
+• "belum" → saya tulis observation-only (tanpa klaim pengalaman)
+• "pernah" + testimoni singkat (lama pakai, dipakai untuk apa, plus/minus)
+```
+
+On the answer, store it verbatim and continue from Step 2 in the same turn:
+
+```bash
+python3 ${HERMES_SKILL_DIR}/scripts/set_experience.py 12 --used no
+python3 ${HERMES_SKILL_DIR}/scripts/set_experience.py 12 --used yes --testimonial "<their own words>"
+```
+
+- **"belum"** → `--used no`. The copy is observation-only.
+- **"pernah" + testimony** → `--used yes --testimonial "..."`, exactly their
+  words: never paraphrase, summarize, or extend them. The stored text is tier 0
+  in the evidence ledger (Step 2), and nothing in the copy may go beyond it.
+- **"pernah" with no detail** → ask once for one sentence (how long, what for,
+  what was good or not). If they still do not give one, store `--used yes` with
+  no testimony: it validates as `none`, and the preview says so.
+- If the conversation was reset since the question, ask which Product ID the
+  answer belongs to — the question shows it; never guess.
+- `ask_experience: false`, or a layout without the two columns, means there is
+  no question: validate every draft as `none`.
+
+A blank answer never generates. Scheduled and manual runs behave identically:
+an unanswered question parks the run, and a later scheduled run asks again —
+that repetition is by design, because there is no hidden state.
 
 ### Step 2 — Research (review-first, Shopee-aware)
 
@@ -247,6 +299,9 @@ anti-bot or auth walls — that is a hard rule, not a preference.
 
 Confidence tiers, highest first:
 
+0. **The stored testimony** (the row's `Testimonial`, `firsthand` mode only) —
+   the one source that can support a first-hand claim. It is the human's own
+   account: report it as theirs, never amplify, generalize, or extend it.
 1. **Independent evidence** — external web and review research: category norms,
    forum and community discussion, comparison articles, video reviews. Search
    generally; do not scrape Shopee. Nothing in this tier is written by someone
@@ -263,6 +318,10 @@ Confidence tiers, highest first:
 
 If tiers 1 and 2 both come back thin, shift to a **category-level**
 problem/observation framing instead of inventing product-specific detail.
+
+Research runs in **both** modes. In `firsthand` mode it supplies the context,
+the corroboration, and the real trade-off; the testimony supplies the personal
+material — never the other way round.
 
 Also build a **visual profile** from what the material actually shows: shape,
 colour, material, distinctive physical features. You will need it in Step 7.
@@ -311,7 +370,7 @@ stop. That is an angle problem, not a wording problem — go back to Step 3.
   next because of it (objectives, not a fixed role template)
 - where the product becomes relevant, and why the narrative is ready for it
   there (post 3-4 is the normal range, not a rule)
-- which post carries the CTA and the disclosure
+- which post carries the CTA
 - the `topic_tag` — one topic for the root post, and the topic a reader would
   search for. It is metadata, never text (Step 5)
 - `affiliate_intensity` — default `2` (roughly 80% value, 20% product)
@@ -335,9 +394,8 @@ the opening shapes in `references/hook-patterns.md`.
 becomes clickable, it is called a topic tag, and it is passed to
 `threads_publish` as `topic_tag` — metadata, not copy. A hashtag trail at the end
 of a reply buys no reach and is the clearest tell that a thread is an ad; the
-tool refuses it (`hashtag_in_copy`). That includes `#ad`: a hashtag is not a
-disclosure here — the disclosure is a short sentence like "Link afiliasi." — and
-nothing is allowlisted by default. Pick the one topic a reader would search for —
+tool refuses it (`hashtag_in_copy`), and nothing is allowlisted by default. Pick
+the one topic a reader would search for —
 the conversation, not the product name — within the platform's limits (1-50
 characters, no `.` or `&`, no leading `#`). Details: `references/content-rules.md`.
 
@@ -346,17 +404,25 @@ rules in `references/editorial-rules.md`. The short version:
 
 ```
 Audience → Problem/curiosity/observation → Interesting insight →
-Specific evidence → Possible solution → Product → Contextual CTA + disclosure
+Specific evidence → Possible solution → Product → Contextual CTA
 ```
 
 Select the two to four details the angle needs. Leave the rest in the research.
 Include a genuine, evidence-backed trade-off when the angle has room for one —
 and never fabricate a weakness.
 
-**Hard rule — no fabricated personal experience.** Never write _"Aku sudah
-coba..."_, _"Saya pakai ini setiap hari..."_, _"Menurut pengalaman saya..."_. The
-system has never touched the product. Write _"Dari spesifikasi produk..."_,
-_"Berdasarkan review yang tersedia..."_, _"Untuk skenario seperti ini..."_.
+**The personal experience rule.** The mode the row resolved to in Step 1.5
+decides this:
+
+- In `none` mode: no first-hand claim at all. Never write _"Aku sudah coba..."_,
+  _"Saya pakai ini setiap hari..."_, _"Menurut pengalaman saya..."_. Write
+  _"Dari spesifikasi produk..."_, _"Berdasarkan review yang tersedia..."_,
+  _"Untuk skenario seperti ini..."_ instead.
+- In `firsthand` mode: first-hand claims are allowed inside what the stored
+  testimony says. No invented duration, outcome, comparison, or number; the
+  voice follows the witness (if the testimony says the child used it, the copy
+  says so — never _"saya pakai"_); and guarantee language — _"dijamin"_,
+  _"100% ampuh"_, _"pasti sembuh"_ — is refused in both modes
 
 ### Step 6 — Audit, rewrite, then lint
 
@@ -374,7 +440,9 @@ Four passes on the draft, in this order:
 3. **Evidence review** — every factual claim traces to one of Step 2's tiers.
    Anything untraceable is removed or rewritten as an explicit hedge. Check that
    the rewrite did not introduce a new fact or drop a qualification.
-4. **Deterministic lint** — the same check the publish tool will run:
+4. **Deterministic lint** — the same check the publish tool will run In
+   `firsthand` mode, every first-hand sentence must trace to the stored
+   testimony too — a detail it does not contain fails this pass.:
 
 ```bash
 python3 ${HERMES_SKILL_DIR}/scripts/validate_thread.py --file draft.json
@@ -389,19 +457,21 @@ that only talks the reader toward the link ("klik link di bawah", "link di bio",
 AI-written — treat each as a reason to look again.
 
 Three violations are newer to the list and easy to trip: `hashtag_in_copy` (a
-`#tag` in the copy — any hashtag, `#ad` included, since a hashtag is not a
-disclosure and only explicitly allowlisted tokens may stay), `topic_tag_missing`
+`#tag` in the copy — any hashtag, and only explicitly allowlisted tokens may
+stay), `topic_tag_missing`
 (no topic tag was passed while `require_topic_tag` is on), and `topic_tag_invalid`
 (the tag breaks the platform's own limits — that publish would have failed at the
 API).
 
 The lint follows the publish mode, so pass `--stage` when you are linting
 something other than a whole thread. Under `publish_mode: two_stage` the thread
-body is correctly missing the affiliate URL and the disclosure — both belong to
-the link reply — and the script says so instead of flagging them. Lint that reply
-with `--stage link`.
+body is correctly missing the affiliate URL — it belongs to the link reply — and
+the script says so instead of flagging it. Lint that reply with `--stage link`.
 
 Do not show the human a draft that still has violations.
+Pass `--product-id` so the lint reads the row's own experience answer — the mode
+and the stored testimony — instead of assuming `none`. With no row to read, the
+explicit form is `--experience firsthand --testimonial "<stored text>"`.
 
 Bounded loop: **2 revision rounds maximum.** If the thread still reads as
 templated after two rounds, the angle is the problem — go back to Step 3 and take
@@ -432,6 +502,7 @@ in front of them:
 🧭 Structure: <the narrative structure you used> · hook: <hook_pattern>
 🔖 Topic: <topic_tag>
 📊 Evidence: description (primary) · <what else you actually found>
+🧪 Experience: <none — tanpa klaim pengalaman | firsthand — dari testimoni tersimpan>
 🧹 Anti-slop: antislop + antislop-copywriting · <N> revision round(s)
 🖼️ Image: <yes, N images | text-only>
 
@@ -446,7 +517,6 @@ POST 2/N
 
 ———————————————
 Link: <affiliate url>
-Disclosure: <the disclosure line you used>
 
 Reply with: approve · hold · cancel · regenerate <what to change>
 ```
@@ -460,6 +530,10 @@ the root post, so the human can veto it before anything goes out; changing it
 never changes the copy. If they ask for a different one, take theirs (checked
 against the platform's limits) instead of arguing from your shortlist.
 
+**The Experience line is mandatory too** — `none` or `firsthand`, the mode the
+row resolved to. It tells the human which rule the copy was written under and,
+in `firsthand` mode, that the first-hand material came from their stored
+testimony.
 **The Anti-slop line is mandatory too**, and it reports what actually happened.
 Without the external skills it reads
 `🧹 Anti-slop: not installed — affiliate editorial + evidence review only`.
@@ -467,7 +541,7 @@ That is a normal configuration, not a defect: never present a draft as
 anti-slop-audited when the skills were not loaded.
 
 **When `publish_mode` is `two_stage`,** the copy you preview has no affiliate
-link and no disclosure in it — both are deferred to the link reply. Say so on the
+link in it — it is deferred to the link reply. Say so on the
 preview (replace the `Link:` line with something like
 `🔗 Link: belum dipasang — akan jadi reply setelah post dapat view`), because
 "approve" now means "publish this thread", not "publish this thread and its
@@ -491,14 +565,15 @@ Full semantics, including edge cases and exact wording: `references/telegram-act
 | cancel / jangan dipublish         | `set_status.py <ID> Cancel`. No publish.                                                                                                                       |
 | regenerate <constraint>           | Step 3 again, same Product ID, same research unless new info is needed.                                                                                        |
 
+| belum / belum pernah pakai | `set_experience.py <ID> --used no`, confirm briefly, then continue from Step 2 in `none` mode. |
+| pernah, ini testimoni: <text> | `set_experience.py <ID> --used yes --testimonial "<their words>"`, confirm briefly, then continue from Step 2 in `firsthand` mode. |
 **Two-stage publishing (`publish_mode: two_stage`).** Approval publishes the
 thread only; the row then reads the link-pending status (default `Link Pending`)
 instead of `Done`, and the affiliate link is still owed. Nothing attaches it on
 its own and no timer does it — the link goes out when the human says the post has
 enough views, as a reply to the last post of the thread. That reply is its own
-publish: one post, the affiliate URL plus the disclosure, previewed and approved
-the same way. `/affiliate-threads status` lists the threads waiting for their
-link.
+publish: one post, the affiliate URL, previewed and approved the same way.
+`/affiliate-threads status` lists the threads waiting for their link.
 
 **Approval must be explicit, in the current turn, for the product on screen.**
 Silence is not approval. An earlier "approve" for a different product is not
@@ -524,11 +599,15 @@ thread's novelty check possible.
 | `select_candidate.py` returns `candidate: null`   | Nothing is `Ready To Generate`. Say so and stop.                                                                                                                                                                                                      |
 | Human replies with just "ok"                      | Ambiguous. Ask which of approve/hold/cancel they mean.                                                                                                                                                                                                |
 | A link card shows on the post with the URL        | Threads builds it from the first URL in a text-only post, and no API removes it. An image post carries no card at all, and `publish_mode: two_stage` keeps the card off every value post — say that instead of promising a removal the API cannot do. |
-| `hashtag_in_copy`                                 | A `#tag` is in the copy — including `#ad`, which is not a disclosure here. Drop the trail: the disclosure is a sentence, the topic is metadata (`topic_tag`), and only explicitly allowlisted tokens may stay in the text.                                                                         |
+| `hashtag_in_copy`                                 | A `#tag` is in the copy. Drop the trail: the topic is metadata (`topic_tag`), and only explicitly allowlisted tokens may stay in the text.                                                                                                            |
 | `topic_tag_missing`                               | `require_topic_tag` is on (the default) and nothing was passed. Choose the topic a reader would search for — not the product name — show it on the preview, and pass it to `threads_publish`.                                                         |
 | `topic_tag_invalid`                               | The tag breaks the platform's limits: 1-50 characters, no `.` or `&`, no leading `#`, one line.                                                                                                                                                       |
 | `funnel_phrase` warning                           | Copy like "klik link di bawah" or "cek reply" points at the link instead of giving a reason to click it. Rewrite it as something the reader gets.                                                                                                     |
-| `stage: "input"` on a link reply                  | The link stage publishes one post. `posts` must hold exactly one item — the reply, with the URL and the disclosure.                                                                                                                                   |
+| `amplifier_language`                              | Guarantee/absolute wording ("dijamin", "100% ampuh") is refused in **both** modes. A personal account is one experience, not a promise — hedge it or drop it.                                                                                         |
+| `experience_detail_unsupported`                   | A number, duration or frequency sits in a first-hand sentence but not in the stored testimony. Drop it, or use the testimony's own wording.                                                                                                           |
+| `experience_attribution_unsupported`              | A second-hand claim names a person ("anakku", "temenku") the testimony never mentions. Write the witness the testimony describes, or drop it.                                                                                                         |
+| The row's `Used` is blank                         | Do not generate. Ask the Step 1.5 question and wait; a later scheduled run asking again is by design, not a bug.                                                                                                                                      |
+| `stage: "input"` on a link reply                  | The link stage publishes one post. `posts` must hold exactly one item — the reply, with the URL.                                                                                                                                                      |
 | A row is stuck on `Link Pending`                  | The thread is live and its link reply was never approved. Preview that reply and wait; do not republish the thread.                                                                                                                                   |
 
 ## Verification
@@ -541,19 +620,24 @@ Before you send the preview, confirm all of these are true:
 - [ ] The novelty check against recent content notes ran
 - [ ] A one-line point of view existed before drafting, and it is not generic
 - [ ] The narrative critic answered all ten questions
+- [ ] `antislop` and `antislop-copywritieleven questions
 - [ ] `antislop` and `antislop-copywriting` were loaded, or the preview says they were not
 - [ ] The anti-slop audit ran as an audit of the draft, not only as writing advice
 - [ ] The affiliate editorial review ran after it
 - [ ] Every factual claim traces to a named evidence tier
 - [ ] The thread's substance comes from independent evidence, not from the seller's description
 - [ ] Anything taken from the seller's material is attributed to the seller
-- [ ] No fabricated first-hand experience
-- [ ] No post carries a hashtag at all — no `#ad` either, since a hashtag is not a disclosure
+- [ ] The row's experience answer was resolved before research — asked for and
+      stored when blank, never guessed
+- [ ] In `none` mode: no first-hand claim anywhere in the copy
+- [ ] In `firsthand` mode: every first-hand claim traces to the stored testimony —
+      nothing amplified, numbers and named persons grounded in it
+- [ ] No guarantee/absolute language in any mode (`amplifier_language`)
+- [ ] The preview shows the `🧪 Experience:` line
 - [ ] Exactly one topic tag is chosen, it names the conversation rather than the product, and the preview shows it
 - [ ] The topic tag respects the platform's limits (1-50 characters, no `.` or `&`, no leading `#`)
 - [ ] The `hook_pattern` is not a repeat of the last two threads
 - [ ] A trade-off or limitation is present when the angle has room for one, and it is real
-- [ ] Disclosure is present as a short sentence (never a hashtag) on the post carrying the affiliate URL
 - [ ] The ending gives the reader something useful instead of summarizing
 - [ ] `validate_thread.py` reports zero violations — run it with `--topic-tag` and the stage the draft is for
 - [ ] In two-stage mode the preview says the link is deferred, and the thread body really has no URL in it

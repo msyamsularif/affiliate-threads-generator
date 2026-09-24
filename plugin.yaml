@@ -123,7 +123,7 @@ config_schema:
     label: "Sheet tab"
     description: >-
       Tab that holds the candidate table (ID, Product, Description,
-      Affiliate URL, Category, Threads URL, Status).
+      Affiliate URL, Category, Threads URL, Used, Testimonial, Status).
 
   columns:
     type: dict
@@ -134,12 +134,17 @@ config_schema:
       affiliate_url: "D"
       category: "E"
       threads_url: "F"
-      status: "G"
+      used: "G"
+      testimonial: "H"
+      status: "I"
     label: "Sheet columns"
     description: >-
       Maps each field to its column letter. Change only if your table does not use
       the documented layout. A map that names one column twice is discarded and the
-      documented layout is used instead.
+      documented layout is used instead. `used` / `testimonial` are the experience
+      answer the pipeline asks about before it researches: Used is "Yes" / "No",
+      and the Testimonial is the human's own account of using the product, stored
+      verbatim.
 
   # --- Status vocabulary ----------------------------------------------------
   eligible_status:
@@ -165,31 +170,6 @@ config_schema:
     default: "In Progress"
 
   # --- Publish guardrails ---------------------------------------------------
-  require_disclosure:
-    type: bool
-    default: true
-    label: "Require affiliate disclosure"
-    description: >-
-      Refuse to publish when no post carries a disclosure marker. The
-      disclosure is a short sentence in the copy ("Link afiliasi.") — never a
-      hashtag.
-
-  disclosure_markers:
-    type: list
-    default:
-      - "link afiliasi"
-      - "affiliate link"
-      - "tautan afiliasi"
-      - "komisi"
-      - "paid partnership"
-      - "iklan berbayar"
-    label: "Disclosure markers"
-    description: >-
-      Sentence-form markers: any one of these appearing in a post satisfies the
-      disclosure requirement. A "#..." entry is dropped, because a hashtag is
-      not a disclosure here — hashtags in the copy are refused by the
-      hashtag_in_copy guardrail.
-
   require_affiliate_url:
     type: bool
     default: true
@@ -223,10 +203,40 @@ config_schema:
       - '\bin my (own )?experience\b'
     label: "Blocked phrases"
     description: >-
-      Regular expressions that may never appear in published copy — the
-      fabricated-personal-experience guardrail, including the second-hand
-      forms that read as first-hand ("anakku cocok", "temenku bilang").
-      Matched case-insensitively.
+      Regular expressions blocked from the copy whenever the row carries no
+      stored testimony — the fabricated-personal-experience guardrail, including
+      the second-hand forms that read as first-hand ("anakku cocok", "temenku
+      bilang"). When the row has Used=Yes plus a Testimonial, first-hand claims
+      are allowed inside what that testimony says, and provenance checks replace
+      this list. Matched case-insensitively.
+
+  amplifier_phrases:
+    type: list
+    default:
+      - '\bdijamin\b'
+      - '\bgaransi(nya)? (pasti )?(berhasil|ampuh|manjur|sembuh)\b'
+      - '\b100\s*% ?(ampuh|manjur|berhasil|sembuh|aman|pasti)\b'
+      - '\bpasti (ampuh|manjur|berhasil|sembuh|suka|cocok)\b'
+      - '\bmenyembuhkan\b'
+      - '\bguaranteed\b'
+      - '\b100\s*% ?(effective|safe|cure[sd]?|guaranteed)\b'
+      - '\bclinically proven\b'
+      - '\bmiraculous\b'
+    label: "Amplifier phrases"
+    description: >-
+      Guarantee and absolute language, refused in both experience modes: even a
+      genuine first-hand account is one experience, not a promise the seller has
+      offered. Matched case-insensitively.
+
+  ask_experience:
+    type: bool
+    default: true
+    label: "Ask about first-hand experience"
+    description: >-
+      When on, a candidate whose Used answer is blank triggers the experience
+      question before research and the run waits for the answer. Off keeps the
+      legacy flow: no question, and every row validates in "none" mode, where no
+      first-hand claim may ship.
 
   allowed_hashtags:
     type: list
@@ -234,8 +244,8 @@ config_schema:
     label: "Allowed hashtags in the copy"
     description: >-
       Hashtag-shaped tokens the copy may keep, e.g. "#ootd". Empty by default:
-      the copy carries no hashtags at all — not even "#ad", which is not a
-      disclosure. Threads makes exactly one tag per post clickable and that tag
+      the copy carries no hashtags at all. Threads makes exactly one tag per
+      post clickable and that tag
       is set through the topic_tag argument, so a hashtag trail adds nothing
       and reads as spam. Strings are matched without the leading "#".
 

@@ -105,7 +105,6 @@ def main(argv: list[str] | None = None) -> int:
             "detail": (
                 f"spreadsheet={settings.spreadsheet_id or 'MISSING'} "
                 f"tab={settings.sheet_tab} eligible={settings.eligible_status!r} "
-                f"disclosure={'required' if settings.require_disclosure else 'off'} "
                 f"topic_tag={'required' if settings.require_topic_tag else 'off'}"
             ),
             "hint": None

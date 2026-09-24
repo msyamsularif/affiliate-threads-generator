@@ -33,7 +33,7 @@ narrative:
 
 product_role: <supporting evidence / worked example / one answer among several>
 product_entry: <post N — and the reason the reader is ready for it there>
-cta_post: <the post that carries the link and the disclosure>
+cta_post: <the post that carries the link>
 affiliate_intensity: 2 # ~80% value / 20% product
 narrative_structure: <the structure used this time — rotated across runs>
 topic_tag: <the one topic for the root post — what a reader would search for, not the product name>
@@ -41,11 +41,11 @@ topic_tag: <the one topic for the root post — what a reader would search for, 
 must_include:
   - <specific detail from tier-1 evidence, or a tier-2 seller claim attributed to the seller>
   - <the real trade-off, when the angle has room for one>
-  - <disclosure>
 must_not_claim:
   - <anything unsupported (tier 4)>
-  - <any first-hand experience>
+  - <in none mode: any first-hand experience; in firsthand mode: anything the stored testimony does not say>
   - <any invented weakness>
+  - <guarantees and absolutes ("dijamin", "100% ampuh") — refused in both modes>
 
 evidence_ledger:
   - claim: <claim>
@@ -115,7 +115,7 @@ name, a brand, or a generic label like `teknologi`. It also has to respect the
 platform's limits (1-50 characters, no `.` or `&`, no leading `#`), because a tag
 the API rejects is a failed publish.
 
-## Critic — the gate, then ten questions
+## Critic — the gate, then eleven questions
 
 ### Gate: the point of view
 
@@ -162,7 +162,7 @@ For each post, name the reason. "Because the thread is good" is not a reason.
 ### 7. Does the ending feel like an advertisement?
 
 Read the last two posts together. If the answer is "yes, that turned into an ad",
-rewrite the ending — not by hiding the disclosure, but by making sure the last
+rewrite the ending — not by trimming the value, but by making sure the last
 thing the reader gets is still value.
 
 Ask the second half of the question too: does the ending give the reader
@@ -171,11 +171,12 @@ or does it merely summarize what came before? A summary is not an ending.
 
 ### 8. Are the claims supported?
 
-Walk the evidence ledger. Every claim must map to tier 1-3, and the thread's
-substance has to come from tier 1 — a thread built out of the seller's own
-description is a paraphrase with a hook, and it fails here. Anything unsupported
-(tier 4) is removed, not softened; anything taken from seller material (tier 2)
-is attributed to the seller in the copy.
+Walk the evidence ledger. Every claim must map to tier 1-3 — plus tier 0, the
+stored testimony, whenever the row is in `firsthand` mode. The thread's substance
+has to come from tier 1: a thread built out of the seller's own description is a
+paraphrase with a hook, and it fails here. Anything unsupported (tier 4) is
+removed, not softened; anything taken from seller material (tier 2) is attributed
+to the seller in the copy.
 
 ### 9. Is the angle too similar to recent content?
 
@@ -188,6 +189,14 @@ Read `topic_tag` and the thread's premise together. It has to be a topic someone
 would follow and search for, not the product name, not a brand, and not a label
 that only exists because something is for sale. It must also respect the
 platform's limits (1-50 characters, no `.` or `&`, no leading `#`).
+
+### 11. In `firsthand` mode: is every first-hand claim traceable to the testimony?
+
+Hold the stored testimony beside the draft. Anything the copy adds to it — a
+duration, an outcome, a comparison, a number — fails this question. The voice
+must be the witness's own: an account where the child used it never becomes
+"saya pakai". Guarantees are refused in both modes, so "dijamin" or "100% ampuh"
+is a failure here too.
 
 ## The bounded loop
 

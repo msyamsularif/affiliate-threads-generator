@@ -65,7 +65,15 @@ The default table is the documented contract:
 | D   | `Affiliate URL` |
 | E   | `Category`      |
 | F   | `Threads URL`   |
-| G   | `Status`        |
+| G   | `Used`          |
+| H   | `Testimonial`   |
+| I   | `Status`        |
+
+`Used` (`Yes` / `No`) and `Testimonial` are the experience answer the pipeline
+asks about before it researches. Blank `Used` means "not answered yet" and
+triggers the question; a blank `Testimonial` beside `Used=Yes` validates as
+`none` until the testimony arrives. See
+[First-hand experience](#first-hand-experience-used--testimonial) below.
 
 If your table differs, remap it with the `columns` setting instead of editing code:
 
@@ -81,7 +89,9 @@ plugins:
           affiliate_url: "E"
           category: "F"
           threads_url: "G"
-          status: "H"
+          used: "H"
+          testimonial: "I"
+          status: "J"
 ```
 
 Rules:
@@ -91,6 +101,11 @@ Rules:
 - A map that names one column twice is **discarded entirely** and the documented
   layout is used — a contradictory layout would silently corrupt writes, so it is
   better to do nothing than to do the wrong thing.
+- One collision is resolved instead of discarded: if the only duplicated letter
+  involves `used`/`testimonial` and you did not name them, those two keys are
+  dropped and your layout is kept — a table that predates the experience flow
+  keeps working, and the feature stays off rather than writing into a letter it
+  was never given.
 - Unknown field names are ignored.
 
 See [google-sheets-setup.md](google-sheets-setup.md) for the column semantics and
@@ -116,20 +131,20 @@ how the wrong row gets published.
 
 These are enforced by `threads_publish` in code. Nothing here is a suggestion.
 
-| Setting                   | Default                                                                                       | Effect                                                                   |
-| ------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `require_disclosure`      | `true`                                                                                        | Refuse to publish when no post carries a disclosure marker               |
-| `disclosure_markers`      | `link afiliasi`, `affiliate link`, `tautan afiliasi`, `komisi`, `paid partnership`, `iklan berbayar` | Any one satisfies the requirement — a short sentence, never a hashtag    |
-| `require_affiliate_url`   | `true`                                                                                        | The row's `Affiliate URL` must appear in some post                       |
-| `require_topic_tag`       | `true`                                                                                        | A thread may not publish without a topic tag — see below                 |
-| `allowed_hashtags`        | `[]`                                                                                          | Hashtags the copy may keep — empty by default, no hashtag belongs there  |
-| `blocked_phrases`         | 11 regex patterns                                                                             | The fabricated-personal-experience ban. Case-insensitive.                |
-| `min_posts` / `max_posts` | `3` / `10`                                                                                    | Thread length bounds                                                     |
-| `max_chars_per_post`      | `500`                                                                                         | Threads' own limit; emoji count as their UTF-8 byte length               |
-| `max_links_per_post`      | `5`                                                                                           | Threads rejects more                                                     |
-| `container_wait_seconds`  | `5`                                                                                           | Pause between container creation and publishing                          |
-| `publish_mode`            | `single` (`single` or `two_stage`)                                                            | Whether the affiliate link publishes with the thread or as a later reply |
-| `link_pending_status`     | `Link Pending`                                                                                | Where a two-stage row parks between the two publishes                    |
+| Setting                   | Default                            | Effect                                                                                                             |
+| ------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `require_affiliate_url`   | `true`                             | The row's `Affiliate URL` must appear in some post                                                                 |
+| `require_topic_tag`       | `true`                             | A thread may not publish without a topic tag — see below                                                           |
+| `allowed_hashtags`        | `[]`                               | Hashtags the copy may keep — empty by default, no hashtag belongs there                                            |
+| `blocked_phrases`         | 11 regex patterns                  | Blocked in `none` mode — the fabricated-personal-experience ban. In `firsthand` mode provenance checks replace it. |
+| `amplifier_phrases`       | 9 regex patterns                   | Guarantee/absolute language refused in **both** modes                                                              |
+| `ask_experience`          | `true`                             | Ask about first-hand experience before research when the row is blank                                              |
+| `min_posts` / `max_posts` | `3` / `10`                         | Thread length bounds                                                                                               |
+| `max_chars_per_post`      | `500`                              | Threads' own limit; emoji count as their UTF-8 byte length                                                         |
+| `max_links_per_post`      | `5`                                | Threads rejects more                                                                                               |
+| `container_wait_seconds`  | `5`                                | Pause between container creation and publishing                                                                    |
+| `publish_mode`            | `single` (`single` or `two_stage`) | Whether the affiliate link publishes with the thread or as a later reply                                           |
+| `link_pending_status`     | `Link Pending`                     | Where a two-stage row parks between the two publishes                                                              |
 
 ### Hashtags and topic tags
 
@@ -145,10 +160,8 @@ defect rather than a tactic.
   `.` or `&`, no leading `#`). It is metadata: it never appears in the copy, and
   the replies carry none.
 - **`allowed_hashtags` (`[]`)** — empty by default, because the copy carries no
-  hashtags at all. There is no hashtag disclosure either: `#ad` at the end is
-  not used, reads as an unclear tag, and is refused like any other hashtag
-  (`hashtag_in_copy`). Add a token here only if you genuinely want it in the
-  text.
+  hashtags at all; `hashtag_in_copy` refuses any token that is not explicitly
+  allowlisted. Add a token here only if you genuinely want it in the text.
 
 To publish untagged instead:
 
@@ -164,10 +177,61 @@ The soft signal in the same family is `funnel_phrase`: copy whose only job is to
 move the reader toward the link ("cek link di bawah", "link di bio", "cek
 reply"). It is a warning, never a block — the honest fix is a rewrite.
 
+### First-hand experience (`Used` + `Testimonial`)
+
+The copy is written either from independent research, or — when the human has
+actually used the product — from their own stored testimony. Two guardrail modes
+follow from the row, and the mode is derived from the Sheet by the tool, never
+chosen by the model:
+
+| Row state                            | Mode        | What the copy may claim                                       |
+| ------------------------------------ | ----------- | ------------------------------------------------------------- |
+| `Used=Yes` + non-empty `Testimonial` | `firsthand` | first-hand claims, traceable to the stored testimony          |
+| `Used=No`                            | `none`      | no first-hand claim at all                                    |
+| `Used=Yes`, empty testimony          | `none`      | ask once more for the testimony                               |
+| `Used` blank                         | —           | the pipeline asks first (`ask_experience`), and never guesses |
+
+When the answer is blank, the pipeline asks on Telegram — "pernah kamu pakai
+sendiri?" — and stops until it is answered; scheduled and manual runs behave
+identically. The answer is stored through the skill's `set_experience.py`, which
+writes only the two cells and stores the testimony **verbatim**, never as a model
+paraphrase:
+
+```bash
+python3 ${HERMES_SKILL_DIR}/scripts/set_experience.py 12 --used no
+python3 ${HERMES_SKILL_DIR}/scripts/set_experience.py 12 --used yes --testimonial "Dipakai 3 bulan, pas buat kerja."
+```
+
+In `firsthand` mode three checks replace the blanket ban, and they all run in
+`threads_publish` as well as in `validate_thread.py --experience firsthand`:
+
+- **No amplification** (`amplifier_language`) — "dijamin", "100% ampuh",
+  "pasti sembuh", "clinically proven" are refused in both modes.
+- **Grounded specifics** (`experience_detail_unsupported`) — a number with a
+  unit, a duration or a frequency inside a first-hand sentence must appear in
+  the stored testimony too.
+- **Grounded attribution** (`experience_attribution_unsupported`) — a
+  second-hand claim ("anakku cocok", "temenku bilang") may only name a person
+  the testimony names.
+
+`ask_experience: false` keeps the legacy flow — no question, and every row
+validates in `none` mode:
+
+```yaml
+plugins:
+  entries:
+    affiliate-threads-generator:
+      settings:
+        ask_experience: false
+```
+
 ### Tightening the blocked-phrase list
 
-The defaults catch the common phrasings in Indonesian and English. Add your own
-if your copy keeps slipping through:
+The defaults catch the common phrasings in Indonesian and English. This list is
+what blocks first-person copy whenever the row has no stored testimony (`none`
+mode); with a testimony the provenance checks above are what enforce the line,
+and the list of phrases is a starting point rather than the whole rule. Add your
+own if your copy keeps slipping through:
 
 ```yaml
 plugins:
@@ -179,31 +243,6 @@ plugins:
           - '\bdi pengalaman aku\b'
           - '\bproduk ini aku dapat dari\b'
 ```
-
-### Relaxing the disclosure requirement
-
-Don't. The specification is explicit that the disclosure stays clear — the goal
-is a lower hard-sell tone, not a hidden commercial relationship. If the wording
-feels clumsy, change the wording, not the check: one short sentence is enough,
-and it does not have to mention commission.
-
-```
-Link afiliasi.
-```
-
-```
-Detail produknya:
-https://...
-
-Link afiliasi.
-```
-
-The usual place is the post carrying the link. There is no hashtag form: a
-`#...` entry in `disclosure_markers` is dropped (the defaults are sentences), and
-`#ad` in the copy is refused by `hashtag_in_copy`. What is never allowed is
-dropping the disclosure, burying it, or putting it somewhere the reader
-following the link will not have seen. See
-`skills/affiliate-threads-generator/references/editorial-rules.md`.
 
 ---
 
@@ -220,17 +259,16 @@ stage 1  threads_publish (stage: "thread")   the thread, without the link
          the human watches the post
 
 stage 2  threads_publish (stage: "link")     one reply: the affiliate URL
-         Sheet: Status = Done                 plus the disclosure
+         Sheet: Status = Done
 ```
 
 Rules that come with it:
 
 - Both halves need their own explicit human approval; the second call is gated
   exactly like the first.
-- The thread body is linted and published without the affiliate URL and without a
-  disclosure, because at that moment there is no commercial relationship in the
-  copy yet. Both are enforced on the reply instead: it must carry the row's
-  `Affiliate URL` and satisfy the configured disclosure rule.
+- The thread body is linted and published without the affiliate URL, because at
+  that moment the link is not in the copy yet. It is enforced on the reply
+  instead: the reply must carry the row's `Affiliate URL`.
 - `link_pending_status` is what marks a thread as unfinished. It has to differ
   from every other status in use; a value that collides with the eligible, done,
   hold, cancel or in-progress status is rejected and `Link Pending` is used
@@ -317,9 +355,6 @@ plugins:
         content_language: "id"
         max_posts: 5
         require_approval_prompt: true
-        disclosure_markers:
-          - "link afiliasi"
-          - "komisi"
         # Optional: publish the thread first and attach the link as a reply
         # once the post has been seen. Two approvals, two publishes.
         # publish_mode: "two_stage"

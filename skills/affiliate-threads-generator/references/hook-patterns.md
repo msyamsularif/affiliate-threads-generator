@@ -14,12 +14,14 @@ Three different axes, deliberately separate:
 Two threads can share an angle and still open nothing alike, which is why the
 hook gets its own vocabulary.
 
-**The hard rule comes first: a hook may not claim experience.** The
-fabricated-personal-experience guardrail in `threads_publish` blocks the obvious
-forms ("aku sudah coba", "gue udah pakai"), and a hook is exactly where those
-claims want to live. The safe equivalent of "wish I'd known this sooner" is the
-rhetorical version aimed at the world, not at the writer: _"Kenapa ini jarang
-dibahas?"_ — never _"aku baru tahu ini kemarin"_.
+**The experience rule comes first.** In `none` mode (no stored testimony) no hook
+may claim experience: the fabricated-personal-experience guardrail in
+`threads_publish` blocks the obvious forms ("aku sudah coba", "gue udah pakai"),
+and a hook is exactly where those claims want to live. The safe equivalent of
+"wish I'd known this sooner" is the rhetorical version aimed at the world, not at
+the writer: _"Kenapa ini jarang dibahas?"_ — never _"aku baru tahu ini
+kemarin"_. In `firsthand` mode a first-hand hook is allowed, but only inside what
+the stored testimony says (Step 1.5), and never as a guarantee.
 
 ## The patterns
 
@@ -47,11 +49,14 @@ Pick one per thread, and rotate it: if the last two content notes used the same
 tempt a fabricated experience claim. Compare:
 
 - ✗ "Baru tahu ini kemarin, padahal udah lama nyari." — a first-hand claim the
-  system cannot make, and `threads_publish` blocks the wording.
+  system cannot make without a stored testimony, and `threads_publish` blocks
+  the wording in `none` mode.
 - ✓ "Ini yang jarang dibahas soal produk sekelas ini." — the same curiosity,
   aimed at the category instead of at the writer.
 
-If a hook only works when the writer has used the product, take another pattern.
+If a hook only works when the writer has used the product, either take another
+pattern or — when the row is `firsthand` and the testimony supports it — write
+the fact the testimony actually contains, without adding to it.
 
 ## Choosing
 

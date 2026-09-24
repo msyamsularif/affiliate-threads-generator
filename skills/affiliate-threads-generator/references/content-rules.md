@@ -7,7 +7,7 @@ Everything in this file is enforced by judgement during writing, and partly by
 
 ```
 Audience → Problem/curiosity/observation → Interesting insight →
-Specific evidence → Possible solution → Product → Contextual CTA + disclosure
+Specific evidence → Possible solution → Product → Contextual CTA
 ```
 
 Not this:
@@ -64,12 +64,10 @@ post is also surfaced inside the community. That is the reach this mechanism
 buys, and it is the whole mechanism.
 
 - **No hashtags in the copy.** `threads_publish` refuses them
-  (`hashtag_in_copy`) — including `#ad`, which is not a disclosure here (the
-  disclosure is a short sentence, section 7). The only hashtags that may stay are
-  ones the operator explicitly allowlists (`allowed_hashtags`), and there are
-  none by default. A trail at the end of a reply changes nothing about how the
-  post is distributed, and it is the single clearest tell that a thread is an
-  ad.
+  (`hashtag_in_copy`). The only hashtags that may stay are ones the operator
+  explicitly allowlists (`allowed_hashtags`), and there are none by default. A
+  trail at the end of a reply changes nothing about how the post is distributed,
+  and it is the single clearest tell that a thread is an ad.
 - **Exactly one topic tag per thread**, chosen in the planner and passed as
   `topic_tag`. It belongs to the root post; the replies carry none.
 - **The tag is the conversation, not the product** — `sensory play`,
@@ -117,10 +115,13 @@ yang tepat untuk kamu", "kualitas terjamin", "worth it banget", "game changer",
 "must have". Read them; do not ignore them. They never block publishing, and the
 wider prose catalogue belongs to the external antislop skills, not to this list.
 
-## 5. Personal experience — hard rule
+## 5. Personal experience — provenance, in two modes
 
-The system has **no first-hand experience** with any product, and none is ever
-supplied. Never write:
+The system itself has **no first-hand experience** with any product. What it can
+have is the human's: a testimony stored in the row (Step 1.5). The row's answer
+picks the mode, and you never pick it.
+
+**`none` mode** (no testimony): never write
 
 - "Aku sudah coba..."
 - "Saya pakai ini setiap hari..."
@@ -137,6 +138,14 @@ supplied. Never write:
 
 This applies to implications too. "Baterainya masih 40% setelah sehari" is a
 first-hand claim even without the word "saya".
+
+**`firsthand` mode** (a testimony is stored): first-hand claims are allowed, but
+only inside what it says. Nothing is added to it — no duration, outcome,
+comparison, or number it does not contain — and the voice follows the witness:
+if the testimony says the child used it, the copy says so, never "saya pakai".
+Guarantee language is the one thing that stays banned either way: "dijamin",
+"100% ampuh", "pasti sembuh" are refused by `amplifier_language` whatever the
+row says.
 
 ## 6. Trade-offs
 
@@ -156,7 +165,7 @@ Good: _"380g itu berat buat di saku. Kalau prioritasmu ringan, ini bukan yang
 kamu cari."_
 Bad: _"Sayangnya warnanya cuma hitam."_ (invented, trivial, and reads as fake)
 
-## 7. CTA and disclosure
+## 7. CTA
 
 ### CTA
 
@@ -177,65 +186,23 @@ Never:
 - "Jangan sampai kehabisan!"
 - Anything with a scarcity claim you cannot verify.
 
-### Disclosure
-
-The disclosure is mandatory, explicit, and short. The goal is to reduce the
-hard-sell tone, not to conceal the commercial relationship.
-
-- Keep it in the same post as the link.
-- Keep it readable — not buried in a wall of hashtags.
-- One line is enough:
-
-```
-Link afiliasi.
-```
-
-```
-Link afiliasi ↓
-```
-
-```
-Detail produk:
-https://...
-
-Link afiliasi.
-```
-
-The wording may vary as long as the commercial relationship is clear. Do not
-expand it into a legal paragraph, do not repeat it across posts, and never drop it
-because the ending reads better without it. `threads_publish` refuses to publish
-without the disclosure the configuration asks for, and the affiliate URL must
-appear in a post.
-
-There is **no hashtag form**. `#ad` at the end is not used: it reads as an
-unclear tag, and on Threads a `#…` in the text is not what makes a post
-discoverable — the topic tag is. A hashtag in the copy is refused by the tool
-(`hashtag_in_copy`).
-
-Which marker counts is a configuration detail (sentence forms, any post —
-usually the one carrying the link). "Link afiliasi." is the usual one; the
-configured list can also hold "affiliate link", "tautan afiliasi", "komisi",
-"iklan berbayar" and friends.
-
 ### When the link is deferred (`publish_mode: two_stage`)
 
-Under two-stage publishing the thread body carries no URL and no disclosure at
-all — both belong to the link reply that goes out later. So:
+Under two-stage publishing the thread body carries no URL at all — it belongs to
+the link reply that goes out later. So:
 
 - Do not write "link afiliasi di reply berikutnya" teasers or "cek reply"
   prompts. The thread has to stand on its own without promising a link.
-- The reply is its own piece of copy: one post, the affiliate URL, and the
-  disclosure sentence — `Link afiliasi.` is enough.
+- The reply is its own piece of copy: one post and the affiliate URL.
 
 ## 8. Post-by-post rules
 
 - **3-10 posts.** Dynamic. A 3-post thread that lands is better than a padded 10.
 - **Post length varies.** One sentence in one post is fine. Uniform construction
   is a warning sign, not a standard.
-- **No post carries a hashtag.** None at all — not even `#ad`, which is not a
-  disclosure here and is refused like any other hashtag. The disclosure is a
-  sentence; the topic tag is metadata (`topic_tag`), not text; only tokens the
-  operator explicitly allowlists may stay.
+- **No post carries a hashtag.** None at all. The topic tag is metadata
+  (`topic_tag`), not text; only tokens the operator explicitly allowlists may
+  stay.
 - **Post 1** earns the next post. No product mention.
 - **The product enters when the reader already has a reason to care.** Post 3-4
   is the normal range, not a rule. Never post 1.
@@ -244,7 +211,7 @@ all — both belong to the link reply that goes out later. So:
 - **`affiliate_intensity` ≈ 2** — roughly 80% value, 20% product across the thread.
 - **The ending gives the reader something useful** — a practical boundary, a
   buying consideration, one concrete observation — not a summary of what came
-  before. The CTA and disclosure follow it; they do not replace it.
+  before. The CTA follows it; it does not replace it.
 - **The seller's description is background.** Paraphrasing it is not a thread; the
   observation has to come from independent research or be attributed to the owner
   of the claim.

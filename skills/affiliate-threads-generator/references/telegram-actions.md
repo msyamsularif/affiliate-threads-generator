@@ -26,8 +26,35 @@ conversation.**
 | "Hold dulu yang ini." · "tahan dulu" · "nanti aja"                 | `set_status.py <ID> Hold`                                                                                                                     | `Status=Hold`. No publish.                                               |
 | "Yang ini jangan dipublish." · "batal" · "cancel" · "skip"         | `set_status.py <ID> Cancel`                                                                                                                   | `Status=Cancel`. No publish.                                             |
 | "Regenerate tapi angle-nya lebih ke orang yang sering travelling." | Back to Step 3 with the new constraint                                                                                                        | Same Product ID, same research, new angle → new preview                  |
+| "belum" · "belum pernah pakai"                                     | `set_experience.py <ID> --used no`, confirm briefly, then continue from Step 2                                                                | `Used=No` stored; the copy validates in `none` mode                      |
+| "pernah, ini testimoni: ..."                                       | `set_experience.py <ID> --used yes --testimonial "<their words>"`, confirm briefly, then continue from Step 2                                 | `Used=Yes` + testimony stored; the copy validates in `firsthand` mode    |
 | "Lanjut" · "next" with no product on screen                        | Ask which product                                                                                                                             | —                                                                        |
 | "ok" · "ya" · "sip" alone                                          | Ambiguous — ask which of approve/hold/cancel                                                                                                  | —                                                                        |
+
+## The experience answer (Step 1.5)
+
+When the pipeline asks whether the human has used the product, the reply is not
+an action on a preview — no preview exists yet. It is the gate for the run that
+asked:
+
+- **"belum"** (or "belum pernah") → store `--used no`. The row then validates in
+  `none` mode, and generation continues from research (Step 2) in that same turn.
+- **"pernah" + a testimony** → store `--used yes --testimonial "<their words>"`,
+  verbatim — never paraphrase or extend it. The row validates in `firsthand`
+  mode, and generation continues from Step 2.
+- **"pernah" with no testimony** → ask once for one sentence (how long, what
+  for, what was good or not). If they decline, store `--used yes` with no
+  testimony: it validates as `none`, and the preview says so.
+- **Which product?** The question displays the Product ID, and the answer refers
+  to that ID. If the conversation was reset since the question, ask which
+  product before writing anything.
+- **Scheduled runs** ask exactly like manual ones and stop until answered. A
+  later scheduled run may ask again — that repetition is by design, because
+  nothing is stored while the answer is missing.
+
+Storing the answer is never a publish and never touches the copy: it writes two
+cells through `set_experience.py`, and generation then continues as a normal
+Step 2.
 
 ## Approve — the strict version
 
@@ -94,8 +121,7 @@ attaches it by itself.
 
 - Trigger: "pasang linknya sekarang", "tambahkan linknya", "udah cukup view-nya".
 - Call `threads_publish` with the same Product ID, `stage: "link"`, and `posts`
-  holding exactly one post: the reply, carrying the affiliate URL and the
-  disclosure sentence (`Link afiliasi.` is enough — there is no hashtag form).
+  holding exactly one post: the reply, carrying the affiliate URL.
 - Show that reply as a preview first, with the Product ID, and wait for the
   approval — a publish is a publish, and this one goes on a public thread.
 - It is refused if the row is not in the link-pending status, so once it has gone

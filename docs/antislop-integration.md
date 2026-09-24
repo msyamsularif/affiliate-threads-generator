@@ -6,7 +6,7 @@ separate:
 | Layer                               | Owns                                                                 | Lives in                          |
 | ----------------------------------- | -------------------------------------------------------------------- | --------------------------------- |
 | `antislop` + `antislop-copywriting` | generic AI-prose tells: structure, rhythm, signposting, filler, tone | external skills, loaded by Hermes |
-| `affiliate-threads-generator`       | affiliate editorial rules, evidence, disclosure, publish safety      | this plugin                       |
+| `affiliate-threads-generator`       | affiliate editorial rules, evidence, publish safety                  | this plugin                       |
 
 The generic filter is **not vendored** into this plugin, and installing it is
 **optional**: using it is the recommended setup, not a requirement. Vendoring it
@@ -78,7 +78,7 @@ The division of labour, in one line each:
 - `guardrails.py` and `threads_publish` say **what may not ship** — and they run
   last, in code.
 
-Anti-slop rules never override evidence, disclosure, product fit, or the
+Anti-slop rules never override evidence, product fit, or the
 fabricated-experience ban. A rewrite that removes a qualification to sound more
 natural is a regression, not an improvement.
 

@@ -126,12 +126,19 @@ def _print_text(payload: dict) -> None:
     print(f"  Product     {candidate.get('product')}")
     print(f"  Category    {candidate.get('category')}")
     print(f"  Status      {candidate.get('status')}")
+    print(f"  Used        {candidate.get('used') or '— (not answered yet)'}")
+    print(f"  Experience  {candidate.get('experience_mode')}")
     print(f"  Sheet row   {candidate.get('row')}")
     print(f"  Affiliate   {candidate.get('affiliate_url')}")
     if "description" in candidate:
         print()
         print("  Description:")
         for line in str(candidate["description"]).splitlines():
+            print(f"    {line}")
+    if "testimonial" in candidate:
+        print()
+        print("  Testimonial:")
+        for line in str(candidate["testimonial"] or "— (none stored)").splitlines():
             print(f"    {line}")
 
 

@@ -31,21 +31,21 @@ class TestColumnMaths:
 
 class TestRanges:
     def test_full_range_spans_every_column(self, settings: config.Settings) -> None:
-        assert settings.full_range == "Sheet1!A1:G"
+        assert settings.full_range == "Sheet1!A1:I"
 
     def test_full_range_respects_a_custom_tab(self, settings: config.Settings) -> None:
         import dataclasses
 
-        assert dataclasses.replace(settings, sheet_tab="Candidates").full_range == "Candidates!A1:G"
+        assert dataclasses.replace(settings, sheet_tab="Candidates").full_range == "Candidates!A1:I"
 
     def test_row_range_covers_the_requested_fields(self, settings: config.Settings) -> None:
-        assert settings.row_range(14, "threads_url", "status") == "Sheet1!F14:G14"
+        assert settings.row_range(14, "threads_url", "status") == "Sheet1!F14:I14"
 
     def test_row_range_with_no_fields_covers_everything(self, settings: config.Settings) -> None:
-        assert settings.row_range(3) == "Sheet1!A3:G3"
+        assert settings.row_range(3) == "Sheet1!A3:I3"
 
     def test_cell_range(self, settings: config.Settings) -> None:
-        assert settings.cell_range(14, "status") == "Sheet1!G14"
+        assert settings.cell_range(14, "status") == "Sheet1!I14"
 
     def test_a_custom_column_map_is_honoured(self, settings: config.Settings) -> None:
         import dataclasses
@@ -76,6 +76,28 @@ class TestColumnMap:
         ctx.settings["columns"] = {"status": "z"}
         assert config.resolve().columns["status"] == "Z"
 
+    def test_a_layout_using_h_loses_the_experience_columns_instead_of_the_map(
+        self, ctx
+    ) -> None:  # noqa: ANN001
+        # The operator's table predates Used/Testimonial and puts a field in H.
+        # Keeping their layout matters more than the new feature: writing to a
+        # letter they never gave us would corrupt their sheet.
+        ctx.settings["columns"] = {"status": "H", "threads_url": "G"}
+        resolved = config.resolve()
+        assert resolved.columns["status"] == "H"
+        assert resolved.columns["threads_url"] == "G"
+        assert "used" not in resolved.columns
+        assert "testimonial" not in resolved.columns
+        assert resolved.experience_configured is False
+        assert resolved.experience_questions_enabled is False
+
+    def test_a_layout_can_name_the_experience_columns(self, ctx) -> None:  # noqa: ANN001
+        ctx.settings["columns"] = {"status": "H", "used": "I", "testimonial": "J"}
+        resolved = config.resolve()
+        assert resolved.columns["status"] == "H"
+        assert resolved.columns["testimonial"] == "J"
+        assert resolved.experience_configured is True
+
     def test_a_duplicate_column_discards_the_whole_map(self, ctx) -> None:  # noqa: ANN001
         ctx.settings["columns"] = {"status": "A", "threads_url": "A"}
         assert config.resolve().columns == config.COLUMNS
@@ -98,7 +120,6 @@ class TestResolve:
         assert resolved.sheet_tab == config.DEFAULT_TAB
         assert resolved.eligible_status == "Ready To Generate"
         assert resolved.done_status == "Done"
-        assert resolved.require_disclosure is True
         assert resolved.min_posts == 3
         assert resolved.max_posts == 10
         assert resolved.max_chars_per_post == 500
@@ -135,33 +156,18 @@ class TestResolve:
         assert not hasattr(resolved, "not_a_setting")
 
     def test_boolean_coercion(self, ctx) -> None:  # noqa: ANN001
-        ctx.settings["require_disclosure"] = "false"
-        assert config.resolve().require_disclosure is False
-        ctx.settings["require_disclosure"] = "yes"
-        assert config.resolve().require_disclosure is True
+        ctx.settings["require_topic_tag"] = "false"
+        assert config.resolve().require_topic_tag is False
+        ctx.settings["require_topic_tag"] = "yes"
+        assert config.resolve().require_topic_tag is True
 
     def test_list_setting_accepts_json(self, ctx) -> None:  # noqa: ANN001
-        ctx.settings["disclosure_markers"] = '["link afiliasi", "iklan berbayar"]'
-        assert config.resolve().disclosure_markers == ("link afiliasi", "iklan berbayar")
+        ctx.settings["allowed_hashtags"] = '["ootd", "finds"]'
+        assert config.resolve().allowed_hashtags == ("ootd", "finds")
 
     def test_list_setting_accepts_comma_separated_text(self, ctx) -> None:  # noqa: ANN001
-        ctx.settings["disclosure_markers"] = "link afiliasi, iklan berbayar"
-        assert config.resolve().disclosure_markers == ("link afiliasi", "iklan berbayar")
-
-    def test_hashtag_markers_are_dropped(self, ctx) -> None:  # noqa: ANN001
-        """A ``#...`` marker can never be satisfied — the hashtag rule refuses it
-        — so the disclosure is a sentence and the entry is ignored."""
-        ctx.settings["disclosure_markers"] = '["#ad", "link afiliasi"]'
-        assert config.resolve().disclosure_markers == ("link afiliasi",)
-
-    def test_a_marker_list_of_only_hashtags_falls_back_to_the_defaults(self, ctx) -> None:  # noqa: ANN001
-        ctx.settings["disclosure_markers"] = '["#ad"]'
-        assert config.resolve().disclosure_markers == config.DEFAULT_DISCLOSURE_MARKERS
-
-    def test_the_default_disclosure_markers_are_sentences(self) -> None:
-        assert all(
-            not marker.startswith("#") for marker in config.DEFAULT_DISCLOSURE_MARKERS
-        )
+        ctx.settings["allowed_hashtags"] = "ootd, finds"
+        assert config.resolve().allowed_hashtags == ("ootd", "finds")
 
     def test_publish_mode_defaults_to_single(self, ctx) -> None:  # noqa: ANN001
         resolved = config.resolve()

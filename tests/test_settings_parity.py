@@ -40,9 +40,9 @@ CONFIG_YAML = textwrap.dedent(
           settings:
             sheet_tab: "Candidates"
             require_affiliate_url: true
-            disclosure_markers:
-              - "iklan berbayar"
-              - "link afiliasi"
+            allowed_hashtags:
+              - "ootd"
+              - "finds"
             blocked_phrases:
               - '\\bproduk ini wajib punya\\b'
             max_posts: 4
@@ -127,7 +127,7 @@ class TestConfigFile:
     def test_settings_reach_config_resolve(self, configured: Path) -> None:  # noqa: ARG002
         resolved = config.resolve()
         assert resolved.sheet_tab == "Candidates"
-        assert resolved.disclosure_markers == ("iklan berbayar", "link afiliasi")
+        assert resolved.allowed_hashtags == ("ootd", "finds")
         assert resolved.blocked_phrases == (r"\bproduk ini wajib punya\b",)
         assert resolved.max_posts == 4
         assert resolved.columns["status"] == "H"
@@ -221,7 +221,7 @@ class TestFallbackParserAgreesWithPyYaml:
         assert warning == "" and fallback_warning == ""
         assert actual == expected
         assert actual["blocked_phrases"] == [r"\bproduk ini wajib punya\b"]
-        assert actual["disclosure_markers"] == ["iklan berbayar", "link afiliasi"]
+        assert actual["allowed_hashtags"] == ["ootd", "finds"]
 
     def test_comments_and_quotes_are_handled(self) -> None:
         text = textwrap.dedent(
@@ -233,7 +233,7 @@ class TestFallbackParserAgreesWithPyYaml:
                     # leading comment
                     sheet_tab: 'Tab #1'   # trailing comment
                     eligible_status: Ready To Generate
-                    require_disclosure: yes
+                    require_topic_tag: yes
                     min_posts: 3
             """
         )
@@ -241,7 +241,7 @@ class TestFallbackParserAgreesWithPyYaml:
         assert warning == ""
         assert settings["sheet_tab"] == "Tab #1"
         assert settings["eligible_status"] == "Ready To Generate"
-        assert settings["require_disclosure"] is True
+        assert settings["require_topic_tag"] is True
         assert settings["min_posts"] == 3
 
     def test_a_flow_mapping_is_refused_rather_than_guessed(self) -> None:
@@ -287,7 +287,7 @@ class TestLintMatchesPublish:
         {"text": "Kapasitas besar biasanya berarti berat."},
         {"text": "Yang sering disebut di review: kabel USB-C ikut di dalamnya."},
         {"text": "Untuk skenario seperti ini, satu kabel saja sudah cukup."},
-        {"text": f"Iklan berbayar. {AFFILIATE_URL}"},
+        {"text": f"Detail lengkapnya: {AFFILIATE_URL}"},
     ]
 
     DRAFT_TOO_LONG = [
@@ -295,7 +295,7 @@ class TestLintMatchesPublish:
         {"text": "b"},
         {"text": "c"},
         {"text": "d"},
-        {"text": f"Iklan berbayar. {AFFILIATE_URL}"},
+        {"text": f"Detail lengkapnya: {AFFILIATE_URL}"},
     ]
 
     def test_the_lint_uses_the_customised_limits(
@@ -306,15 +306,7 @@ class TestLintMatchesPublish:
         assert payload["limits"]["max_posts"] == 4
         assert "too_many_posts" in {item["code"] for item in payload["violations"]}
 
-    def test_a_draft_outside_the_operator_markers_is_refused(
-        self, configured: Path, validate_thread_script: ModuleType, tmp_path: Path  # noqa: ARG002
-    ) -> None:
-        posts = [*self.DRAFT_OK[:3], {"text": f"Komisi: {AFFILIATE_URL}"}]
-        exit_code, payload, _ = lint(validate_thread_script, tmp_path, posts)
-        assert exit_code == 1
-        assert "missing_disclosure" in {item["code"] for item in payload["violations"]}
-
-    def test_the_operator_marker_and_limits_pass_the_lint(
+    def test_the_customised_limits_pass_the_lint(
         self, configured: Path, validate_thread_script: ModuleType, tmp_path: Path  # noqa: ARG002
     ) -> None:
         exit_code, payload, _ = lint(validate_thread_script, tmp_path, self.DRAFT_OK)
@@ -352,22 +344,6 @@ class TestLintMatchesPublish:
         assert "too_many_posts" in {item["code"] for item in result["violations"]}
         assert sheet.writes == []
 
-    def test_publish_refuses_a_marker_the_lint_refused(self, configured: Path, publish_env) -> None:  # noqa: ANN001, ARG002
-        posts = [*self.DRAFT_OK[:3], {"text": f"Komisi: {AFFILIATE_URL}"}]
-        publish_env(FakeSheet([make_row(affiliate_url=AFFILIATE_URL)]))
-        result = json.loads(
-            tools.threads_publish(
-                {
-                    "product_id": "12",
-                    "posts": posts,
-                    "topic_tag": DEFAULT_TOPIC_TAG,
-                    "confirm_publish": True,
-                }
-            )
-        )
-        assert result["stage"] == "guardrails"
-        assert "missing_disclosure" in {item["code"] for item in result["violations"]}
-
     def test_the_customised_blocked_phrase_is_enforced_by_both(
         self, configured: Path, validate_thread_script: ModuleType, tmp_path: Path, publish_env  # noqa: ANN001, ARG002
     ) -> None:
@@ -397,9 +373,6 @@ TWO_STAGE_CONFIG = textwrap.dedent(
         affiliate-threads-generator:
           settings:
             publish_mode: "two_stage"
-            disclosure_markers:
-              - "iklan berbayar"
-              - "link afiliasi"
     """
 )
 
@@ -413,7 +386,7 @@ class TestTwoStageParity:
         {"text": "Yang sering disebut di review: kabel USB-C ikut di dalamnya."},
         {"text": "Untuk skenario seperti ini, satu kabel sudah cukup."},
     ]
-    REPLY = [{"text": f"Detail lengkapnya di sini: {AFFILIATE_URL}\n\nIklan berbayar."}]
+    REPLY = [{"text": f"Detail lengkapnya di sini: {AFFILIATE_URL}"}]
 
     @pytest.fixture
     def two_stage_config(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
@@ -425,13 +398,13 @@ class TestTwoStageParity:
         runtime.reset_for_tests()
         return path
 
-    def test_the_thread_body_defers_the_link_and_the_disclosure(
+    def test_the_thread_body_defers_the_link(
         self, two_stage_config: Path, validate_thread_script: ModuleType, tmp_path: Path, publish_env  # noqa: ANN001, ARG002
     ) -> None:
         exit_code, payload, _ = lint(validate_thread_script, tmp_path, self.THREAD)
         assert exit_code == 0, payload
         assert payload["stage"] == "thread"
-        assert payload["deferred"] == ["affiliate_url", "disclosure"]
+        assert payload["deferred"] == ["affiliate_url"]
 
         # …and the tool publishes the same copy as stage one rather than refusing it.
         publish_env(FakeSheet([make_row(affiliate_url=AFFILIATE_URL)]))
@@ -502,9 +475,6 @@ TOPIC_TAG_OPTIONAL_CONFIG = textwrap.dedent(
         affiliate-threads-generator:
           settings:
             require_topic_tag: false
-            disclosure_markers:
-              - "iklan berbayar"
-              - "link afiliasi"
     """
 )
 

@@ -131,22 +131,26 @@ def _publish(args: dict[str, Any]) -> dict[str, Any]:
 
     # ---- 5. hard content guardrails --------------------------------------
     # In two-stage mode the link is deferred to a reply: the thread body is not
-    # required to carry it, nor a disclosure for a commercial relationship the
-    # reader cannot see yet. Both are enforced on that reply instead, in
-    # `_publish_link_reply`, which is where they can actually be broken. The
+    # required to carry it. That requirement lives on the reply instead, in
+    # `_publish_link_reply`, which is where the link actually belongs. The
     # topic tag is checked here because it belongs to the root post, which only
     # this half publishes.
     check_settings = (
-        replace(settings, require_affiliate_url=False, require_disclosure=False)
+        replace(settings, require_affiliate_url=False)
         if settings.two_stage
         else settings
     )
+    # The experience mode comes from the row itself, so the model cannot pick
+    # it: a first-hand claim is only ever valid against a stored testimony.
+    experience = row.experience_mode()
     report = guardrails.validate_thread(
         posts,
         check_settings,
         affiliate_url=row.affiliate_url,
         product_name=row.product,
         topic_tag=topic_tag,
+        experience=experience,
+        testimonial=row.testimonial,
     )
     if not report.ok:
         return _fail(
@@ -240,6 +244,7 @@ def _publish(args: dict[str, Any]) -> dict[str, Any]:
         "product_id": product_id,
         "product": row.product,
         "topic_tag": topic_tag or None,
+        "experience": experience,
         "threads_url": result.permalink,
         "media_ids": result.media_ids,
         "posts_published": len(result.media_ids),
@@ -261,7 +266,7 @@ def _publish(args: dict[str, Any]) -> dict[str, Any]:
             "affiliate_url": row.affiliate_url,
             "status_written": status_after,
             "requires": (
-                "one reply post carrying the affiliate URL and a disclosure, sent once the "
+                "one reply post carrying the affiliate URL, sent once the "
                 "thread has had the views the human is waiting for"
             ),
         }
@@ -342,7 +347,7 @@ def _publish_link_reply(
             f'stage "{STAGE_LINK}" publishes the reply alone, so posts must hold exactly one '
             f"post; got {len(posts)}.",
             hint=(
-                "Send the reply copy by itself: the affiliate URL plus the disclosure, in one "
+                "Send the reply copy by itself: the affiliate URL, in one "
                 "post, appended to the thread that is already live."
             ),
         )
@@ -371,15 +376,17 @@ def _publish_link_reply(
         )
 
     # One post, replying to a live thread: the length rules still apply, the
-    # count rules are about the reply itself, and the link + disclosure are the
-    # whole point of this call. No topic tag is checked: a tag belongs to the
-    # root post, which this call does not publish.
+    # count rules are about the reply itself, and the link is the whole point of
+    # this call. No topic tag is checked: a tag belongs to the root post, which
+    # this call does not publish.
     report = guardrails.validate_thread(
         posts,
         replace(settings, min_posts=1, max_posts=1),
         affiliate_url=row.affiliate_url,
         product_name=row.product,
         topic_tag=None,
+        experience=row.experience_mode(),
+        testimonial=row.testimonial,
     )
     if not report.ok:
         return _fail(

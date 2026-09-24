@@ -22,8 +22,9 @@ THREADS_PUBLISH: dict = {
         "  3. You already ran the evidence, anti-slop and affiliate review steps on this copy.\n\n"
         "The tool independently re-reads the Google Sheet and refuses to publish unless the "
         "row's Status is still the eligible status. It also refuses copy that breaks the hard "
-        "guardrails (character limits, link limits, missing disclosure, missing affiliate URL, "
-        "or fabricated first-hand experience). On success it writes Status=Done and the "
+        "guardrails (character limits, link limits, missing affiliate URL, "
+        "first-hand experience the row's stored testimony does not support, or guarantee/"
+        "absolute language). On success it writes Status=Done and the "
         "Threads URL back into the Sheet; on any failure it leaves the Sheet untouched.\n\n"
         "If the Sheet write fails after a successful publish, re-calling this tool with the "
         "same product_id repairs the Sheet instead of publishing a duplicate.\n\n"
@@ -50,7 +51,7 @@ THREADS_PUBLISH: dict = {
                     "The thread, in order. Post 1 is the root; each later post is published as "
                     "a reply to the previous one. 3-10 posts is the target range — the "
                     "configured max_posts is the hard bound, and the tool refuses a longer "
-                    "thread. The final post carries the affiliate link and the disclosure, "
+                    "thread. The final post carries the affiliate link, "
                     "unless the link is deferred to a later reply (see stage)."
                 ),
                 "items": {
@@ -60,7 +61,9 @@ THREADS_PUBLISH: dict = {
                             "type": "string",
                             "description": (
                                 "The exact post text. Max 500 characters (emoji count as their "
-                                "UTF-8 byte length). No personal-experience claims."
+                                "UTF-8 byte length). First-hand claims are only allowed when the "
+                                "row's stored Testimonial supports them; guarantees and absolute "
+                                "language are refused in every case."
                             ),
                         },
                         "image_url": {
@@ -90,7 +93,7 @@ THREADS_PUBLISH: dict = {
                     "Sheet's own state: an eligible row starts the thread, and a row left in "
                     "the link-pending status gets its deferred link reply. 'thread' insists on "
                     "publishing the thread, and 'link' insists on the deferred link reply — a "
-                    "single post in `posts` carrying the affiliate URL and the disclosure, "
+                    "single post in `posts` carrying the affiliate URL, "
                     "appended to the thread that is already live. Publishing the whole thread "
                     "and its link in one call is the default configuration (publish_mode "
                     "'single'), in which case only 'thread' applies."

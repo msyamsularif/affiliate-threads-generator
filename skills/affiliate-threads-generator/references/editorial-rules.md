@@ -1,7 +1,7 @@
 # Editorial rules
 
 The affiliate-specific editorial layer. Read it before drafting, and run the
-audits in section 9 after every draft and every rewrite.
+audits in section 8 after every draft and every rewrite.
 
 `antislop` and `antislop-copywriting` remove the generic AI tells — vocabulary,
 rhythm, signposting, forced parallelism, filler. This file is what is left when
@@ -97,43 +97,9 @@ untuk..."). End on one of:
 - a contextual product detail
 - a natural next action
 
-The CTA and the disclosure come after that ending. They do not replace it.
+The CTA comes after that ending. It does not replace it.
 
-## 8. Disclosure — explicit but lightweight
-
-The disclosure is mandatory and stays on the post that carries the affiliate URL.
-It does not need to be a paragraph — one short sentence is enough:
-
-```
-Link afiliasi.
-```
-
-```
-Link afiliasi ↓
-```
-
-```
-Detail produk:
-https://...
-
-Link afiliasi.
-```
-
-There is **no hashtag form**. `#ad` at the end is not used: it reads as an
-unclear tag rather than a disclosure, and a hashtag anywhere in the copy is
-refused by `hashtag_in_copy` anyway. The disclosure is always a sentence.
-
-Under `publish_mode: two_stage` the link — and therefore the disclosure — belongs
-to the link reply, not to the thread body. The thread then carries no "link
-afiliasi nanti di reply" teaser either: it has to stand on its own without
-promising a link.
-
-The wording may vary as long as the commercial relationship is clear. What is not
-allowed is hiding it, burying it under hashtags, or dropping it because the
-ending reads better without it. `threads_publish` refuses to publish a thread
-that does not satisfy the disclosure rule, and that check is code, not judgement.
-
-## 9. Reach: the topic tag, not hashtags
+## 8. Reach: the topic tag, not hashtags
 
 Threads gives a post exactly one clickable tag, calls it a topic tag, and reads
 it from the `topic_tag` argument rather than from the copy. When that topic has a
@@ -141,8 +107,8 @@ Threads community, the post is also surfaced inside the community — the one
 mechanism here that meaningfully widens the audience.
 
 - Hashtags in the text are not a reach tactic on Threads; they are a tell. The
-  copy carries none — `#ad` included, since a hashtag is not a disclosure — and
-  the only tokens that can stay are ones the operator explicitly allowlists.
+  copy carries none, and the only tokens that can stay are ones the operator
+  explicitly allowlists.
 - The topic tag has to be earned by the thread: the conversation the reader is
   actually reading. A tag that only makes sense because something is for sale
   does not get followed, and it mislabels the post.
@@ -151,12 +117,12 @@ mechanism here that meaningfully widens the audience.
   as `funnel_phrase`. The link post says what the reader gets and stands on its
   own; the reader is already looking at it.
 
-## 10. The audit passes
+## 9. The audit passes
 
 Two passes, in this order, after the draft and after every rewrite. Then the
 evidence pass.
 
-### 10.1 Anti-slop audit — the external skills
+### 9.1 Anti-slop audit — the external skills
 
 Run this when `antislop` and `antislop-copywriting` are installed. Their job is
 the generic prose tells. Ask:
@@ -179,7 +145,7 @@ through the generic pass must never be presented as if it did, and the missing
 rules must not be reimplemented from memory — that is how the two layers drift
 apart.
 
-### 10.2 Affiliate editorial audit — this plugin
+### 9.2 Affiliate editorial audit — this plugin
 
 Run this after the anti-slop pass, on the same draft. The anti-slop skills do not
 know what an affiliate thread is; this pass does.
@@ -191,22 +157,23 @@ Is the product supporting the conversation rather than becoming a product listin
 Is the thread more than a paraphrase of the seller's description?
 Did we select only the evidence the angle required?
 Does the ending feel like the natural next step of the conversation?
-Is the disclosure present, short, and on the post the configuration expects?
-Does any post carry a hashtag that is not one of the configured disclosure markers?
+Does any post carry a hashtag at all?
 Is the topic tag the conversation a reader would search for — not the product
 name — and does it fit the platform's limits?
 ```
 
-### 10.3 Evidence pass — last
+### 9.3 Evidence pass — last
 
 ```
 Does every product-specific factual claim have an evidence tier?
 Did rewriting accidentally introduce a new fact?
 Did anti-slop rewriting remove an important qualification?
-Did the writer invent a personal experience?
+Did the writer invent a personal experience, or add detail beyond the stored
+testimony? In `none` mode any first-hand claim fails this question; in
+`firsthand` mode anything the testimony does not say fails it.
 ```
 
-### 10.4 The audit record
+### 9.4 The audit record
 
 Hold this shape internally — it is what makes the rewrite targeted instead of a
 re-roll:
@@ -234,7 +201,6 @@ editorial_audit:
   evidence_selective: true
   product_fit: true
   natural_ending: true
-  disclosure_clear: true
 ```
 
 Add the two reach checks to the same record when they are clean:
@@ -268,6 +234,6 @@ copy than grinding the same structure.
   tier is still removed.
 - It does not put publishing authority anywhere new. The pipeline still ends at
   the human's approval and the `threads_publish` tool.
-- It does not override the hard guardrails. Character limits, the affiliate URL,
-  the disclosure and the fabricated-experience ban are enforced in code, and a
-  rewrite that breaks one is a rewrite that gets rejected.
+- It does not override the hard guardrails. Character limits, the affiliate URL
+  and the fabricated-experience ban are enforced in code, and a rewrite that
+  breaks one is a rewrite that gets rejected.

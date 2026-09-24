@@ -309,8 +309,8 @@ Desktop settings form writes it there.
 The skill's scripts import the plugin's own modules, and `runtime.py` reads
 `plugins.entries.affiliate-threads-generator.settings.*` out of
 `$HERMES_HOME/config.yaml` itself when it runs outside Hermes. So a guardrail or a
-mode customised in the Desktop form — `max_posts`, `disclosure_markers`,
-`publish_mode` — is enforced by `validate_thread.py` exactly
+mode customised in the Desktop form — `max_posts`, `publish_mode` — is enforced
+by `validate_thread.py` exactly
 as `threads_publish` enforces it, and `spreadsheet_id` set there is enough for
 `select_candidate.py` too.
 

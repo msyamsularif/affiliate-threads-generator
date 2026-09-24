@@ -5,8 +5,10 @@ Two classes of finding:
 ``violations``
     Hard stops. ``threads_publish`` refuses to publish when any are present.
     These are the rules a model must not be trusted to self-police: platform
-    limits, the affiliate disclosure, the fabricated-personal-experience ban,
-    hashtags left in the copy, and a topic tag the API would reject.
+    limits, the personal-experience provenance rule
+    (a blanket ban in ``none`` mode, grounded-claim checks in ``firsthand``
+    mode), guarantee/absolute language, hashtags left in the copy, and a topic
+    tag the API would reject.
 
 ``warnings``
     Soft signals: the affiliate-cliché phrase list, funnel language, and a
@@ -26,7 +28,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from .config import Settings
+from .config import EXPERIENCE_MODES, FIRSTHAND_MODE, NONE_MODE, Settings
 
 # --------------------------------------------------------------------------- #
 # Character counting
@@ -94,9 +96,8 @@ def extract_hashtags(text: str) -> list[str]:
 def _hashtags_allowed(settings: Settings) -> set[str]:
     """Tags the copy may keep: ``allowed_hashtags``, and nothing else.
 
-    Empty by default. The copy carries no hashtags at all — not even ``#ad``,
-    which is not a disclosure here — unless an operator deliberately allowlists
-    a token like ``#ootd``.
+    Empty by default. The copy carries no hashtags at all unless an operator
+    deliberately allowlists a token like ``#ootd``.
     """
     allowed = {
         str(tag).strip().lower().lstrip("#") for tag in settings.allowed_hashtags if str(tag).strip()
@@ -238,17 +239,12 @@ _SPEC_TOKEN_RE = re.compile(
     re.IGNORECASE,
 )
 
-_DISCLOSURE_SIGNAL_RE = re.compile(
-    r"(afiliasi|affiliate|komisi|berbayar|sponsor|paid partnership)",
-    re.IGNORECASE,
-)
-
 #: Hashtag-shaped tokens. Threads is not Instagram: exactly one tag per post is
 #: clickable, it is called a topic tag, and it is set through the API's
 #: ``topic_tag`` parameter instead of being written into the copy. A trail of
-#: hashtags at the end of a reply therefore buys nothing and reads as spam — and
-#: a hashtag is not a disclosure either — so the copy carries none unless the
-#: operator explicitly allowlists a token (``allowed_hashtags``).
+#: hashtags at the end of a reply therefore buys nothing and reads as spam, so
+#: the copy carries none unless the operator explicitly allowlists a token
+#: (``allowed_hashtags``).
 _HASHTAG_RE = re.compile(r"#(\w+)", re.UNICODE)
 
 #: The platform's own limits, from the Threads API's ``topic_tag`` parameter.
@@ -279,6 +275,66 @@ DEFAULT_FUNNEL_PHRASES: tuple[str, ...] = (
 
 
 # --------------------------------------------------------------------------- #
+# Experience provenance helpers (used only in firsthand mode)
+# --------------------------------------------------------------------------- #
+
+#: Person nouns from the second-hand family in ``DEFAULT_BLOCKED_PHRASES``,
+#: grouped by spelling (temen/teman is one person). A second-hand claim may
+#: only name a person the stored testimony names — the same claim wearing
+#: someone else is still a claim, and the reader reads it as the writer's own.
+_SECOND_HAND_PERSON_GROUPS: tuple[tuple[str, ...], ...] = (
+    ("anak",),
+    ("bayi",),
+    ("adik",),
+    ("kakak",),
+    ("istri",),
+    ("suami",),
+    ("ibu",),
+    ("bapak",),
+    ("temen", "teman"),
+    ("sahabat",),
+    ("sepupu",),
+)
+
+#: Quantified details — a number with a unit, or a frequency phrase. Inside a
+#: first-hand sentence these are the details a reader trusts most, so they must
+#: appear in the stored testimony too: an invented "tahan 2 hari" is exactly
+#: the amplification the provenance rule exists to stop.
+_EXPERIENCE_DETAIL_RE = re.compile(
+    r"\d+(?:[.,]\d+)?\s*(?:x|kali|hari|minggu|bulan|tahun|jam|menit|detik|malam"
+    r"|pcs|buah|tablet|kapsul|botol|sachet)\b"
+    r"|(?:setiap|tiap|per) (?:hari|minggu|bulan|tahun|malam)\b",
+    re.IGNORECASE,
+)
+
+#: The pronouns that make a sentence first-hand. Deliberately the same set the
+#: blocked-phrase defaults cover.
+_FIRST_PERSON_RE = re.compile(r"\b(aku|saya|gua|gue)\b|\bi\b", re.IGNORECASE)
+
+_SENTENCE_SPLIT_RE = re.compile(r"[.!?\n]+")
+
+
+def _normalize_for_match(text: str) -> str:
+    return re.sub(r"\s+", " ", (text or "").casefold()).strip()
+
+
+def _testimonial_covers(token: str, testimonial: str) -> bool:
+    """Whether the stored testimony contains ``token`` in any casing/spacing."""
+    return _normalize_for_match(token) in _normalize_for_match(testimonial)
+
+
+def _unnamed_person(match_text: str, testimonial: str) -> str:
+    """The person a second-hand match names that the testimony does not, or ""."""
+    for group in _SECOND_HAND_PERSON_GROUPS:
+        if not any(re.search(rf"\b{re.escape(alias)}", match_text, re.IGNORECASE) for alias in group):
+            continue
+        if any(_testimonial_covers(alias, testimonial) for alias in group):
+            return ""
+        return group[0]
+    return ""
+
+
+# --------------------------------------------------------------------------- #
 # The validator
 # --------------------------------------------------------------------------- #
 
@@ -289,6 +345,8 @@ def validate_thread(
     affiliate_url: str = "",
     product_name: str = "",
     topic_tag: str | None = None,
+    experience: str = NONE_MODE,
+    testimonial: str = "",
     suspicious_phrases: Iterable[str] = DEFAULT_SUSPICIOUS_PHRASES,
     funnel_phrases: Iterable[str] = DEFAULT_FUNNEL_PHRASES,
     transition_words: Iterable[str] = DEFAULT_TRANSITION_WORDS,
@@ -302,6 +360,11 @@ def validate_thread(
     against ``settings.require_topic_tag``), or ``None`` when the caller has no
     topic tag to check — a deferred link reply, for instance, or a unit test
     about the copy itself. The tag is metadata: it never appears in the posts.
+
+    ``experience`` and ``testimonial`` come from the Sheet row, never from the
+    model. ``firsthand`` (``Used=Yes`` plus a non-empty testimony) is the only
+    mode where first-hand claims may ship, and even then nothing may go beyond
+    what the testimony says. Everything else validates in ``none`` mode.
     """
     report = GuardrailReport()
 
@@ -373,22 +436,102 @@ def validate_thread(
                 )
             )
 
-    # ---- fabricated personal experience (hard rule) ----------------------
+    # ---- personal experience: provenance, not a blanket ban --------------
+    # The system itself has no first-hand experience; what it can have is the
+    # human's, stored in the Sheet (``Used`` + ``Testimonial``). The tool
+    # derives the mode from that row — never the model — and it decides which
+    # half of this rule runs:
+    #
+    # * ``none``      — nothing on file can substantiate a first-hand claim, so
+    #                   a blocked phrase is a violation, exactly as before.
+    # * ``firsthand`` — first-hand claims are allowed; what stays checked is
+    #                   that the copy does not invent beyond the testimony.
+    mode = experience if experience in EXPERIENCE_MODES else NONE_MODE
+    testimonial_text = str(testimonial or "")
+
     for index, post in enumerate(posts):
         text = str(post.get("text") or "")
-        for pattern in settings.blocked_phrases:
+        if not text.strip():
+            continue
+
+        if mode == FIRSTHAND_MODE:
+            # A second-hand claim may only name a person the testimony names.
+            for pattern in settings.blocked_phrases:
+                try:
+                    match = re.search(pattern, text, re.IGNORECASE)
+                except re.error:
+                    continue
+                if not match:
+                    continue
+                person = _unnamed_person(match.group(0), testimonial_text)
+                if person:
+                    report.violations.append(
+                        Finding(
+                            "experience_attribution_unsupported",
+                            f'This post claims something about "{person}", but the stored '
+                            "testimony never mentions that person. A second-hand claim is "
+                            "still a claim: use the person the testimony actually describes, "
+                            "or drop it.",
+                            post_index=index,
+                            detail={"match": match.group(0), "person": person},
+                        )
+                    )
+
+            # Quantified details in a first-hand sentence must come from it too.
+            for sentence in _SENTENCE_SPLIT_RE.split(text):
+                if not _FIRST_PERSON_RE.search(sentence):
+                    continue
+                for detail in _EXPERIENCE_DETAIL_RE.finditer(sentence):
+                    token = detail.group(0)
+                    if _testimonial_covers(token, testimonial_text):
+                        continue
+                    report.violations.append(
+                        Finding(
+                            "experience_detail_unsupported",
+                            f'"{token}" sits in a first-hand sentence but does not appear in '
+                            "the stored testimony. First-hand copy may not add detail the human "
+                            "did not write: drop the number, or use the wording the testimony "
+                            "actually has.",
+                            post_index=index,
+                            detail={"detail": token},
+                        )
+                    )
+        else:
+            for pattern in settings.blocked_phrases:
+                try:
+                    match = re.search(pattern, text, re.IGNORECASE)
+                except re.error:
+                    continue  # a user-supplied pattern that will not compile is not our problem
+                if match:
+                    report.violations.append(
+                        Finding(
+                            "fabricated_personal_experience",
+                            f'Blocked phrase "{match.group(0)}". This system has no first-hand '
+                            "experience with the product, so it may never claim any. Rewrite as an "
+                            'observation: "Dari spesifikasi produk...", "Berdasarkan review yang '
+                            'tersedia...", "Untuk skenario seperti ini...".',
+                            post_index=index,
+                            detail={"match": match.group(0)},
+                        )
+                    )
+
+    # ---- amplifier language (hard rule, both modes) ----------------------
+    # A personal account is one data point. Guarantees and absolutes turn it
+    # into a promise the operator cannot make — with or without testimony.
+    for index, post in enumerate(posts):
+        text = str(post.get("text") or "")
+        for pattern in settings.amplifier_phrases:
             try:
                 match = re.search(pattern, text, re.IGNORECASE)
             except re.error:
-                continue  # a user-supplied pattern that will not compile is not our problem
+                continue
             if match:
                 report.violations.append(
                     Finding(
-                        "fabricated_personal_experience",
-                        f'Blocked phrase "{match.group(0)}". This system has no first-hand '
-                        "experience with the product, so it may never claim any. Rewrite as an "
-                        'observation: "Dari spesifikasi produk...", "Berdasarkan review yang '
-                        'tersedia...", "Untuk skenario seperti ini...".',
+                        "amplifier_language",
+                        f'"{match.group(0)}" is a guarantee the copy cannot support. Even a '
+                        "genuine first-hand account is one experience, not a promise — say what "
+                        "it does for this case, hedged, or drop the claim.",
                         post_index=index,
                         detail={"match": match.group(0)},
                     )
@@ -397,9 +540,8 @@ def validate_thread(
     # ---- hashtags in the copy (hard rule) --------------------------------
     # Threads turns exactly one tag per post into a clickable topic and that tag
     # is set through `topic_tag`. Hashtags written into the copy cannot add
-    # reach, so they only make the post look like a listing — and a hashtag is
-    # not a disclosure either (the disclosure is a short sentence). The copy
-    # therefore carries none, unless the operator allowlists a token.
+    # reach, so they only make the post look like a listing. The copy therefore
+    # carries none, unless the operator allowlists a token.
     allowed_tags = _hashtags_allowed(settings)
     for index, post in enumerate(posts):
         offenders = [
@@ -413,8 +555,7 @@ def validate_thread(
                     f"{listed} in the copy. Threads is not Instagram: one tag per post becomes the "
                     "topic tag, and that tag is set through the topic_tag parameter instead of "
                     "being written in the text. Hashtags left in the copy add no reach and read as "
-                    "spam — put the topic in topic_tag and drop the trail. A hashtag is not a "
-                    "disclosure either: the disclosure is a short sentence. Only hashtags the "
+                    "spam — put the topic in topic_tag and drop the trail. Only hashtags the "
                     "operator explicitly allowlists (allowed_hashtags) may stay.",
                     post_index=index,
                     detail={"tags": offenders},
@@ -452,12 +593,6 @@ def validate_thread(
                     )
                 )
 
-    # ---- affiliate disclosure (hard rule) --------------------------------
-    if settings.require_disclosure and not _disclosure_hit(posts, settings):
-        report.violations.append(
-            Finding("missing_disclosure", _missing_disclosure_message(settings))
-        )
-
     # ---- affiliate URL (hard rule) ---------------------------------------
     if settings.require_affiliate_url:
         if not affiliate_url:
@@ -478,15 +613,6 @@ def validate_thread(
             )
 
     # ---- soft signals ----------------------------------------------------
-    if affiliate_url and not settings.require_disclosure and not _contains_disclosure_signal(posts):
-        report.warnings.append(
-            Finding(
-                "disclosure_not_obvious",
-                "Disclosure is not enforced by config, but no post reads as a disclosure. "
-                "Consider adding one.",
-            )
-        )
-
     lowered_posts = [str(post.get("text") or "").lower() for post in posts]
     for phrase in suspicious_phrases:
         needle = phrase.lower()
@@ -643,51 +769,3 @@ def _spec_token_hits(texts: Sequence[str]) -> list[str]:
     for text in texts:
         hits.extend(match.group(0).strip() for match in _SPEC_TOKEN_RE.finditer(text))
     return hits
-
-
-def _contains_disclosure_signal(posts: Sequence[dict[str, Any]]) -> bool:
-    return any(
-        _DISCLOSURE_SIGNAL_RE.search(str(post.get("text") or "")) for post in posts
-    )
-
-
-def _sentence_markers(settings: Settings) -> tuple[str, ...]:
-    """Disclosure markers that are sentences, not hashtags.
-
-    ``config.resolve()`` drops ``#...`` entries on the way in; this keeps the
-    rule true for a ``Settings`` built directly too — the copy may never be
-    asked to satisfy a disclosure that the hashtag rule would refuse.
-    """
-    return tuple(
-        marker for marker in settings.disclosure_markers if not marker.strip().startswith("#")
-    )
-
-
-def _disclosure_hit(posts: Sequence[dict[str, Any]], settings: Settings) -> str:
-    """The sentence marker that satisfies the disclosure rule, or ``""``.
-
-    Any configured marker, in any post — usually the one carrying the link. The
-    disclosure is a short sentence; a hashtag is never it (that is
-    ``hashtag_in_copy``'s job to refuse).
-    """
-    lowered = [str(post.get("text") or "").lower() for post in posts]
-    for marker in _sentence_markers(settings):
-        if any(marker.lower() in text for text in lowered):
-            return marker
-    return ""
-
-
-def _missing_disclosure_message(settings: Settings) -> str:
-    markers = _sentence_markers(settings)
-    if not markers:
-        return (
-            "No post carries an affiliate disclosure, and disclosure_markers holds no sentence "
-            'marker to look for. Add one (for example "link afiliasi") — the disclosure is a '
-            "short sentence, never a hashtag."
-        )
-    return (
-        "No post carries an affiliate disclosure. Add one of: "
-        + ", ".join(markers[:6])
-        + ". One short sentence is enough — the disclosure is a sentence in the copy, never a "
-        "hashtag. Reducing the hard-sell tone is fine; hiding the commercial relationship is not."
-    )

@@ -243,6 +243,7 @@ class TestBundledSkill:
             "_bridge.py",
             "doctor.py",
             "select_candidate.py",
+            "set_experience.py",
             "set_status.py",
             "threads_token.py",
             "validate_thread.py",
@@ -263,7 +264,6 @@ class TestBundledSkill:
     def test_guardrails_are_documented_in_the_skill(self) -> None:
         """The writer must be told the rules the tool will enforce."""
         text = (SKILL_DIR / "SKILL.md").read_text(encoding="utf-8").lower()
-        assert "disclosure" in text
         assert "personal experience" in text
         assert "threads_publish" in text
 

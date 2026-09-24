@@ -13,7 +13,7 @@ than trusting anything the model reported.
     { "text": "post 1 copy" },
     { "text": "post 2 copy" },
     { "text": "post 3 copy", "image_url": "https://.../image.jpg" },
-    { "text": "post 4 copy with the link and the disclosure" }
+    { "text": "post 4 copy with the link" }
   ],
   "confirm_publish": true,
   "approval_note": "saya approve",
@@ -50,16 +50,20 @@ In this order. Any failure returns an error and **publishes nothing**.
    - ≤ 500 characters per post, counting emoji as their UTF-8 byte length
    - ≤ 5 unique links per post
    - `image_url`, if present, is `https://`
-   - no fabricated first-hand experience (blocked phrase list)
-   - no hashtags in the copy beyond the configured disclosure markers
+   - first-hand experience only when the row's stored testimony supports it:
+     `fabricated_personal_experience` in `none` mode, and in `firsthand` mode the
+     provenance checks `experience_detail_unsupported` (a number, duration or
+     frequency the testimony does not contain) and
+     `experience_attribution_unsupported` (a person the testimony never mentions)
+   - no guarantee/absolute language (`amplifier_language`) — refused in both modes
+   - no hashtags in the copy unless the operator allowlists a token
      (`hashtag_in_copy`) — Threads makes one tag per post clickable and that tag
      is `topic_tag`, so a hashtag trail only reads as spam
    - a topic tag is present when `require_topic_tag` is on, and it is one the API
      will accept (`topic_tag_missing`, `topic_tag_invalid`). The check applies to
      the root post; the deferred link reply carries none
-   - a disclosure marker is present in some post (stage `thread` under two-stage
-     mode defers this to the link reply)
-   - the row's `Affiliate URL` actually appears in some post (same deferral)
+   - the row's `Affiliate URL` actually appears in some post (stage `thread`
+     under two-stage mode defers this to the link reply)
 8. **`THREADS_ACCESS_TOKEN`** resolves.
 
 ## What it does
@@ -178,11 +182,11 @@ stage 2  stage: "link"     one reply, the link + tag -> Status = Done
   thread, a row sitting in `link_pending_status` gets its reply. `thread` and
   `link` say which half you mean, and are refused if the row disagrees.
 - Stage `thread` publishes the copy as given, without requiring the affiliate
-  URL or a disclosure — neither exists in the copy yet. It writes the permalink
+  URL — it does not exist in the copy yet. It writes the permalink
   and `link_pending_status` to the row, which is what makes the next call a
   different call.
 - Stage `link` takes **exactly one** post in `posts`: the reply. It must carry
-  the row's `Affiliate URL` and satisfy the disclosure rule, and it is posted as
+  the row's `Affiliate URL`, and it is posted as
   a reply to the last post of the thread (the media id is in the ledger, not in
   the Sheet).
 - Both stages need `confirm_publish` and both are escalated to the approval gate.

@@ -78,6 +78,15 @@ def plugin_package() -> types.ModuleType:
     if _cached is not None:
         return _cached
 
+    # A host process — the test suite, a REPL, another script — may already
+    # have registered the plugin under this name. Reuse it instead of replacing
+    # it: replacing drops whatever that package carried (``register``, bound
+    # state) and the next importer would silently get a different module object.
+    registered = sys.modules.get(PACKAGE_NAME)
+    if registered is not None and getattr(registered, "__path__", None):
+        _cached = registered
+        return registered
+
     directory = find_plugin_dir()
     if directory is None:
         searched = "\n".join(f"  - {path}" for path in candidate_dirs())

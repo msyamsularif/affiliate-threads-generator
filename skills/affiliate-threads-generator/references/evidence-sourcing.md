@@ -17,7 +17,8 @@ not with `execute_code`. If a page does not load, that is the end of that path.
 
 ## Confidence tiers
 
-Every factual claim in the final copy must trace to exactly one of these.
+Every factual claim in the final copy must trace to exactly one of these — in
+`firsthand` mode, tier 0 below included.
 
 | Tier | Source                                                                                           | How much you may claim                                                                                                                                                                                           |
 | ---- | ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -25,6 +26,18 @@ Every factual claim in the final copy must trace to exactly one of these.
 | 2    | **Seller material** — the `Description` column and the product page (only if it actually loaded) | "Seller's own description" tier. Background and orientation only. Attribute whatever you take from it: _"Klaim di deskripsi produknya..."_ It may not become the thread's main material.                         |
 | 3    | **Inference**                                                                                    | Reasonable deduction from tiers 1-2. **Always hedged**: _"kemungkinan", "biasanya", "bisa jadi"_.                                                                                                                |
 | 4    | **Unsupported**                                                                                  | Never used as a factual claim. Remove it, or rewrite it as an explicit hedge or a question.                                                                                                                      |
+
+**Tier 0 — the stored testimony.** With `Used=Yes` and a non-empty `Testimonial`
+(Step 1.5), the human's own account exists, and it outranks everything below as
+the source for _personal_ material: it is the only source that can support a
+first-hand claim. Report it as theirs, never amplify, generalize, or extend it —
+inventing beyond it fails the same way an unsupported claim fails. It is
+testimony, not verified fact: research corroborates it and never replaces it.
+In `none` mode there is no tier 0 at all, and no first-hand claim may ship.
+
+Research runs in **both** modes. With a testimony it supplies the context, the
+corroboration, and the real trade-off; the testimony supplies the personal
+material.
 
 ### Why the seller's own words sit below independent sources
 
@@ -144,7 +157,8 @@ person being honest, not like a disclaimer:
 - Not a reason to write a feature list. Research feeds the _angle_, not the copy.
 - Not a licence to repeat the seller's copy. Seller material is background — the
   thread's substance comes from somewhere the seller does not control.
-- Not a licence to review a product you never used. You have no first-hand
-  experience and may never imply one.
+- Not a licence to review a product you never used: without a stored testimony
+  (Step 1.5) you have no first-hand experience and may never imply one; with one,
+  you may only use what it says.
 - Not a virality study. You are looking for something true and specific that a
   person would find worth reading.

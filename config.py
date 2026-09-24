@@ -25,7 +25,8 @@ from . import runtime
 # Column layout — the Sheet contract from the specification
 # --------------------------------------------------------------------------- #
 
-#: Default layout: ``ID | Product | Description | Affiliate URL | Category | Threads URL | Status``
+#: Default layout:
+#: ``ID | Product | Description | Affiliate URL | Category | Threads URL | Used | Testimonial | Status``
 COLUMNS: dict[str, str] = {
     "id": "A",
     "product": "B",
@@ -33,7 +34,9 @@ COLUMNS: dict[str, str] = {
     "affiliate_url": "D",
     "category": "E",
     "threads_url": "F",
-    "status": "G",
+    "used": "G",
+    "testimonial": "H",
+    "status": "I",
 }
 
 _COLUMN_LETTER_RE = re.compile(r"[A-Z]{1,3}")
@@ -146,6 +149,11 @@ def _as_columns(value: Any) -> dict[str, str]:  # noqa: ANN401
 
     A layout that names the same column twice would silently corrupt writes, so
     a contradictory map is discarded wholesale rather than partially applied.
+    One case is resolved instead of discarded: when the collision involves only
+    the ``Used``/``Testimonial`` columns and the operator did not name them,
+    those two are dropped and their layout is kept — a table that predates the
+    experience flow keeps working, and the feature stays off rather than
+    writing into a letter it was never given (``Settings.experience_configured``).
     """
     raw: Any = value  # noqa: ANN401
     if isinstance(raw, str):
@@ -160,38 +168,22 @@ def _as_columns(value: Any) -> dict[str, str]:  # noqa: ANN401
         return dict(COLUMNS)
 
     columns = dict(COLUMNS)
+    named: set[str] = set()
     for key, letter in raw.items():
         if key not in COLUMNS or not isinstance(letter, str):
             continue
         candidate = letter.strip().upper()
         if _COLUMN_LETTER_RE.fullmatch(candidate):
             columns[key] = candidate
+            named.add(key)
 
     if len(set(columns.values())) != len(columns):
-        return dict(COLUMNS)
+        for key in ("used", "testimonial"):
+            if key not in named:
+                columns.pop(key, None)
+        if len(set(columns.values())) != len(columns):
+            return dict(COLUMNS)
     return columns
-
-
-DEFAULT_DISCLOSURE_MARKERS: tuple[str, ...] = (
-    "link afiliasi",
-    "affiliate link",
-    "tautan afiliasi",
-    "komisi",
-    "paid partnership",
-    "iklan berbayar",
-)
-
-#: The disclosure is a short sentence in the copy — never a hashtag. ``#ad`` at
-#: the end reads as an unclear tag, and a hashtag in the text is refused by
-#: ``hashtag_in_copy`` anyway (Threads makes one tag per post clickable, and that
-#: tag is the ``topic_tag`` metadata, not the disclosure). ``#...`` entries in a
-#: configured marker list are therefore dropped here; if that leaves nothing, the
-#: documented defaults are used rather than a marker set that can never be
-#: satisfied.
-def _disclosure_markers(value: Any) -> tuple[str, ...]:  # noqa: ANN401
-    markers = _as_str_list(value, DEFAULT_DISCLOSURE_MARKERS)
-    kept = tuple(marker for marker in markers if not marker.strip().startswith("#"))
-    return kept or DEFAULT_DISCLOSURE_MARKERS
 
 
 #: How the affiliate link reaches the thread.
@@ -209,11 +201,16 @@ DEFAULT_PUBLISH_MODE = SINGLE_MODE
 #: Status written after the first half of a two-stage publish.
 DEFAULT_LINK_PENDING_STATUS = "Link Pending"
 
-#: Fabricated-personal-experience patterns. The system has no first-hand
-#: experience with any product and none is ever supplied, so these may not ship.
-#: The list covers the pronouns Indonesian Threads copy actually uses (aku, saya,
-#: gua, gue) and the second-hand forms that read as first-hand ("anakku cocok",
-#: "temenku bilang") because those are the same claim wearing someone else.
+#: Fabricated-personal-experience patterns. They are the hard rule in ``none``
+#: mode: the system has no first-hand experience and no testimony is stored, so
+#: a first-hand claim cannot be substantiated. In ``firsthand`` mode — the row
+#: has ``Used=Yes`` and a non-empty ``Testimonial`` — a first-hand pattern is
+#: allowed, provided the copy stays inside what the human wrote; ``guardrails``
+#: applies the provenance checks that replace this one there.
+#: The list covers the pronouns Indonesian Threads copy actually uses (aku,
+#: saya, gua, gue) and the second-hand forms that read as first-hand ("anakku
+#: cocok", "temenku bilang") because those are the same claim wearing someone
+#: else.
 DEFAULT_BLOCKED_PHRASES: tuple[str, ...] = (
     # Past-tense first-hand claims
     r"\b(aku|saya|gua|gue) (sudah|udah|pernah|sering|baru) (coba|nyoba|cobain|nyobain|pakai|pake|beli|gunakan|pesan)\b",
@@ -233,11 +230,53 @@ DEFAULT_BLOCKED_PHRASES: tuple[str, ...] = (
     r"\bin my (own )?experience\b",
 )
 
-#: Hashtag-shaped tokens (``#finds``) the copy may keep. Empty by default: the
-#: only hashtags allowed are the disclosure markers, because Threads converts
-#: exactly one tag per post and that tag is set through ``topic_tag`` — see
+#: Hashtag-shaped tokens (``#finds``) the copy may keep. Empty by default:
+#: Threads converts exactly one tag per post into the clickable topic tag, and
+#: that tag is set through ``topic_tag`` — see
 #: ``guardrails.DEFAULT_FUNNEL_PHRASES`` for the copy side of the same idea.
 DEFAULT_ALLOWED_HASHTAGS: tuple[str, ...] = ()
+
+#: Guarantee and absolute language, refused in both experience modes: even a
+#: genuine first-hand account never licenses a universal promise. A personal
+#: account is one data point, and these phrases turn it into a warranty the
+#: seller has not offered. Matched case-insensitively; user-supplied patterns
+#: that will not compile are skipped rather than fatal.
+DEFAULT_AMPLIFIER_PHRASES: tuple[str, ...] = (
+    r"\bdijamin\b",
+    r"\bgaransi(nya)? (pasti )?(berhasil|ampuh|manjur|sembuh)\b",
+    r"\b100\s*% ?(ampuh|manjur|berhasil|sembuh|aman|pasti)\b",
+    r"\bpasti (ampuh|manjur|berhasil|sembuh|suka|cocok)\b",
+    r"\bmenyembuhkan\b",
+    r"\bguaranteed\b",
+    r"\b100\s*% ?(effective|safe|cure[sd]?|guaranteed)\b",
+    r"\bclinically proven\b",
+    r"\bmiraculous\b",
+)
+
+#: Experience modes. Derived per row from the Sheet by the tool, never chosen
+#: by the model:
+#:
+#: ``none`` — no stored testimony: first-hand claims are blocked outright.
+#: ``firsthand`` — ``Used=Yes`` plus a non-empty ``Testimonial``: first-hand
+#: claims are allowed inside what the testimony actually says.
+NONE_MODE = "none"
+FIRSTHAND_MODE = "firsthand"
+EXPERIENCE_MODES: tuple[str, ...] = (NONE_MODE, FIRSTHAND_MODE)
+DEFAULT_EXPERIENCE_MODE = NONE_MODE
+
+
+def experience_mode(used: str, testimonial: str) -> str:
+    """The guardrail mode a row resolves to, from the row's own answer.
+
+    ``Used=Yes`` without a testimony is deliberately *not* enough: the mode is
+    a provenance rule, and provenance needs a source. Reading tolerates case
+    and stray whitespace; ``set_experience.py`` writes the exact values
+    ``Yes`` / ``No``.
+    """
+    answer = (used or "").strip().casefold()
+    if answer in {"yes", "y", "true"} and (testimonial or "").strip():
+        return FIRSTHAND_MODE
+    return NONE_MODE
 
 
 @dataclass(frozen=True)
@@ -258,13 +297,6 @@ class Settings:
     in_progress_status: str = "In Progress"
 
     # Publish guardrails
-    require_disclosure: bool = True
-    #: Short sentences in the copy that satisfy the disclosure requirement — a
-    #: ``#...`` entry is dropped by ``_disclosure_markers``, because the
-    #: disclosure is never a hashtag.
-    disclosure_markers: tuple[str, ...] = field(
-        default_factory=lambda: DEFAULT_DISCLOSURE_MARKERS
-    )
     require_affiliate_url: bool = True
     #: When on, a thread may not publish without a topic tag. The tag is the
     #: platform's own discovery mechanism — and how a post reaches a Threads
@@ -280,6 +312,14 @@ class Settings:
     blocked_phrases: tuple[str, ...] = field(
         default_factory=lambda: DEFAULT_BLOCKED_PHRASES
     )
+    #: Guarantee/absolute language, refused in both experience modes.
+    amplifier_phrases: tuple[str, ...] = field(
+        default_factory=lambda: DEFAULT_AMPLIFIER_PHRASES
+    )
+    #: When on, a row whose experience answer is blank triggers the question
+    #: before research (the pipeline's Step 1.5). Off keeps the legacy flow:
+    #: no question, and every row validates in ``none`` mode.
+    ask_experience: bool = True
     min_posts: int = 3
     #: Upper bound on thread length. Long enough for the multi-sub-thread shape
     #: (a hook post, several short observations, a closing practical note), which
@@ -343,6 +383,16 @@ class Settings:
         return self.publish_mode == TWO_STAGE_MODE
 
     @property
+    def experience_configured(self) -> bool:
+        """Whether the Sheet layout has ``Used`` / ``Testimonial`` columns."""
+        return "used" in self.columns and "testimonial" in self.columns
+
+    @property
+    def experience_questions_enabled(self) -> bool:
+        """Whether a blank experience answer triggers the question (Step 1.5)."""
+        return bool(self.ask_experience and self.experience_configured)
+
+    @property
     def credentials_configured(self) -> bool:
         return bool(self.threads_access_token)
 
@@ -354,10 +404,12 @@ class Settings:
             "columns": dict(self.columns),
             "eligible_status": self.eligible_status,
             "done_status": self.done_status,
-            "require_disclosure": self.require_disclosure,
             "require_affiliate_url": self.require_affiliate_url,
             "require_topic_tag": self.require_topic_tag,
             "allowed_hashtags": list(self.allowed_hashtags),
+            "amplifier_phrases": list(self.amplifier_phrases),
+            "ask_experience": self.ask_experience,
+            "experience_configured": self.experience_configured,
             "min_posts": self.min_posts,
             "max_posts": self.max_posts,
             "publish_mode": self.publish_mode,
@@ -400,8 +452,6 @@ def resolve(overrides: dict[str, Any] | None = None) -> Settings:
         hold_status=str(_lookup("hold_status", "Hold")).strip(),
         cancel_status=str(_lookup("cancel_status", "Cancel")).strip(),
         in_progress_status=str(_lookup("in_progress_status", "In Progress")).strip(),
-        require_disclosure=_as_bool(_lookup("require_disclosure", True), True),
-        disclosure_markers=_disclosure_markers(_lookup("disclosure_markers", None)),
         require_affiliate_url=_as_bool(_lookup("require_affiliate_url", True), True),
         require_topic_tag=_as_bool(_lookup("require_topic_tag", True), True),
         allowed_hashtags=_as_str_list(
@@ -410,6 +460,10 @@ def resolve(overrides: dict[str, Any] | None = None) -> Settings:
         blocked_phrases=_as_str_list(
             _lookup("blocked_phrases", None), DEFAULT_BLOCKED_PHRASES
         ),
+        amplifier_phrases=_as_str_list(
+            _lookup("amplifier_phrases", None), DEFAULT_AMPLIFIER_PHRASES
+        ),
+        ask_experience=_as_bool(_lookup("ask_experience", True), True),
         min_posts=_as_int(_lookup("min_posts", 3), 3),
         max_posts=_as_int(_lookup("max_posts", 10), 10),
         publish_mode=_publish_mode(_lookup("publish_mode", DEFAULT_PUBLISH_MODE)),

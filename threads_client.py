@@ -371,7 +371,7 @@ class ThreadsClient:
 
         This is the second half of a deferred-link publish: the thread is already
         live, and this attaches a post to it — the reply that carries the
-        affiliate URL and the disclosure.
+        affiliate URL.
         """
         if not reply_to_id:
             raise ThreadsAPIError(

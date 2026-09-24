@@ -20,15 +20,22 @@ Usage
     validate_thread.py --file draft.json --format text
 
 ``--stage`` mirrors the publish tool. Under ``publish_mode: two_stage`` the
-thread body is linted without the affiliate link and the disclosure (both belong
-to the link reply), and the reply itself is linted as the single post it is.
+thread body is linted without the affiliate link (it belongs to the link reply),
+and the reply itself is linted as the single post it is.
 
 ``--topic-tag`` mirrors the tool's ``topic_tag`` argument, and the draft JSON may
 carry the same value under ``topic_tag``. It is metadata for the root post: the
 requirement is checked here so a draft that would be refused at publish time is
 refused now, and the platform's own limits (1-50 characters, no periods or
 ampersands, no leading ``#``) are checked with it. Copy must not carry hashtags —
-only the configured disclosure markers may stay in the text.
+only explicitly allowlisted tokens may stay in the text.
+
+``--experience`` mirrors the row's own answer (``Used`` + ``Testimonial`` in the
+Sheet). With ``--product-id`` it defaults to whatever that row resolves to: a
+draft validated as ``none`` may carry no first-hand claim at all, and one
+validated as ``firsthand`` may only claim what the stored testimony says.
+``--testimonial`` / ``--testimonial-file`` supply the testimony when there is no
+row to read.
 """
 
 from __future__ import annotations
@@ -71,6 +78,26 @@ def build_parser() -> argparse.ArgumentParser:
             "Which publish stage this draft is for. 'auto' follows the row when --product-id "
             "is given, and lints a whole thread otherwise."
         ),
+    )
+    parser.add_argument(
+        "--experience",
+        choices=("auto", "none", "firsthand"),
+        default="auto",
+        help=(
+            "Experience mode the personal-experience guardrail applies in. 'auto' follows the "
+            "row read via --product-id (Used + Testimonial); without a row it validates as "
+            "'none'. 'firsthand' requires a stored testimony."
+        ),
+    )
+    parser.add_argument(
+        "--testimonial",
+        default="",
+        help="The stored testimony the copy may draw on, in firsthand mode.",
+    )
+    parser.add_argument(
+        "--testimonial-file",
+        default="",
+        help="Read the stored testimony from a file instead of --testimonial.",
     )
     parser.add_argument("--format", choices=("json", "text"), default="json")
     parser.add_argument("--spreadsheet-id", default="")
@@ -144,7 +171,18 @@ def main(argv: list[str] | None = None) -> int:
 
     affiliate_url = args.affiliate_url
     product_name = args.product_name
+    experience = args.experience
+    testimonial = args.testimonial
     row = None
+
+    if args.testimonial_file:
+        try:
+            testimonial = (
+                Path(args.testimonial_file).expanduser().read_text(encoding="utf-8").strip()
+            )
+        except OSError as exc:
+            print(json.dumps({"ok": False, "error": f"{type(exc).__name__}: {exc}"}), file=sys.stderr)
+            return 2
 
     if product_id:
         try:
@@ -154,15 +192,35 @@ def main(argv: list[str] | None = None) -> int:
             if row is not None:
                 affiliate_url = affiliate_url or row.affiliate_url
                 product_name = product_name or row.product
+                if experience == "auto":
+                    experience = row.experience_mode()
+                testimonial = testimonial or row.testimonial
         except Exception as exc:  # noqa: BLE001 - context lookup is best effort
             print(f"note: could not look up product {product_id}: {exc}", file=sys.stderr)
+
+    if experience == "auto":
+        experience = "none"
+    if experience == "firsthand" and not testimonial.strip():
+        print(
+            json.dumps(
+                {
+                    "ok": False,
+                    "error": (
+                        "firsthand mode needs the stored testimony: pass --testimonial / "
+                        "--testimonial-file, or --product-id with a filled row."
+                    ),
+                }
+            ),
+            file=sys.stderr,
+        )
+        return 2
 
     stage = args.stage if args.stage != "auto" else _stage_for(row, settings)
     check_settings, deferred = _settings_for_stage(settings, stage)
     if deferred:
         print(
-            "note: two-stage mode — the affiliate link and the disclosure belong to the link "
-            "reply, so they are not required of this thread body.",
+            "note: two-stage mode — the affiliate link belongs to the link reply, so it is "
+            "not required of this thread body.",
             file=sys.stderr,
         )
 
@@ -178,6 +236,8 @@ def main(argv: list[str] | None = None) -> int:
         affiliate_url=affiliate_url,
         product_name=product_name,
         topic_tag=checked_topic_tag,
+        experience=experience,
+        testimonial=testimonial,
     )
 
     payload = {
@@ -185,6 +245,7 @@ def main(argv: list[str] | None = None) -> int:
         "product_id": product_id or None,
         "stage": stage,
         "deferred": deferred,
+        "experience": experience,
         "posts": len(posts),
         "topic_tag": topic_tag or None,
         "char_counts": [guardrails.threads_char_count(post["text"]) for post in posts],
@@ -194,7 +255,6 @@ def main(argv: list[str] | None = None) -> int:
             "max_links_per_post": check_settings.max_links_per_post,
             "min_posts": check_settings.min_posts,
             "max_posts": check_settings.max_posts,
-            "require_disclosure": check_settings.require_disclosure,
             "require_affiliate_url": check_settings.require_affiliate_url,
             "require_topic_tag": check_settings.require_topic_tag,
             "topic_tag_max_chars": guardrails.TOPIC_TAG_MAX_CHARS,
@@ -214,6 +274,7 @@ def main(argv: list[str] | None = None) -> int:
 def _print_text(payload: dict) -> None:
     print(f"stage: {payload['stage']}  posts: {payload['posts']}  chars: {payload['char_counts']}  links: {payload['link_counts']}")
     print(f"topic tag: {payload['topic_tag'] or '— (none given)'}")
+    print(f"experience: {payload.get('experience', 'none')}")
     print(f"limits: {payload['limits']}")
     if payload.get("deferred"):
         print(f"deferred to the link reply: {', '.join(payload['deferred'])}")
@@ -244,17 +305,15 @@ def _settings_for_stage(settings, stage):  # noqa: ANN001, ANN201
     """The guardrail settings the matching publish call uses.
 
     Mirrors what ``threads_publish`` does per stage, so the lint cannot drift
-    from the tool: two-stage threads defer the link and the disclosure to the
-    reply, and a reply is a single post by definition.
+    from the tool: two-stage threads defer the link to the reply, and a reply is
+    a single post by definition.
     """
     if stage == "link":
         return dataclasses.replace(settings, min_posts=1, max_posts=1), []
     if settings.two_stage:
         return (
-            dataclasses.replace(
-                settings, require_affiliate_url=False, require_disclosure=False
-            ),
-            ["affiliate_url", "disclosure"],
+            dataclasses.replace(settings, require_affiliate_url=False),
+            ["affiliate_url"],
         )
     return settings, []
 

@@ -128,88 +128,6 @@ class TestPersonalExperienceGuardrail:
         assert isinstance(report.violations, list)
 
 
-class TestDisclosure:
-    def test_missing_disclosure_is_rejected(self, settings: config.Settings) -> None:
-        posts = [
-            {"text": "a"},
-            {"text": "b"},
-            {"text": "https://shope.ee/abc123"},
-        ]
-        report = guardrails.validate_thread(posts, settings, affiliate_url="https://shope.ee/abc123")
-        assert "missing_disclosure" in {item.code for item in report.violations}
-
-    def test_disclosure_marker_satisfies_the_rule(self, settings: config.Settings) -> None:
-        posts = [
-            {"text": "a"},
-            {"text": "b"},
-            {"text": "Link afiliasi: https://shope.ee/abc123"},
-        ]
-        report = guardrails.validate_thread(posts, settings, affiliate_url="https://shope.ee/abc123")
-        assert "missing_disclosure" not in {item.code for item in report.violations}
-
-    def test_requirement_can_be_disabled(self, settings: config.Settings) -> None:
-        import dataclasses
-
-        relaxed = dataclasses.replace(settings, require_disclosure=False)
-        posts = [{"text": "a"}, {"text": "b"}, {"text": "https://shope.ee/abc123"}]
-        report = guardrails.validate_thread(posts, relaxed, affiliate_url="https://shope.ee/abc123")
-        assert "missing_disclosure" not in {item.code for item in report.violations}
-
-
-class TestDisclosureIsASentence:
-    """The disclosure is a sentence in the copy — never a hashtag.
-
-    ``#ad`` at the end is not used: it reads as an unclear tag, and a hashtag
-    anywhere in the copy is refused by ``hashtag_in_copy`` anyway, so a hashtag
-    can never be what satisfies this rule."""
-
-    def codes(self, report: guardrails.GuardrailReport) -> set[str]:
-        return {item.code for item in report.violations}
-
-    def test_a_sentence_marker_satisfies_the_rule(self, settings: config.Settings) -> None:
-        posts = [
-            {"text": "Kapasitas besar biasanya berarti berat."},
-            {"text": "Yang sering disebut di review: kabel USB-C ikut di dalamnya."},
-            {"text": "Untuk skenario seperti ini, satu kabel sudah cukup."},
-            {"text": "https://shope.ee/abc123\n\nLink afiliasi."},
-        ]
-        report = guardrails.validate_thread(posts, settings, affiliate_url="https://shope.ee/abc123")
-        assert "missing_disclosure" not in self.codes(report)
-
-    def test_a_hashtag_is_not_a_disclosure(self, settings: config.Settings) -> None:
-        posts = [
-            {"text": "a"},
-            {"text": "b"},
-            {"text": "https://shope.ee/abc123 #ad"},
-        ]
-        report = guardrails.validate_thread(posts, settings, affiliate_url="https://shope.ee/abc123")
-        assert "missing_disclosure" in self.codes(report)
-        assert "hashtag_in_copy" in self.codes(report)
-
-    def test_a_hashtag_shaped_marker_is_ignored(self) -> None:
-        """A ``#...`` marker can never be satisfied — the hashtag rule refuses it
-        — so it is not consulted, even when a configuration still names one."""
-        import dataclasses
-
-        configured = dataclasses.replace(
-            config.Settings(require_topic_tag=False), disclosure_markers=("#iklan",)
-        )
-        posts = [{"text": "a"}, {"text": "b"}, {"text": "https://shope.ee/abc123 #iklan"}]
-        report = guardrails.validate_thread(posts, configured, affiliate_url="https://shope.ee/abc123")
-        assert "missing_disclosure" in self.codes(report)
-
-    def test_any_configured_sentence_marker_works_wherever_it_sits(
-        self, settings: config.Settings
-    ) -> None:
-        posts = [
-            {"text": "a"},
-            {"text": "b"},
-            {"text": "https://shope.ee/abc123\n\nLink afiliasi."},
-        ]
-        report = guardrails.validate_thread(posts, settings, affiliate_url="https://shope.ee/abc123")
-        assert "missing_disclosure" not in self.codes(report)
-
-
 class TestAffiliateUrl:
     def test_missing_from_row_is_rejected(self, settings: config.Settings) -> None:
         posts = [{"text": "a"}, {"text": "b"}, {"text": "Link afiliasi."}]
@@ -404,7 +322,7 @@ class TestStructuralSignals:
 class TestHashtags:
     """Threads is not Instagram: one tag per post becomes the topic tag, and
     that tag is set through its own argument. A hashtag trail in the copy cannot
-    add reach, so it is a hard stop — except the configured disclosure markers."""
+    add reach, so it is a hard stop."""
 
     def codes(self, report: guardrails.GuardrailReport) -> set[str]:
         return {item.code for item in report.violations}
@@ -413,7 +331,7 @@ class TestHashtags:
         posts = [
             {"text": "a"},
             {"text": "b"},
-            {"text": "Link afiliasi. https://shope.ee/abc123\n\n#rekomendasi #belanjaonline"},
+            {"text": "https://shope.ee/abc123\n\n#rekomendasi #belanjaonline"},
         ]
         report = guardrails.validate_thread(
             posts, settings, affiliate_url="https://shope.ee/abc123"
@@ -422,21 +340,10 @@ class TestHashtags:
         assert violation.post_index == 2
         assert violation.detail["tags"] == ["rekomendasi", "belanjaonline"]
 
-    def test_a_sentence_marker_leaves_the_draft_clean(self, settings: config.Settings) -> None:
-        posts = [
-            {"text": "a"},
-            {"text": "b"},
-            {"text": "Link afiliasi. https://shope.ee/abc123"},
-        ]
-        report = guardrails.validate_thread(
-            posts, settings, affiliate_url="https://shope.ee/abc123"
-        )
-        assert report.ok, [item.as_dict() for item in report.violations]
-
-    def test_a_disclosure_hashtag_is_refused_like_any_other(
+    def test_an_ad_hashtag_is_refused_like_any_other(
         self, settings: config.Settings
     ) -> None:
-        """``#ad`` was once the tag-style disclosure; it is a plain hashtag now."""
+        """``#ad`` is a plain hashtag now — refused like any other."""
         posts = [
             {"text": "a"},
             {"text": "b"},
@@ -454,14 +361,14 @@ class TestHashtags:
         posts = [
             {"text": "a"},
             {"text": "b"},
-            {"text": "Link afiliasi. https://shope.ee/abc123\n\n#ootd"},
+            {"text": "https://shope.ee/abc123\n\n#ootd"},
         ]
         report = guardrails.validate_thread(
             posts, allowed, affiliate_url="https://shope.ee/abc123"
         )
         assert "hashtag_in_copy" not in self.codes(report)
 
-        posts[-1]["text"] = "Link afiliasi. https://shope.ee/abc123\n\n#promo"
+        posts[-1]["text"] = "https://shope.ee/abc123\n\n#promo"
         report = guardrails.validate_thread(
             posts, allowed, affiliate_url="https://shope.ee/abc123"
         )
