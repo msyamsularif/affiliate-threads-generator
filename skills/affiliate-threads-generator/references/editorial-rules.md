@@ -137,12 +137,29 @@ allowed is hiding it, burying it under hashtags, or dropping it because the
 ending reads better without it. `threads_publish` refuses to publish a thread
 that does not satisfy the configured style, and that check is code, not judgement.
 
-## 9. The audit passes
+## 9. Reach: the topic tag, not hashtags
+
+Threads gives a post exactly one clickable tag, calls it a topic tag, and reads
+it from the `topic_tag` argument rather than from the copy. When that topic has a
+Threads community, the post is also surfaced inside the community — the one
+mechanism here that meaningfully widens the audience.
+
+- Hashtags in the text are not a reach tactic on Threads; they are a tell. The
+  only ones allowed anywhere in the copy are the configured disclosure markers.
+- The topic tag has to be earned by the thread: the conversation the reader is
+  actually reading. A tag that only makes sense because something is for sale
+  does not get followed, and it mislabels the post.
+- Never write copy whose only job is to move the reader to the link — "cek link
+  di bawah", "link-nya di reply", "DM aku". `validate_thread.py` reports these
+  as `funnel_phrase`. The link post says what the reader gets and stands on its
+  own; the reader is already looking at it.
+
+## 10. The audit passes
 
 Two passes, in this order, after the draft and after every rewrite. Then the
 evidence pass.
 
-### 9.1 Anti-slop audit — the external skills
+### 10.1 Anti-slop audit — the external skills
 
 Run this when `antislop` and `antislop-copywriting` are installed. Their job is
 the generic prose tells. Ask:
@@ -165,7 +182,7 @@ through the generic pass must never be presented as if it did, and the missing
 rules must not be reimplemented from memory — that is how the two layers drift
 apart.
 
-### 9.2 Affiliate editorial audit — this plugin
+### 10.2 Affiliate editorial audit — this plugin
 
 Run this after the anti-slop pass, on the same draft. The anti-slop skills do not
 know what an affiliate thread is; this pass does.
@@ -178,9 +195,12 @@ Is the thread more than a paraphrase of the seller's description?
 Did we select only the evidence the angle required?
 Does the ending feel like the natural next step of the conversation?
 Is the disclosure present, short, and on the post the configuration expects?
+Does any post carry a hashtag that is not one of the configured disclosure markers?
+Is the topic tag the conversation a reader would search for — not the product
+name — and does it fit the platform's limits?
 ```
 
-### 9.3 Evidence pass — last
+### 10.3 Evidence pass — last
 
 ```
 Does every product-specific factual claim have an evidence tier?
@@ -189,7 +209,7 @@ Did anti-slop rewriting remove an important qualification?
 Did the writer invent a personal experience?
 ```
 
-### 9.4 The audit record
+### 10.4 The audit record
 
 Hold this shape internally — it is what makes the rewrite targeted instead of a
 re-roll:
@@ -220,9 +240,17 @@ editorial_audit:
   disclosure_clear: true
 ```
 
+Add the two reach checks to the same record when they are clean:
+
+```yaml
+reach_audit:
+  no_stray_hashtags: true
+  topic_tag_earned: true
+```
+
 The human does not see this unless they ask for it.
 
-## 10. Bounded revision
+## 11. Bounded revision
 
 ```
 Draft → anti-slop audit → affiliate audit → rewrite → second audit → final
@@ -235,7 +263,7 @@ problem is the angle, not the wording. Go back to Step 3, take the next-best
 candidate from the shortlist, and write again. That is faster and produces better
 copy than grinding the same structure.
 
-## 11. What this file does not do
+## 12. What this file does not do
 
 - It does not ban common words. "Jadi", "contoh" and "makanya" are ordinary
   Indonesian; the problem is density, not existence.

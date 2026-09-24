@@ -423,3 +423,162 @@ class TestStructuralSignals:
         )
         assert report.ok
         assert self.STRUCTURAL & self.codes(report)
+
+
+class TestHashtags:
+    """Threads is not Instagram: one tag per post becomes the topic tag, and
+    that tag is set through its own argument. A hashtag trail in the copy cannot
+    add reach, so it is a hard stop — except the configured disclosure markers."""
+
+    def codes(self, report: guardrails.GuardrailReport) -> set[str]:
+        return {item.code for item in report.violations}
+
+    def test_a_hashtag_trail_in_a_reply_is_refused(self, settings: config.Settings) -> None:
+        posts = [
+            {"text": "a"},
+            {"text": "b"},
+            {"text": "#afiliasi https://shope.ee/abc123\n\n#rekomendasi #belanjaonline"},
+        ]
+        report = guardrails.validate_thread(
+            posts, settings, affiliate_url="https://shope.ee/abc123"
+        )
+        violation = next(item for item in report.violations if item.code == "hashtag_in_copy")
+        assert violation.post_index == 2
+        assert violation.detail["tags"] == ["rekomendasi", "belanjaonline"]
+
+    def test_the_disclosure_marker_may_stay(self, settings: config.Settings) -> None:
+        posts = [
+            {"text": "a"},
+            {"text": "b"},
+            {"text": "#afiliasi https://shope.ee/abc123"},
+        ]
+        report = guardrails.validate_thread(
+            posts, settings, affiliate_url="https://shope.ee/abc123"
+        )
+        assert report.ok, [item.as_dict() for item in report.violations]
+
+    def test_the_operator_allowlist_can_keep_a_tag(self, settings: config.Settings) -> None:
+        import dataclasses
+
+        allowed = dataclasses.replace(settings, allowed_hashtags=("#OOTD",))
+        posts = [
+            {"text": "a"},
+            {"text": "b"},
+            {"text": "#afiliasi https://shope.ee/abc123\n\n#ootd"},
+        ]
+        report = guardrails.validate_thread(
+            posts, allowed, affiliate_url="https://shope.ee/abc123"
+        )
+        assert "hashtag_in_copy" not in self.codes(report)
+
+        posts[-1]["text"] = "#afiliasi https://shope.ee/abc123\n\n#promo"
+        report = guardrails.validate_thread(
+            posts, allowed, affiliate_url="https://shope.ee/abc123"
+        )
+        assert "hashtag_in_copy" in self.codes(report)
+
+    def test_a_url_fragment_is_not_a_hashtag(self) -> None:
+        assert guardrails.extract_hashtags("baca di https://example.com/x/#bagian") == []
+
+    def test_a_number_sign_is_not_a_hashtag(self) -> None:
+        assert guardrails.extract_hashtags("#1 paling sering disebut, #2 jarang") == []
+
+    def test_extract_hashtags_keeps_order_and_drops_duplicates(self) -> None:
+        assert guardrails.extract_hashtags("#satu dua #dua tiga #satu") == ["satu", "dua"]
+
+
+class TestFunnelLanguage:
+    """Copy whose only job is to talk the reader toward the link. Warnings, not
+    blocks: the honest fix is a rewrite, and the link still has to live where a
+    reader can find it."""
+
+    def codes(self, report: guardrails.GuardrailReport) -> set[str]:
+        return {item.code for item in report.warnings}
+
+    def test_a_teaser_warns_without_blocking(self, settings: config.Settings) -> None:
+        posts = [
+            {"text": "Kapasitas besar biasanya berarti berat."},
+            {"text": "Kalau mau detail lengkapnya, klik link di bawah ya."},
+            {"text": "#afiliasi https://shope.ee/abc123"},
+        ]
+        report = guardrails.validate_thread(
+            posts, settings, affiliate_url="https://shope.ee/abc123"
+        )
+        assert report.ok
+        assert "funnel_phrase" in self.codes(report)
+
+    def test_a_plain_contextual_line_does_not_warn(self, settings: config.Settings) -> None:
+        posts = [
+            {"text": "Kapasitas besar biasanya berarti berat."},
+            {"text": "Detail produknya ada di sini, buat yang penasaran ukurannya."},
+            {"text": "#afiliasi https://shope.ee/abc123"},
+        ]
+        report = guardrails.validate_thread(
+            posts, settings, affiliate_url="https://shope.ee/abc123"
+        )
+        assert "funnel_phrase" not in self.codes(report)
+
+
+class TestTopicTag:
+    """The topic tag is Threads' discovery mechanism — and how a post reaches a
+    community when its topic has one — so the requirement and the platform's own
+    limits live in code, not in a reminder to the model."""
+
+    POSTS = [
+        {"text": "Kapasitas besar biasanya berarti berat."},
+        {"text": "Yang sering disebut di review: kabel USB-C ikut di dalamnya."},
+        {"text": "#afiliasi https://shope.ee/abc123"},
+    ]
+
+    def codes(self, report: guardrails.GuardrailReport) -> set[str]:
+        return {item.code for item in report.violations}
+
+    def validate(self, settings: config.Settings, topic_tag: str) -> guardrails.GuardrailReport:
+        return guardrails.validate_thread(
+            self.POSTS,
+            settings,
+            affiliate_url="https://shope.ee/abc123",
+            topic_tag=topic_tag,
+        )
+
+    def test_the_default_is_to_require_one(self, settings: config.Settings) -> None:
+        assert settings.require_topic_tag is True
+
+    def test_a_missing_tag_is_refused(self, settings: config.Settings) -> None:
+        assert "topic_tag_missing" in self.codes(self.validate(settings, ""))
+
+    def test_the_requirement_can_be_turned_off(self, settings: config.Settings) -> None:
+        import dataclasses
+
+        relaxed = dataclasses.replace(settings, require_topic_tag=False)
+        assert "topic_tag_missing" not in self.codes(self.validate(relaxed, ""))
+
+    def test_not_checking_at_all_is_a_different_thing(self, settings: config.Settings) -> None:
+        """``None`` means the caller has no tag to check — a link reply, or a test
+        about the copy itself — not that the tag is missing."""
+        report = guardrails.validate_thread(
+            self.POSTS, settings, affiliate_url="https://shope.ee/abc123"
+        )
+        assert report.ok
+
+    @pytest.mark.parametrize(
+        "tag",
+        [
+            "#power bank",  # the displayed form, not the parameter's
+            "x" * 51,
+            "kopi. susu",
+            "kopi & susu",
+            "dua\nbaris",
+        ],
+    )
+    def test_tags_the_api_would_reject(self, settings: config.Settings, tag: str) -> None:
+        assert "topic_tag_invalid" in self.codes(self.validate(settings, tag))
+
+    def test_a_valid_tag_passes(self, settings: config.Settings) -> None:
+        report = self.validate(settings, "power bank")
+        assert report.ok, [item.as_dict() for item in report.violations]
+
+    def test_the_problem_helper_explains_itself(self) -> None:
+        assert "leading" in guardrails.topic_tag_problem("#foto")
+        assert guardrails.TOPIC_TAG_MAX_CHARS == 50
+        assert guardrails.topic_tag_problem("foto") == ""

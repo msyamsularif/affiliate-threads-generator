@@ -105,7 +105,12 @@ THREADS_PUBLISH: dict = {
             "topic_tag": {
                 "type": "string",
                 "description": (
-                    "Optional Threads topic tag for the root post (1-50 chars, no '.' or '&')."
+                    "The topic tag for the root post — how the post reaches that topic's feed "
+                    "and, when the topic has a Threads community, the community too. Pass the "
+                    "bare topic (1-50 characters, no '.' or '&', no leading '#'): a reader-checks "
+                    "topic like 'fotografi', never the product name. It is metadata, so it never "
+                    "appears in the copy and no hashtag belongs there either. Required unless "
+                    "require_topic_tag is off. Only the root post takes one."
                 ),
             },
             "spreadsheet_id": {

@@ -21,7 +21,8 @@ conversation.**
 
 | Human message (any phrasing)                                       | Action                                                                                                             | Result                                                                   |
 | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
-| "Saya approve." · "setuju" · "post aja" · "gas" · "publish it"     | Call `threads_publish` with the Product ID on screen, `confirm_publish: true`, and the exact copy from the preview | Success → `Status=Done`, `Threads URL` saved. Failure → Sheet untouched. |
+| "Saya approve." · "setuju" · "post aja" · "gas" · "publish it"     | Call `threads_publish` with the Product ID on screen, `confirm_publish: true`, the exact copy from the preview, and the preview's `topic_tag` | Success → `Status=Done`, `Threads URL` saved. Failure → Sheet untouched. |
+| "ganti tag-nya jadi <X>." · "topic-nya ubah jadi <X>."              | Change only the `topic_tag`, re-check it against the platform's limits, and re-show the topic line                                                                                  | Same copy, new tag → approve again                                       |
 | "Hold dulu yang ini." · "tahan dulu" · "nanti aja"                 | `set_status.py <ID> Hold`                                                                                          | `Status=Hold`. No publish.                                               |
 | "Yang ini jangan dipublish." · "batal" · "cancel" · "skip"         | `set_status.py <ID> Cancel`                                                                                        | `Status=Cancel`. No publish.                                             |
 | "Regenerate tapi angle-nya lebih ke orang yang sering travelling." | Back to Step 3 with the new constraint                                                                             | Same Product ID, same research, new angle → new preview                  |
@@ -84,7 +85,7 @@ Bilang ke manusia: kalau postnya sudah dapat view, tinggal bilang
 ```
 
 Then save the content-memory note (`content_id`, `angle_type`, `topic`,
-`hook_pattern`) so the next run's novelty check works.
+`hook_pattern`, `topic_tag`) so the next run's novelty check works.
 
 ### The deferred link reply (two-stage mode)
 

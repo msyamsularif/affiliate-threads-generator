@@ -25,6 +25,9 @@ from conftest import PLUGIN_DIR, happy_path_responses, scripted_transport
 SCRIPTS = PLUGIN_DIR / "skills" / "affiliate-threads-generator" / "scripts"
 AFFILIATE_URL = "https://shope.ee/abc123"
 
+#: The topic tag these tests supply unless they are specifically about the tag.
+DEFAULT_TOPIC_TAG = "power bank"
+
 #: A realistic operator configuration. Every value differs from the default so a
 #: script that ignored the file would fail these tests loudly.
 CONFIG_YAML = textwrap.dedent(
@@ -101,14 +104,21 @@ def publish_env(monkeypatch: pytest.MonkeyPatch, ctx):  # noqa: ANN001, ANN201
 def lint(
     script: ModuleType, tmp_path: Path, posts: list, *extra: str
 ) -> tuple[int, dict, str]:
-    """Run ``validate_thread.py`` in-process against a draft file."""
+    """Run ``validate_thread.py`` in-process against a draft file.
+
+    A topic tag is supplied by default, because the publish tool requires one and
+    this helper exists to prove the two agree. The topic-tag tests pass their own
+    value — an empty one included, which is the refusal they are checking.
+    """
     draft = tmp_path / "draft.json"
     draft.write_text(json.dumps({"posts": posts}), encoding="utf-8")
+    argv = ["--file", str(draft), "--affiliate-url", AFFILIATE_URL]
+    if "--topic-tag" not in extra:
+        argv += ["--topic-tag", DEFAULT_TOPIC_TAG]
+    argv += list(extra)
     out, err = io.StringIO(), io.StringIO()
     with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-        exit_code = script.main(
-            ["--file", str(draft), "--affiliate-url", AFFILIATE_URL, *extra]
-        )
+        exit_code = script.main(argv)
     payload = json.loads(out.getvalue()) if out.getvalue().strip().startswith("{") else {}
     return exit_code, payload, err.getvalue()
 
@@ -315,7 +325,12 @@ class TestLintMatchesPublish:
         sheet = publish_env(FakeSheet([make_row(affiliate_url=AFFILIATE_URL)]))
         result = json.loads(
             tools.threads_publish(
-                {"product_id": "12", "posts": self.DRAFT_OK, "confirm_publish": True}
+                {
+                    "product_id": "12",
+                    "posts": self.DRAFT_OK,
+                    "topic_tag": DEFAULT_TOPIC_TAG,
+                    "confirm_publish": True,
+                }
             )
         )
         assert result["ok"] is True, result
@@ -325,7 +340,12 @@ class TestLintMatchesPublish:
         sheet = publish_env(FakeSheet([make_row(affiliate_url=AFFILIATE_URL)]))
         result = json.loads(
             tools.threads_publish(
-                {"product_id": "12", "posts": self.DRAFT_TOO_LONG, "confirm_publish": True}
+                {
+                    "product_id": "12",
+                    "posts": self.DRAFT_TOO_LONG,
+                    "topic_tag": DEFAULT_TOPIC_TAG,
+                    "confirm_publish": True,
+                }
             )
         )
         assert result["stage"] == "guardrails"
@@ -337,7 +357,12 @@ class TestLintMatchesPublish:
         publish_env(FakeSheet([make_row(affiliate_url=AFFILIATE_URL)]))
         result = json.loads(
             tools.threads_publish(
-                {"product_id": "12", "posts": posts, "confirm_publish": True}
+                {
+                    "product_id": "12",
+                    "posts": posts,
+                    "topic_tag": DEFAULT_TOPIC_TAG,
+                    "confirm_publish": True,
+                }
             )
         )
         assert result["stage"] == "guardrails"
@@ -354,7 +379,12 @@ class TestLintMatchesPublish:
         publish_env(FakeSheet([make_row(affiliate_url=AFFILIATE_URL)]))
         result = json.loads(
             tools.threads_publish(
-                {"product_id": "12", "posts": posts, "confirm_publish": True}
+                {
+                    "product_id": "12",
+                    "posts": posts,
+                    "topic_tag": DEFAULT_TOPIC_TAG,
+                    "confirm_publish": True,
+                }
             )
         )
         assert "fabricated_personal_experience" in {item["code"] for item in result["violations"]}
@@ -407,7 +437,12 @@ class TestTwoStageParity:
         publish_env(FakeSheet([make_row(affiliate_url=AFFILIATE_URL)]))
         result = json.loads(
             tools.threads_publish(
-                {"product_id": "12", "posts": self.THREAD, "confirm_publish": True}
+                {
+                    "product_id": "12",
+                    "posts": self.THREAD,
+                    "topic_tag": DEFAULT_TOPIC_TAG,
+                    "confirm_publish": True,
+                }
             )
         )
         assert result["ok"] is True, result
@@ -458,3 +493,112 @@ class TestTwoStageParity:
         assert validate_thread_script._stage_for(pending, settings) == "link"
         assert validate_thread_script._stage_for(fresh, settings) == "thread"
         assert validate_thread_script._stage_for(None, settings) == "thread"
+
+
+TOPIC_TAG_OPTIONAL_CONFIG = textwrap.dedent(
+    """\
+    plugins:
+      entries:
+        affiliate-threads-generator:
+          settings:
+            require_topic_tag: false
+            disclosure_markers:
+              - "#iklan"
+              - "link afiliasi"
+    """
+)
+
+
+class TestTopicTagParity:
+    """The topic tag is one requirement read from one setting by both the lint
+    and the tool. A tag the API would reject is refused before anything is sent,
+    and the operator can turn the whole requirement off."""
+
+    POSTS = [
+        {"text": "Kapasitas besar biasanya berarti berat."},
+        {"text": "Yang sering disebut di review: kabel USB-C ikut di dalamnya."},
+        {"text": "Untuk skenario seperti ini, satu kabel saja sudah cukup."},
+        {"text": f"#iklan {AFFILIATE_URL}"},
+    ]
+
+    @pytest.fixture
+    def optional_config(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
+        home = tmp_path / "hermes-home"
+        home.mkdir(parents=True, exist_ok=True)
+        path = home / "config.yaml"
+        path.write_text(TOPIC_TAG_OPTIONAL_CONFIG, encoding="utf-8")
+        monkeypatch.setenv("HERMES_HOME", str(home))
+        runtime.reset_for_tests()
+        return path
+
+    def codes(self, violations: list) -> set[str]:
+        return {item["code"] for item in violations}
+
+    def test_the_default_refuses_a_missing_tag_in_both(
+        self,
+        configured: Path,  # noqa: ARG002
+        validate_thread_script: ModuleType,
+        tmp_path: Path,
+        publish_env,  # noqa: ANN001
+    ) -> None:
+        exit_code, payload, _ = lint(
+            validate_thread_script, tmp_path, self.POSTS, "--topic-tag", ""
+        )
+        assert exit_code == 1
+        assert "topic_tag_missing" in self.codes(payload["violations"])
+
+        publish_env(FakeSheet([make_row(affiliate_url=AFFILIATE_URL)]))
+        result = json.loads(
+            tools.threads_publish(
+                {"product_id": "12", "posts": self.POSTS, "confirm_publish": True}
+            )
+        )
+        assert result["stage"] == "guardrails"
+        assert "topic_tag_missing" in self.codes(result["violations"])
+
+    def test_the_requirement_can_be_turned_off_for_both(
+        self,
+        optional_config: Path,  # noqa: ARG002
+        validate_thread_script: ModuleType,
+        tmp_path: Path,
+        publish_env,  # noqa: ANN001
+    ) -> None:
+        exit_code, payload, _ = lint(
+            validate_thread_script, tmp_path, self.POSTS, "--topic-tag", ""
+        )
+        assert exit_code == 0, payload
+
+        publish_env(FakeSheet([make_row(affiliate_url=AFFILIATE_URL)]))
+        result = json.loads(
+            tools.threads_publish(
+                {"product_id": "12", "posts": self.POSTS, "confirm_publish": True}
+            )
+        )
+        assert result["ok"] is True, result
+
+    def test_a_tag_the_api_rejects_is_refused_by_both(
+        self,
+        configured: Path,  # noqa: ARG002
+        validate_thread_script: ModuleType,
+        tmp_path: Path,
+        publish_env,  # noqa: ANN001
+    ) -> None:
+        exit_code, payload, _ = lint(
+            validate_thread_script, tmp_path, self.POSTS, "--topic-tag", "#kabel usb"
+        )
+        assert exit_code == 1
+        assert "topic_tag_invalid" in self.codes(payload["violations"])
+
+        publish_env(FakeSheet([make_row(affiliate_url=AFFILIATE_URL)]))
+        result = json.loads(
+            tools.threads_publish(
+                {
+                    "product_id": "12",
+                    "posts": self.POSTS,
+                    "topic_tag": "#kabel usb",
+                    "confirm_publish": True,
+                }
+            )
+        )
+        assert result["stage"] == "guardrails"
+        assert "topic_tag_invalid" in self.codes(result["violations"])

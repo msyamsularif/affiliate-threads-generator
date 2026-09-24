@@ -170,7 +170,7 @@ for you when the skill loads.
 | --------------------------------- | -------------------------------------------------------------------------- |
 | Pick the next candidate           | `python3 ${HERMES_SKILL_DIR}/scripts/select_candidate.py`                  |
 | Set a status (hold/cancel/resume) | `python3 ${HERMES_SKILL_DIR}/scripts/set_status.py <PRODUCT_ID> <STATUS>`  |
-| Lint a draft before showing it    | `python3 ${HERMES_SKILL_DIR}/scripts/validate_thread.py --file draft.json` |
+| Lint a draft before showing it    | `python3 ${HERMES_SKILL_DIR}/scripts/validate_thread.py --file draft.json --topic-tag "<topic>"` |
 | Health check                      | `python3 ${HERMES_SKILL_DIR}/scripts/doctor.py`                            |
 | Threads token status / refresh    | `python3 ${HERMES_SKILL_DIR}/scripts/threads_token.py status`              |
 
@@ -305,17 +305,20 @@ stop. That is an angle problem, not a wording problem — go back to Step 3.
 
 - topic, audience, and the point of view above
 - the tension that makes it worth reading
-- hook strategy for post 1
+- hook strategy for post 1, and the `hook_pattern` behind it — the shape rotates
+  across runs too (`references/hook-patterns.md`)
 - the objective of each post — what the reader notices, understands, or can do
   next because of it (objectives, not a fixed role template)
 - where the product becomes relevant, and why the narrative is ready for it
   there (post 3-4 is the normal range, not a rule)
 - which post carries the CTA and the disclosure
+- the `topic_tag` — one topic for the root post, and the topic a reader would
+  search for. It is metadata, never text (Step 5)
 - `affiliate_intensity` — default `2` (roughly 80% value, 20% product)
 - `must_include` and `must_not_claim` lists
 - which evidence tier each factual claim traces to
 
-**Critic.** Before writing a single line of copy, answer all nine questions in
+**Critic.** Before writing a single line of copy, answer all ten questions in
 `references/narrative-planner-critic.md`. If any answer is weak, revise the plan.
 
 Bounded loop: **2-3 revision rounds maximum.** If it still fails after that, pick
@@ -325,8 +328,17 @@ a different angle from Step 3 rather than looping forever.
 
 Write **3-10 posts**. Dynamic — post length varies, and not every thread is the
 same shape. Rotate the narrative structure across runs; never default to
-`Hook → 3 benefits → CTA`. The structures are in
-`references/content-rules.md`.
+`Hook → 3 benefits → CTA`. The structures are in `references/content-rules.md`,
+the opening shapes in `references/hook-patterns.md`.
+
+**No post carries a hashtag.** Threads is not Instagram: exactly one tag per post
+becomes clickable, it is called a topic tag, and it is passed to
+`threads_publish` as `topic_tag` — metadata, not copy. A hashtag trail at the end
+of a reply buys no reach and is the clearest tell that a thread is an ad; the
+tool refuses it (`hashtag_in_copy`). The only hashtags allowed in the copy are the
+configured disclosure markers. Pick the one topic a reader would search for —
+the conversation, not the product name — within the platform's limits (1-50
+characters, no `.` or `&`, no leading `#`). Details: `references/content-rules.md`.
 
 Follow the content philosophy in `references/content-rules.md` and the editorial
 rules in `references/editorial-rules.md`. The short version:
@@ -369,10 +381,16 @@ python3 ${HERMES_SKILL_DIR}/scripts/validate_thread.py --file draft.json
 
 Fix every `violation`. Read the `warnings` and decide — they are signals, not
 orders. Alongside the phrase warnings, `validate_thread.py` reports four
-structural signals: `excessive_signposting`, `repeated_transition_density`,
-`excessive_enumeration`, `product_detail_density`. None of them blocks, and none
-of them is proof that the text is AI-written — treat each as a reason to look
-again.
+structural signals — `excessive_signposting`, `repeated_transition_density`,
+`excessive_enumeration`, `product_detail_density` — and `funnel_phrase` for copy
+that only talks the reader toward the link ("klik link di bawah", "link di bio",
+"cek reply"). None of them blocks, and none of them is proof that the text is
+AI-written — treat each as a reason to look again.
+
+Three violations are newer to the list and easy to trip: `hashtag_in_copy` (a
+`#tag` that is not a configured disclosure marker), `topic_tag_missing` (no topic
+tag was passed while `require_topic_tag` is on), and `topic_tag_invalid` (the tag
+breaks the platform's own limits — that publish would have failed at the API).
 
 The lint follows the publish mode, so pass `--stage` when you are linting
 something other than a whole thread. Under `publish_mode: two_stage` the thread
@@ -408,7 +426,8 @@ in front of them:
 📦 Product ID: <ID>
 🏷️ <Product> — <Category>
 🎯 Angle: <angle_type> — <core idea in one line>
-🧭 Structure: <the narrative structure you used>
+🧭 Structure: <the narrative structure you used> · hook: <hook_pattern>
+🔖 Topic: <topic_tag>
 📊 Evidence: description (primary) · <what else you actually found>
 🧹 Anti-slop: antislop + antislop-copywriting · <N> revision round(s)
 🖼️ Image: <yes, N images | text-only>
@@ -432,6 +451,11 @@ Reply with: approve · hold · cancel · regenerate <what to change>
 **The Product ID line is mandatory.** It is the review context for every
 approve/hold/cancel that follows. Do not use a separate store, do not rely on
 conversation memory across a reset.
+
+**The Topic line is mandatory too.** It is the tag that will be published with
+the root post, so the human can veto it before anything goes out; changing it
+never changes the copy. If they ask for a different one, take theirs (checked
+against the platform's limits) instead of arguing from your shortlist.
 
 **The Anti-slop line is mandatory too**, and it reports what actually happened.
 Without the external skills it reads
@@ -457,7 +481,8 @@ Full semantics, including edge cases and exact wording: `references/telegram-act
 
 | Reply                             | Action                                                                                                                                                         |
 | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| approve / setuju / post aja / gas | Call `threads_publish` with the Product ID from the preview and the exact copy. Then report the URL.                                                           |
+| approve / setuju / post aja / gas | Call `threads_publish` with the Product ID from the preview, the exact copy, and the preview's topic tag. Then report the URL.                                   |
+| ganti tag-nya jadi <X>            | Change only the topic tag, checked against the platform's limits, and re-show the topic line. The copy does not move — the tag is metadata.                     |
 | pasang linknya / tambahkan link   | Two-stage mode only. Preview the one-post link reply, wait for approval, then call `threads_publish` with the same Product ID, `stage: "link"`, and that post. |
 | hold                              | `set_status.py <ID> Hold`. No publish.                                                                                                                         |
 | cancel / jangan dipublish         | `set_status.py <ID> Cancel`. No publish.                                                                                                                       |
@@ -477,7 +502,7 @@ Silence is not approval. An earlier "approve" for a different product is not
 approval. Your own judgement that the copy is good is not approval.
 
 After a successful publish, save a content-memory note:
-`{content_id: <ID>, angle_type, topic, hook_pattern}` — see
+`{content_id: <ID>, angle_type, topic, hook_pattern, topic_tag}` — see
 `references/content-rules.md` for the format. This is what makes the next
 thread's novelty check possible.
 
@@ -495,7 +520,11 @@ thread's novelty check possible.
 | Shopee page fetch failed                          | Expected. Research from independent sources instead; do not retry with a bypass.                                     |
 | `select_candidate.py` returns `candidate: null`   | Nothing is `Ready To Generate`. Say so and stop.                                                                     |
 | Human replies with just "ok"                      | Ambiguous. Ask which of approve/hold/cancel they mean.                                                               |
-| A link card shows on the post with the URL        | Threads builds it from the first URL in a text-only post. No API removes it — say so instead of promising otherwise. |
+| A link card shows on the post with the URL        | Threads builds it from the first URL in a text-only post, and no API removes it. An image post carries no card at all, and `publish_mode: two_stage` keeps the card off every value post — say that instead of promising a removal the API cannot do. |
+| `hashtag_in_copy`                                 | A `#tag` that is not a configured disclosure marker is in the copy. Drop the trail: the topic is metadata (`topic_tag`), and only the disclosure marker may stay in the text. |
+| `topic_tag_missing`                               | `require_topic_tag` is on (the default) and nothing was passed. Choose the topic a reader would search for — not the product name — show it on the preview, and pass it to `threads_publish`. |
+| `topic_tag_invalid`                               | The tag breaks the platform's limits: 1-50 characters, no `.` or `&`, no leading `#`, one line. |
+| `funnel_phrase` warning                           | Copy like "klik link di bawah" or "cek reply" points at the link instead of giving a reason to click it. Rewrite it as something the reader gets. |
 | `stage: "input"` on a link reply                  | The link stage publishes one post. `posts` must hold exactly one item — the reply, with the URL and the disclosure.  |
 | A row is stuck on `Link Pending`                  | The thread is live and its link reply was never approved. Preview that reply and wait; do not republish the thread.  |
 
@@ -508,7 +537,7 @@ Before you send the preview, confirm all of these are true:
 - [ ] 5-8 angles were generated and scored before one was chosen
 - [ ] The novelty check against recent content notes ran
 - [ ] A one-line point of view existed before drafting, and it is not generic
-- [ ] The narrative critic answered all nine questions
+- [ ] The narrative critic answered all ten questions
 - [ ] `antislop` and `antislop-copywriting` were loaded, or the preview says they were not
 - [ ] The anti-slop audit ran as an audit of the draft, not only as writing advice
 - [ ] The affiliate editorial review ran after it
@@ -516,10 +545,14 @@ Before you send the preview, confirm all of these are true:
 - [ ] The thread's substance comes from independent evidence, not from the seller's description
 - [ ] Anything taken from the seller's material is attributed to the seller
 - [ ] No fabricated first-hand experience
+- [ ] No post carries a hashtag beyond the configured disclosure marker
+- [ ] Exactly one topic tag is chosen, it names the conversation rather than the product, and the preview shows it
+- [ ] The topic tag respects the platform's limits (1-50 characters, no `.` or `&`, no leading `#`)
+- [ ] The `hook_pattern` is not a repeat of the last two threads
 - [ ] A trade-off or limitation is present when the angle has room for one, and it is real
 - [ ] Disclosure is present, in the shape the configuration asks for, on the post carrying the affiliate URL
 - [ ] The ending gives the reader something useful instead of summarizing
-- [ ] `validate_thread.py` reports zero violations (with the stage the draft is for)
+- [ ] `validate_thread.py` reports zero violations — run it with `--topic-tag` and the stage the draft is for
 - [ ] In two-stage mode the preview says the link is deferred, and the thread body really has no URL in it
 - [ ] The preview shows the Product ID explicitly
 - [ ] You stopped and waited instead of publishing

@@ -122,13 +122,48 @@ These are enforced by `threads_publish` in code. Nothing here is a suggestion.
 | `disclosure_style`        | `marker` (`marker` or `tag`)                                                                                                                   | How the disclosure has to be written — see below                         |
 | `disclosure_markers`      | `#ad`, `#ads`, `#affiliate`, `#afiliasi`, `link afiliasi`, `affiliate link`, `tautan afiliasi`, `komisi`, `paid partnership`, `iklan berbayar` | Any one satisfies the requirement under `marker`                         |
 | `require_affiliate_url`   | `true`                                                                                                                                         | The row's `Affiliate URL` must appear in some post                       |
-| `blocked_phrases`         | 10 regex patterns                                                                                                                              | The fabricated-personal-experience ban. Case-insensitive.                |
+| `require_topic_tag`       | `true`                                                                                                                                         | A thread may not publish without a topic tag — see below                 |
+| `allowed_hashtags`        | `[]`                                                                                                                                           | Hashtags the copy may keep, beyond the disclosure markers                |
+| `blocked_phrases`         | 11 regex patterns                                                                                                                              | The fabricated-personal-experience ban. Case-insensitive.                |
 | `min_posts` / `max_posts` | `3` / `10`                                                                                                                                     | Thread length bounds                                                     |
 | `max_chars_per_post`      | `500`                                                                                                                                          | Threads' own limit; emoji count as their UTF-8 byte length               |
 | `max_links_per_post`      | `5`                                                                                                                                            | Threads rejects more                                                     |
 | `container_wait_seconds`  | `5`                                                                                                                                            | Pause between container creation and publishing                          |
 | `publish_mode`            | `single` (`single` or `two_stage`)                                                                                                             | Whether the affiliate link publishes with the thread or as a later reply |
 | `link_pending_status`     | `Link Pending`                                                                                                                                 | Where a two-stage row parks between the two publishes                    |
+
+### Hashtags and topic tags
+
+Threads gives a post exactly **one** clickable tag, calls it a *topic tag*, and
+reads it from the `topic_tag` publish argument rather than from the copy. When
+that topic has a Threads community, the post is also surfaced inside the
+community — the platform's real discovery mechanism. So the plugin treats that
+argument as the reach channel, and treats hashtags typed into the copy as a
+defect rather than a tactic.
+
+- **`require_topic_tag` (`true`)** — a thread may not publish without one. The
+  tag goes in the `topic_tag` argument as the bare topic (1-50 characters, no
+  `.` or `&`, no leading `#`). It is metadata: it never appears in the copy, and
+  the replies carry none.
+- **`allowed_hashtags` (`[]`)** — the only hashtags the copy may keep are the
+  configured `disclosure_markers` (that is how `disclosure_style: tag` works).
+  Anything else is a hard failure, `hashtag_in_copy`: a trail of
+  `#fyp #racunshopee` at the end of a reply changes nothing about distribution
+  and reads as spam. Add a token here only if you genuinely want it in the text.
+
+To publish untagged instead:
+
+```yaml
+plugins:
+  entries:
+    affiliate-threads-generator:
+      settings:
+        require_topic_tag: false
+```
+
+The soft signal in the same family is `funnel_phrase`: copy whose only job is to
+move the reader toward the link ("cek link di bawah", "link di bio", "cek
+reply"). It is a warning, never a block — the honest fix is a rewrite.
 
 ### Tightening the blocked-phrase list
 
@@ -293,6 +328,13 @@ plugins:
         # once the post has been seen. Two approvals, two publishes.
         # publish_mode: "two_stage"
         # link_pending_status: "Link Pending"
+        #
+        # Optional: allow a hashtag in the copy (empty means only the
+        # disclosure markers are allowed). The topic tag is separate and is
+        # required by default: it travels in the topic_tag argument, not in the
+        # text.
+        # allowed_hashtags: ["#ootd"]
+        # require_topic_tag: false
 ```
 
 Credentials do not appear in that block on purpose — they go through the

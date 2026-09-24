@@ -139,6 +139,7 @@ Full instructions: [`docs/installation.md`](docs/installation.md).
 | 9   | AI cannot reach Threads any other way      | No credential or publish path exists outside the tool                                                                                                                                   |
 | 10  | Shopee anti-bot is never bypassed          | Skill instructions; research is review-first and never depends on the seller's page                                                                                                     |
 | 11  | No secret ships in the repository          | Declared as names only (`requires_env` / `optional_env` + skill frontmatter); Hermes prompts for them at install and owns the values — see [`docs/credentials.md`](docs/credentials.md) |
+| 12  | Reach comes from the topic tag, not hashtags | `threads_publish` rejects stray hashtags in the copy and requires one topic tag, validated against the platform's limits |
 
 ---
 
@@ -174,7 +175,7 @@ uv run --no-project --with ruff ruff check .
 
 | Suite                            | What it pins down                                                                   |
 | -------------------------------- | ----------------------------------------------------------------------------------- |
-| `test_guardrails.py`             | Character/link limits, disclosure, the affiliate URL, the fabricated-experience ban |
+| `test_guardrails.py`             | Character/link limits, disclosure, the affiliate URL, hashtags, topic tags, the fabricated-experience ban |
 | `test_config.py`                 | Settings resolution, column maths, A1 range building                                |
 | `test_threads_client.py`         | Reply chaining, retry policy, container error states                                |
 | `test_tools_publish.py`          | Every refusal path, and that a failed publish never writes the Sheet                |

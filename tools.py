@@ -133,7 +133,9 @@ def _publish(args: dict[str, Any]) -> dict[str, Any]:
     # In two-stage mode the link is deferred to a reply: the thread body is not
     # required to carry it, nor a disclosure for a commercial relationship the
     # reader cannot see yet. Both are enforced on that reply instead, in
-    # `_publish_link_reply`, which is where they can actually be broken.
+    # `_publish_link_reply`, which is where they can actually be broken. The
+    # topic tag is checked here because it belongs to the root post, which only
+    # this half publishes.
     check_settings = (
         replace(settings, require_affiliate_url=False, require_disclosure=False)
         if settings.two_stage
@@ -144,6 +146,7 @@ def _publish(args: dict[str, Any]) -> dict[str, Any]:
         check_settings,
         affiliate_url=row.affiliate_url,
         product_name=row.product,
+        topic_tag=topic_tag,
     )
     if not report.ok:
         return _fail(
@@ -236,6 +239,7 @@ def _publish(args: dict[str, Any]) -> dict[str, Any]:
         "status": "published_awaiting_link" if settings.two_stage else "published",
         "product_id": product_id,
         "product": row.product,
+        "topic_tag": topic_tag or None,
         "threads_url": result.permalink,
         "media_ids": result.media_ids,
         "posts_published": len(result.media_ids),
@@ -368,12 +372,14 @@ def _publish_link_reply(
 
     # One post, replying to a live thread: the length rules still apply, the
     # count rules are about the reply itself, and the link + disclosure are the
-    # whole point of this call.
+    # whole point of this call. No topic tag is checked: a tag belongs to the
+    # root post, which this call does not publish.
     report = guardrails.validate_thread(
         posts,
         replace(settings, min_posts=1, max_posts=1),
         affiliate_url=row.affiliate_url,
         product_name=row.product,
+        topic_tag=None,
     )
     if not report.ok:
         return _fail(

@@ -22,6 +22,8 @@ tension: <one line — the thing that makes it worth reading>
 hook_strategy: >
   <what post 1 does, and why someone stops scrolling>
 
+hook_pattern: <from references/hook-patterns.md — and different from the last two runs>
+
 narrative:
   - objective: <what the reader learns or notices>
   - objective: <what changes in their understanding>
@@ -34,6 +36,7 @@ product_entry: <post N — and the reason the reader is ready for it there>
 cta_post: <the post that carries the link and the disclosure>
 affiliate_intensity: 2 # ~80% value / 20% product
 narrative_structure: <the structure used this time — rotated across runs>
+topic_tag: <the one topic for the root post — what a reader would search for, not the product name>
 
 must_include:
   - <specific detail from tier-1 evidence, or a tier-2 seller claim attributed to the seller>
@@ -67,6 +70,17 @@ Objectives, not post roles. Two objectives may collapse into one post; one
 objective may take two posts. The list is the order the reader moves through, and
 it is allowed to be three items or six.
 
+### On `hook_pattern`
+
+Angle, structure and hook are three different axes: the angle is the conversation,
+the structure is the order the reader moves through it, and the hook is the shape
+of sentence one. `references/hook-patterns.md` holds the vocabulary, and the
+pattern rotates: a hook repeated twice in a row is the fastest way for a profile
+to read as a content farm.
+
+A hook may never imply the writer used the product. "Wish I had known this" only
+works as the rhetorical version aimed at the category — nothing first-hand.
+
 ### On `product_entry`
 
 The number is a consequence of the narrative, not a schedule. Record it together
@@ -91,7 +105,17 @@ If the human asks for a harder sell, raise it to 3 — and say so plainly in the
 preview so they can see what changed. Never go to 4 or 5; that is outside what this
 system produces.
 
-## Critic — the gate, then nine questions
+### On `topic_tag`
+
+One tag, for the root post only, and it is metadata: it never appears in the copy.
+It is how the post reaches its topic feed and any Threads community attached to
+that topic, so it has to be the conversation the thread is actually having —
+`sensory play`, `power bank`, `perawatan kulit`, `kabel usb-c` — not the product
+name, a brand, or a generic label like `teknologi`. It also has to respect the
+platform's limits (1-50 characters, no `.` or `&`, no leading `#`), because a tag
+the API rejects is a failed publish.
+
+## Critic — the gate, then ten questions
 
 ### Gate: the point of view
 
@@ -157,6 +181,13 @@ is attributed to the seller in the copy.
 
 Check the recalled content notes for `angle_type` and `hook_pattern`. If it
 matches one of the last three, the plan fails — go back to Step 3.
+
+### 10. Is the topic tag the topic of the conversation?
+
+Read `topic_tag` and the thread's premise together. It has to be a topic someone
+would follow and search for, not the product name, not a brand, and not a label
+that only exists because something is for sale. It must also respect the
+platform's limits (1-50 characters, no `.` or `&`, no leading `#`).
 
 ## The bounded loop
 

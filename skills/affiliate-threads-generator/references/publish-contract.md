@@ -26,7 +26,11 @@ than trusting anything the model reported.
   as a reply to the previous one, so they appear as one thread.
 - `confirm_publish` — must be `true`. Set it only after explicit human approval.
 - `approval_note` — optional quote of the human's own words, for the audit log.
-- `topic_tag` — optional, root post only, 1-50 chars, no `.` or `&`.
+- `topic_tag` — the one topic this thread publishes under; required by default
+  (`require_topic_tag`). Root post only, and it is metadata: it never appears in
+  the copy. Pass the bare topic — 1-50 characters, no `.` or `&`, no leading `#`,
+  one line — the topic a reader would search for, not the product name. When the
+  topic has a Threads community, the post is surfaced inside that community too.
 - `stage` — `auto` (default), `thread` or `link`. Only meaningful under
   `publish_mode: two_stage`; see below.
 
@@ -47,6 +51,12 @@ In this order. Any failure returns an error and **publishes nothing**.
    - ≤ 5 unique links per post
    - `image_url`, if present, is `https://`
    - no fabricated first-hand experience (blocked phrase list)
+   - no hashtags in the copy beyond the configured disclosure markers
+     (`hashtag_in_copy`) — Threads makes one tag per post clickable and that tag
+     is `topic_tag`, so a hashtag trail only reads as spam
+   - a topic tag is present when `require_topic_tag` is on, and it is one the API
+     will accept (`topic_tag_missing`, `topic_tag_invalid`). The check applies to
+     the root post; the deferred link reply carries none
    - a disclosure marker is present in some post (stage `thread` under two-stage
      mode defers this to the link reply)
    - the row's `Affiliate URL` actually appears in some post (same deferral)
@@ -202,7 +212,7 @@ loop.
 ## Link cards
 
 Threads builds a preview card for the first URL in a text-only post. That is the
-platform's own behaviour, and there is no way to turn it off:
+platform's own behaviour, and no API turns it off:
 
 - **`link_attachment` cannot remove the card.** It only chooses _which_ URL gets
   one, and only on a `media_type=TEXT` post. The plugin does not send it, because
@@ -213,10 +223,22 @@ platform's own behaviour, and there is no way to turn it off:
 - Link previews are a text-only feature: an `IMAGE` post carries no link card.
 - Threads counts unique URLs per post and rejects a post with more than 5. That
   is the same number as `max_links_per_post`, which refuses the copy before the
-  API ever sees it.
+  API ever sees it. A `link_attachment` repeating a URL already in the text
+  counts once; a different one is one more link.
 
-If the human asks for the card to be removed, the honest answer is that no API
-can do it.
+"Remove the card" is a reasonable thing for a human to ask for, so have the real
+answers ready:
+
+- **The value posts never carry a card** — they carry no URL at all. Only the
+  link post can show one.
+- **An `IMAGE` post suppresses the card entirely.** If the link reply should look
+  like a post rather than a link, give that post an image.
+- **`publish_mode: two_stage` is the structural answer:** the thread collects its
+  views before a link exists anywhere in it, and the card only appears on the
+  reply that was already asking for the click.
+- Posting that one reply by hand in the app is the remaining option, and it
+  leaves the plugin's own accounting behind (`stage: "link"` never runs) — say so
+  if the human chooses it.
 
 ## What the tool will never do
 

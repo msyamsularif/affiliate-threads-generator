@@ -218,22 +218,33 @@ DEFAULT_LINK_PENDING_STATUS = "Link Pending"
 
 #: Fabricated-personal-experience patterns. The system has no first-hand
 #: experience with any product and none is ever supplied, so these may not ship.
+#: The list covers the pronouns Indonesian Threads copy actually uses (aku, saya,
+#: gua, gue) and the second-hand forms that read as first-hand ("anakku cocok",
+#: "temenku bilang") because those are the same claim wearing someone else.
 DEFAULT_BLOCKED_PHRASES: tuple[str, ...] = (
     # Past-tense first-hand claims
-    r"\baku (sudah|udah|pernah|sering) (coba|nyoba|cobain|pakai|pake|beli|gunakan|pesan)\b",
-    r"\bsaya (sudah|udah|pernah|sering) (coba|nyoba|cobain|pakai|pake|beli|gunakan|pesan)\b",
+    r"\b(aku|saya|gua|gue) (sudah|udah|pernah|sering|baru) (coba|nyoba|cobain|nyobain|pakai|pake|beli|gunakan|pesan)\b",
     # Present-tense first-hand claims ("Saya pakai ini setiap hari")
-    r"\b(saya|aku) (pakai|pake|memakai|gunakan|menggunakan|pesan) (ini|itu|produk ini|produk itu|barang ini)\b",
+    r"\b(aku|saya|gua|gue) (pakai|pake|memakai|gunakan|menggunakan|pesan) (ini|itu|produk ini|produk itu|barang ini)\b",
     # Appeals to personal experience
-    r"\bmenurut pengalaman (saya|aku)\b",
-    r"\bpengalaman (saya|aku) (pakai|pake|memakai)\b",
-    r"\bdi (rumah|kantor) (saya|aku) (pakai|pake)\b",
+    r"\bmenurut pengalaman (saya|aku|gua|gue)\b",
+    r"\bpengalaman (saya|aku|gua|gue) (pakai|pake|memakai)\b",
+    r"\bdi (rumah|kantor) (saya|aku|gua|gue) (pakai|pake)\b",
+    # Second-hand experience stated as fact ("anakku cocok", "temenku bilang")
+    r"\b(anak|bayi|adik|kakak|istri|suami|ibu|bapak)(ku| saya| aku| gua| gue) (cocok|suka|senang|nyaman|betah|pakai|pake)\b",
+    r"\b(temen|teman|sahabat|sepupu)(ku| saya| aku| gua| gue)? (bilang|nyaranin|rekomendasiin|rekomen)\b",
     # English equivalents
     r"\bi (have|'ve) (personally )?(tried|used|bought|tested)\b",
     r"\bi (use|used) (this|it) every day\b",
     r"\bwhen i (tried|used|bought|tested)\b",
     r"\bin my (own )?experience\b",
 )
+
+#: Hashtag-shaped tokens (``#finds``) the copy may keep. Empty by default: the
+#: only hashtags allowed are the disclosure markers, because Threads converts
+#: exactly one tag per post and that tag is set through ``topic_tag`` — see
+#: ``guardrails.DEFAULT_FUNNEL_PHRASES`` for the copy side of the same idea.
+DEFAULT_ALLOWED_HASHTAGS: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -262,6 +273,17 @@ class Settings:
         default_factory=lambda: DEFAULT_DISCLOSURE_MARKERS
     )
     require_affiliate_url: bool = True
+    #: When on, a thread may not publish without a topic tag. The tag is the
+    #: platform's own discovery mechanism — and how a post reaches a Threads
+    #: community when its topic has one — and it is metadata: it travels in the
+    #: ``topic_tag`` argument, never in the copy.
+    require_topic_tag: bool = True
+    #: Hashtag-shaped tokens the copy may still contain. Empty by default: only
+    #: the disclosure markers are allowed, because Threads makes exactly one tag
+    #: per post clickable and that tag is set through ``topic_tag``.
+    allowed_hashtags: tuple[str, ...] = field(
+        default_factory=lambda: DEFAULT_ALLOWED_HASHTAGS
+    )
     blocked_phrases: tuple[str, ...] = field(
         default_factory=lambda: DEFAULT_BLOCKED_PHRASES
     )
@@ -342,6 +364,8 @@ class Settings:
             "require_disclosure": self.require_disclosure,
             "disclosure_style": self.disclosure_style,
             "require_affiliate_url": self.require_affiliate_url,
+            "require_topic_tag": self.require_topic_tag,
+            "allowed_hashtags": list(self.allowed_hashtags),
             "min_posts": self.min_posts,
             "max_posts": self.max_posts,
             "publish_mode": self.publish_mode,
@@ -390,6 +414,10 @@ def resolve(overrides: dict[str, Any] | None = None) -> Settings:
             _lookup("disclosure_markers", None), DEFAULT_DISCLOSURE_MARKERS
         ),
         require_affiliate_url=_as_bool(_lookup("require_affiliate_url", True), True),
+        require_topic_tag=_as_bool(_lookup("require_topic_tag", True), True),
+        allowed_hashtags=_as_str_list(
+            _lookup("allowed_hashtags", None), DEFAULT_ALLOWED_HASHTAGS
+        ),
         blocked_phrases=_as_str_list(
             _lookup("blocked_phrases", None), DEFAULT_BLOCKED_PHRASES
         ),

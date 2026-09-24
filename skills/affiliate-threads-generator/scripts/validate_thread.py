@@ -22,6 +22,13 @@ Usage
 ``--stage`` mirrors the publish tool. Under ``publish_mode: two_stage`` the
 thread body is linted without the affiliate link and the disclosure (both belong
 to the link reply), and the reply itself is linted as the single post it is.
+
+``--topic-tag`` mirrors the tool's ``topic_tag`` argument, and the draft JSON may
+carry the same value under ``topic_tag``. It is metadata for the root post: the
+requirement is checked here so a draft that would be refused at publish time is
+refused now, and the platform's own limits (1-50 characters, no periods or
+ampersands, no leading ``#``) are checked with it. Copy must not carry hashtags —
+only the configured disclosure markers may stay in the text.
 """
 
 from __future__ import annotations
@@ -49,6 +56,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--affiliate-url", default="", help="Affiliate URL to require in the copy.")
     parser.add_argument("--product-name", default="", help="Product name, for over-exposure checks.")
     parser.add_argument(
+        "--topic-tag",
+        default="",
+        help=(
+            "The topic tag this thread will publish with (bare topic: no '#', no '.' or '&'). "
+            "May also be given as topic_tag in the draft JSON."
+        ),
+    )
+    parser.add_argument(
         "--stage",
         choices=("auto", "thread", "link"),
         default="auto",
@@ -63,8 +78,8 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def read_draft(args: argparse.Namespace) -> tuple[list[dict], str]:
-    """Return ``(posts, product_id)`` from the requested source."""
+def read_draft(args: argparse.Namespace) -> tuple[list[dict], str, str]:
+    """Return ``(posts, product_id, topic_tag)`` from the requested source."""
     if args.stdin or not args.file:
         raw = sys.stdin.read()
     else:
@@ -72,10 +87,12 @@ def read_draft(args: argparse.Namespace) -> tuple[list[dict], str]:
 
     data = json.loads(raw)
     product_id = args.product_id
+    topic_tag = args.topic_tag
 
     if isinstance(data, dict):
         posts = data.get("posts") or []
         product_id = str(data.get("product_id") or product_id)
+        topic_tag = str(data.get("topic_tag") or topic_tag)
     elif isinstance(data, list):
         posts = data
     else:
@@ -94,7 +111,7 @@ def read_draft(args: argparse.Namespace) -> tuple[list[dict], str]:
             )
         else:
             raise ValueError(f"unsupported post entry: {type(item).__name__}")
-    return normalized, product_id
+    return normalized, product_id, topic_tag.strip()
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -108,7 +125,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     try:
-        posts, product_id = read_draft(args)
+        posts, product_id, topic_tag = read_draft(args)
     except (OSError, json.JSONDecodeError, ValueError) as exc:
         print(json.dumps({"ok": False, "error": f"{type(exc).__name__}: {exc}"}), file=sys.stderr)
         return 2
@@ -149,8 +166,18 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
 
+    # The topic tag belongs to the root post, so the link stage has none to
+    # check. Everywhere else the requirement is evaluated against what was
+    # supplied — an empty string means "no tag was chosen", which is exactly
+    # what threads_publish will report when `topic_tag` is missing.
+    checked_topic_tag = None if stage == "link" else topic_tag
+
     report = guardrails.validate_thread(
-        posts, check_settings, affiliate_url=affiliate_url, product_name=product_name
+        posts,
+        check_settings,
+        affiliate_url=affiliate_url,
+        product_name=product_name,
+        topic_tag=checked_topic_tag,
     )
 
     payload = {
@@ -159,6 +186,7 @@ def main(argv: list[str] | None = None) -> int:
         "stage": stage,
         "deferred": deferred,
         "posts": len(posts),
+        "topic_tag": topic_tag or None,
         "char_counts": [guardrails.threads_char_count(post["text"]) for post in posts],
         "link_counts": [guardrails.count_links(post["text"]) for post in posts],
         "limits": {
@@ -169,6 +197,8 @@ def main(argv: list[str] | None = None) -> int:
             "require_disclosure": check_settings.require_disclosure,
             "disclosure_style": check_settings.disclosure_style,
             "require_affiliate_url": check_settings.require_affiliate_url,
+            "require_topic_tag": check_settings.require_topic_tag,
+            "topic_tag_max_chars": guardrails.TOPIC_TAG_MAX_CHARS,
         },
         "violations": [item.as_dict() for item in report.violations],
         "warnings": [item.as_dict() for item in report.warnings],
@@ -184,6 +214,7 @@ def main(argv: list[str] | None = None) -> int:
 
 def _print_text(payload: dict) -> None:
     print(f"stage: {payload['stage']}  posts: {payload['posts']}  chars: {payload['char_counts']}  links: {payload['link_counts']}")
+    print(f"topic tag: {payload['topic_tag'] or '— (none given)'}")
     print(f"limits: {payload['limits']}")
     if payload.get("deferred"):
         print(f"deferred to the link reply: {', '.join(payload['deferred'])}")

@@ -51,7 +51,7 @@ with a `→` hint.
 
 ```
   ✓ plugin: found at .../plugins/affiliate-threads-generator (v1.0.3)
-  ✓ settings: spreadsheet=... tab=Sheet1 eligible='Ready To Generate' disclosure=required
+  ✓ settings: spreadsheet=... tab=Sheet1 eligible='Ready To Generate' disclosure=required topic_tag=required
   ✓ plugin_settings: 3 setting(s) read from ~/.hermes/config.yaml
   ✓ threads_api: @yourhandle (id ...); token valid=True, expires in 58.4 days
   ✓ sheets: 12 data row(s) in Sheet1; google_api=...
@@ -184,6 +184,9 @@ The error lists each violation with a code. The hard ones:
 | `missing_disclosure`               | Add the disclosure the configuration asks for       |
 | `affiliate_url_not_in_thread`      | Put the row's affiliate URL in a post               |
 | `fabricated_personal_experience`   | Rewrite the flagged sentence as an observation      |
+| `hashtag_in_copy`                  | Threads is not a hashtag platform: drop the trail, keep only the disclosure marker |
+| `topic_tag_missing`                | Pass the thread's `topic_tag` — the topic, not the product name |
+| `topic_tag_invalid`                | 1-50 characters, no `.` or `&`, no leading `#`, one line |
 | `post_too_long`                    | Shorten it; emoji count as their UTF-8 byte length  |
 | `too_many_links`                   | Threads allows 5 unique links per post              |
 | `too_few_posts` / `too_many_posts` | 3-10 posts by default; `max_posts` raises the bound |
@@ -204,6 +207,7 @@ it and one that reads like a template:
 | `product_detail_density`      | Spec dumping: too many number-plus-unit tokens in one thread  |
 | `generic_phrase`              | An affiliate cliché with nothing specific behind it           |
 | `product_overexposed`         | The product name carries the thread instead of supporting it  |
+| `funnel_phrase`               | Copy that only points at the link ("klik link di bawah", "cek reply") |
 
 Thresholds are configurable and `0` disables a signal — see
 [configuration.md](configuration.md#structural-soft-signals). The prose audit

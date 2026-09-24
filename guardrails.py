@@ -5,15 +5,16 @@ Two classes of finding:
 ``violations``
     Hard stops. ``threads_publish`` refuses to publish when any are present.
     These are the rules a model must not be trusted to self-police: platform
-    limits, the affiliate disclosure, and the fabricated-personal-experience ban.
+    limits, the affiliate disclosure, the fabricated-personal-experience ban,
+    hashtags left in the copy, and a topic tag the API would reject.
 
 ``warnings``
-    Soft signals: the affiliate-cliché phrase list and a handful of cheap
-    structural counters (signposting, transition density, enumeration, spec
-    density). They are reported back to the model so it can rewrite, but they
-    never block — and none of them is proof that a text is AI-written. The prose
-    audit itself belongs to the external ``antislop`` / ``antislop-copywriting``
-    skills, not here.
+    Soft signals: the affiliate-cliché phrase list, funnel language, and a
+    handful of cheap structural counters (signposting, transition density,
+    enumeration, spec density). They are reported back to the model so it can
+    rewrite, but they never block — and none of them is proof that a text is
+    AI-written. The prose audit itself belongs to the external ``antislop`` /
+    ``antislop-copywriting`` skills, not here.
 
 Nothing here does I/O, so it is cheap to run on every draft.
 """
@@ -67,6 +68,82 @@ def extract_links(text: str) -> list[str]:
 
 def count_links(text: str) -> int:
     return len(extract_links(text))
+
+
+# --------------------------------------------------------------------------- #
+# Hashtags
+# --------------------------------------------------------------------------- #
+
+def extract_hashtags(text: str) -> list[str]:
+    """Hashtag-shaped tokens in ``text``, without the ``#`` and de-duplicated.
+
+    URL fragments are masked first, so ``https://example.com/#top`` is a link
+    and not a tag, and pure numbers are skipped because ``#1`` is a number sign
+    rather than a topic on Threads.
+    """
+    cleaned = _URL_RE.sub(" ", text or "")
+    seen: dict[str, None] = {}
+    for match in _HASHTAG_RE.finditer(cleaned):
+        token = match.group(1)
+        if token.isdigit():
+            continue
+        seen.setdefault(token, None)
+    return list(seen)
+
+
+def _hashtags_allowed(settings: Settings) -> set[str]:
+    """Tags the copy may keep: the disclosure markers, plus any allowlist.
+
+    ``#ad`` has to be legal in the copy — under ``disclosure_style: tag`` it is
+    the whole disclosure — and an operator who genuinely wants a token like
+    ``#ootd`` can add it to ``allowed_hashtags``.
+    """
+    allowed = {
+        str(tag).strip().lower().lstrip("#") for tag in settings.allowed_hashtags if str(tag).strip()
+    }
+    allowed |= {
+        marker.strip().lower().lstrip("#")
+        for marker in settings.disclosure_markers
+        if marker.strip().startswith("#")
+    }
+    return {tag for tag in allowed if tag}
+
+
+# --------------------------------------------------------------------------- #
+# Topic tags
+# --------------------------------------------------------------------------- #
+
+def topic_tag_problem(tag: str) -> str:
+    """Why ``tag`` cannot be sent as Threads' ``topic_tag``, or ``""``.
+
+    The API's own limits: at least 1 and at most 50 characters, with periods
+    and ampersands rejected. A leading ``#`` is how the tag is *displayed*; the
+    parameter takes the bare topic, so one is reported here rather than sent and
+    double-tagged.
+    """
+    text = (tag or "").strip()
+    if not text:
+        return "The topic tag is empty."
+    if text.startswith("#"):
+        return (
+            f'Write the topic without the leading "#": "{text.lstrip("#").strip()}", not "{text}". '
+            "The parameter takes the bare topic."
+        )
+    if len(text) > TOPIC_TAG_MAX_CHARS:
+        return (
+            f"The topic tag is {len(text)} characters; Threads allows at most "
+            f"{TOPIC_TAG_MAX_CHARS}."
+        )
+    if "\n" in text or "\r" in text:
+        return "The topic tag has to be one line."
+    forbidden = [char for char in TOPIC_TAG_FORBIDDEN_CHARS if char in text]
+    if forbidden:
+        return (
+            "Threads rejects "
+            + " and ".join(f'"{char}"' for char in forbidden)
+            + " in a topic tag."
+        )
+    return ""
 
 
 # --------------------------------------------------------------------------- #
@@ -171,6 +248,40 @@ _DISCLOSURE_SIGNAL_RE = re.compile(
     re.IGNORECASE,
 )
 
+#: Hashtag-shaped tokens. Threads is not Instagram: exactly one tag per post is
+#: clickable, it is called a topic tag, and it is set through the API's
+#: ``topic_tag`` parameter instead of being written into the copy. A trail of
+#: hashtags at the end of a reply therefore buys nothing and reads as spam, so
+#: the copy carries none — except the configured disclosure marker, which is how
+#: ``disclosure_style: tag`` works.
+_HASHTAG_RE = re.compile(r"#(\w+)", re.UNICODE)
+
+#: The platform's own limits, from the Threads API's ``topic_tag`` parameter.
+TOPIC_TAG_MAX_CHARS = 50
+TOPIC_TAG_FORBIDDEN_CHARS = (".", "&")
+
+#: Funnel language: copy whose only job is to move the reader toward the link
+#: instead of giving them something to click *for*. Warnings only — the fix is a
+#: rewrite — but this is the pattern that makes a thread read as an
+#: advertisement, so it is worth saying out loud every time.
+DEFAULT_FUNNEL_PHRASES: tuple[str, ...] = (
+    "link di bio",
+    "cek bio",
+    "link di bawah",
+    "link-nya di bawah",
+    "cek link di bawah",
+    "link menyusul",
+    "link di reply",
+    "cek reply",
+    "klik link",
+    "dm aku",
+    "dm aja",
+    "chat aku",
+    "komen dulu",
+    "buruan",
+    "jangan sampai kehabisan",
+)
+
 
 # --------------------------------------------------------------------------- #
 # The validator
@@ -182,12 +293,21 @@ def validate_thread(
     *,
     affiliate_url: str = "",
     product_name: str = "",
+    topic_tag: str | None = None,
     suspicious_phrases: Iterable[str] = DEFAULT_SUSPICIOUS_PHRASES,
+    funnel_phrases: Iterable[str] = DEFAULT_FUNNEL_PHRASES,
     transition_words: Iterable[str] = DEFAULT_TRANSITION_WORDS,
     enumeration_words: Iterable[str] = DEFAULT_ENUMERATION_WORDS,
     signposting_phrases: Iterable[str] = DEFAULT_SIGNPOSTING_PHRASES,
 ) -> GuardrailReport:
-    """Check a thread against every rule that must not depend on model judgement."""
+    """Check a thread against every rule that must not depend on model judgement.
+
+    ``topic_tag`` is the tag that will actually be sent with this publish. Pass
+    the string (``""`` included, which is how "no tag was chosen" is checked
+    against ``settings.require_topic_tag``), or ``None`` when the caller has no
+    topic tag to check — a deferred link reply, for instance, or a unit test
+    about the copy itself. The tag is metadata: it never appears in the posts.
+    """
     report = GuardrailReport()
 
     # ---- shape ----------------------------------------------------------
@@ -279,6 +399,62 @@ def validate_thread(
                     )
                 )
 
+    # ---- hashtags in the copy (hard rule) --------------------------------
+    # Threads turns exactly one tag per post into a clickable topic and that tag
+    # is set through `topic_tag`. Hashtags written into the copy cannot add
+    # reach, so they only make the post look like a listing. The configured
+    # disclosure markers are exempt — that is how `disclosure_style: tag` works.
+    allowed_tags = _hashtags_allowed(settings)
+    for index, post in enumerate(posts):
+        offenders = [
+            tag for tag in extract_hashtags(str(post.get("text") or "")) if tag.lower() not in allowed_tags
+        ]
+        if offenders:
+            listed = ", ".join(f"#{tag}" for tag in offenders)
+            report.violations.append(
+                Finding(
+                    "hashtag_in_copy",
+                    f"{listed} in the copy. Threads is not Instagram: one tag per post becomes the "
+                    "topic tag, and that tag is set through the topic_tag parameter instead of "
+                    "being written in the text. Hashtags left in the copy add no reach and read as "
+                    "spam — put the topic in topic_tag and drop the trail. Only the configured "
+                    "disclosure markers may stay.",
+                    post_index=index,
+                    detail={"tags": offenders},
+                )
+            )
+
+    # ---- topic tag (hard rule when the operator asks for one) -------------
+    # The tag is how a post reaches its topic feed and, when that topic has a
+    # Threads community, the community itself. It is metadata, so it is checked
+    # here rather than in the copy — but it is checked against the platform's
+    # own limits, because a tag the API rejects is a failed publish.
+    if topic_tag is not None:
+        tag = topic_tag.strip()
+        if not tag:
+            if settings.require_topic_tag:
+                report.violations.append(
+                    Finding(
+                        "topic_tag_missing",
+                        "The thread has no topic tag. Threads uses topic tags for discovery — one "
+                        "per post, set through the topic_tag parameter — and a topic that has a "
+                        "community also surfaces the post there. Pick the topic a reader would "
+                        "search for this conversation (not the product name), show it on the "
+                        "preview, and pass it to threads_publish.",
+                        detail={"require_topic_tag": True},
+                    )
+                )
+        else:
+            problem = topic_tag_problem(tag)
+            if problem:
+                report.violations.append(
+                    Finding(
+                        "topic_tag_invalid",
+                        problem,
+                        detail={"topic_tag": tag},
+                    )
+                )
+
     # ---- affiliate disclosure (hard rule) --------------------------------
     if settings.require_disclosure and not _disclosure_hit(posts, settings):
         report.violations.append(
@@ -324,6 +500,22 @@ def validate_thread(
                         "generic_phrase",
                         f'"{phrase}" carries no specific information. Replace it with something '
                         "only true of this product.",
+                        post_index=index,
+                        detail={"phrase": phrase},
+                    )
+                )
+                break
+
+    for phrase in funnel_phrases:
+        needle = phrase.lower()
+        for index, text in enumerate(lowered_posts):
+            if needle in text:
+                report.warnings.append(
+                    Finding(
+                        "funnel_phrase",
+                        f'"{phrase}" talks the reader toward the link instead of giving them a '
+                        "reason to click. Say what they get — a detail, a boundary, a buying "
+                        "consideration — and let the link post follow it.",
                         post_index=index,
                         detail={"phrase": phrase},
                     )

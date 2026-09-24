@@ -141,7 +141,12 @@ def end_to_end(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):  # noqa: ANN201
 
 
 def call(args: dict) -> dict:
-    return json.loads(tools.threads_publish(args))
+    """Call the tool the way the skill does, topic tag included.
+
+    ``require_topic_tag`` is on by default, so every thread publish needs one;
+    the reply stage ignores it because a tag belongs to the root post.
+    """
+    return json.loads(tools.threads_publish({"topic_tag": "audio bluetooth", **args}))
 
 
 def install_transport(monkeypatch: pytest.MonkeyPatch, transport) -> None:  # noqa: ANN001

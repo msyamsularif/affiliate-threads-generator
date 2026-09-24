@@ -19,6 +19,9 @@ from conftest import happy_path_responses, scripted_transport
 
 AFFILIATE_URL = "https://shope.ee/abc123"
 
+#: A topic tag the default configuration accepts.
+DEFAULT_TOPIC_TAG = "power bank"
+
 
 def make_row(
     *,
@@ -108,7 +111,12 @@ def publish_env(monkeypatch: pytest.MonkeyPatch, ctx):  # noqa: ANN001, ANN201
 
 
 def call(args: dict) -> dict:
-    return json.loads(tools.threads_publish(args))
+    """Call the tool with a topic tag, which the default settings require.
+
+    The topic-tag tests pass their own value (or an empty one); every other test
+    gets a valid tag for free so it stays about what it is actually testing.
+    """
+    return json.loads(tools.threads_publish({"topic_tag": DEFAULT_TOPIC_TAG, **args}))
 
 
 class TestApprovalIsRequired:
@@ -205,6 +213,78 @@ class TestGuardrails:
         assert result["ok"] is True
         assert result["warnings"]
         assert len(sheet.writes) == 1
+
+
+class TestTopicTag:
+    """The topic tag is metadata — it travels in its own argument, never in the
+    copy — and it is how a post reaches its topic feed on Threads, so it is
+    required and validated like the other platform limits."""
+
+    POSTS = [
+        {"text": "a"},
+        {"text": "b"},
+        {"text": f"#afiliasi {AFFILIATE_URL}"},
+    ]
+
+    def codes(self, result: dict) -> set[str]:
+        return {item["code"] for item in result["violations"]}
+
+    def test_a_missing_tag_refuses_to_publish(self, publish_env) -> None:  # noqa: ANN001
+        sheet = publish_env(FakeSheet([make_row()]))
+        result = call(
+            {
+                "product_id": "12",
+                "posts": self.POSTS,
+                "confirm_publish": True,
+                "topic_tag": "",
+            }
+        )
+        assert result["stage"] == "guardrails"
+        assert "topic_tag_missing" in self.codes(result)
+        assert sheet.writes == []
+
+    def test_a_tag_the_api_would_reject_never_reaches_it(self, publish_env) -> None:  # noqa: ANN001
+        sheet = publish_env(FakeSheet([make_row()]))
+        result = call(
+            {
+                "product_id": "12",
+                "posts": self.POSTS,
+                "confirm_publish": True,
+                "topic_tag": "#power bank",
+            }
+        )
+        assert result["stage"] == "guardrails"
+        assert "topic_tag_invalid" in self.codes(result)
+        assert sheet.writes == []
+
+    def test_the_tag_goes_out_on_the_root_post_only(self, publish_env) -> None:  # noqa: ANN001
+        transport = scripted_transport(happy_path_responses(posts=3))
+        publish_env(FakeSheet([make_row()]), transport)
+
+        result = call({"product_id": "12", "posts": self.POSTS, "confirm_publish": True})
+
+        assert result["ok"] is True, result
+        assert result["topic_tag"] == DEFAULT_TOPIC_TAG
+        creates = [
+            entry
+            for entry in transport.calls
+            if entry[0] == "POST" and "creation_id" not in (entry[2] or {})
+        ]
+        assert len(creates) == 3
+        assert creates[0][2]["topic_tag"] == DEFAULT_TOPIC_TAG
+        assert "topic_tag" not in creates[1][2]
+        assert "topic_tag" not in creates[2][2]
+
+    def test_a_hashtag_trail_is_a_guardrail_failure(self, publish_env) -> None:  # noqa: ANN001
+        sheet = publish_env(FakeSheet([make_row()]))
+        posts = [
+            *self.POSTS[:2],
+            {"text": f"#afiliasi {AFFILIATE_URL}\n\n#fyp #racunshopee"},
+        ]
+        result = call({"product_id": "12", "posts": posts, "confirm_publish": True})
+        assert result["stage"] == "guardrails"
+        assert "hashtag_in_copy" in self.codes(result)
+        assert sheet.writes == []
 
 
 class TestCredentials:

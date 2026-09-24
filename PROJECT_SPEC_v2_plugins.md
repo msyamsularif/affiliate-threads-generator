@@ -394,17 +394,18 @@ separate infrastructure required.
 ### 10.5 Narrative Planner & Critic
 
 Planner determines topic, audience, a required one-line **point of view**,
-the tension, hook strategy, per-post **objectives** (not fixed roles), the
-product entry point _together with why the narrative is ready for it
-there_, CTA post, `affiliate_intensity` (default `2`, ~80% value / 20%
-product), `must_include`/`must_not_claim`, and the evidence ledger.
+the tension, hook strategy together with its **hook pattern** (Section 10.6),
+per-post **objectives** (not fixed roles), the product entry point _together
+with why the narrative is ready for it there_, CTA post, `affiliate_intensity`
+(default `2`, ~80% value / 20% product), `must_include`/`must_not_claim`, the
+`topic_tag` the thread publishes under, and the evidence ledger.
 
 Objectives, not roles: two objectives may collapse into one post, one may
 take two posts. The product enters when the reader already has a reason to
 care — post 3-4 is the normal range, not a rule.
 
 Critic gates on the point of view first (a generic one fails immediately),
-then answers 9 questions before Thread Generation proceeds (see Section 12
+then answers 10 questions before Thread Generation proceeds (see Section 12
 for the full checklist). Bounded to 2-3 revision rounds — never an
 unbounded loop.
 
@@ -415,6 +416,17 @@ across runs (observation→story→product, question→comparison→product,
 problem→evidence→trade-off→product, hot take→explanation→product,
 mistake→lesson→recommendation, checklist→example→product) — never
 default to `Hook → 3 benefits → CTA` every time.
+
+The opening rotates on its own axis too: post 1's **hook pattern** is picked
+from a fixed vocabulary (question, observation, contrarian, mistake_callout,
+boundary, scenario, comparison_open, myth, cost_statement, category_flag,
+late_awareness, direct_address — `references/hook-patterns.md`), recorded in
+the content note, and never repeated from the last two runs. No hook pattern
+may imply personal experience: the rhetorical form of "wish I had known" is
+allowed, the first-hand form is not.
+
+No post carries a hashtag — the reach mechanism is the topic tag, covered
+separately in Section 10.13.
 
 Include genuine, evidence-backed trade-offs/limitations. Never fabricate
 a weakness.
@@ -467,8 +479,11 @@ the draft reaches Telegram.
 
 Contextual link language, e.g. _"Saya taruh detail produknya di sini
 buat yang penasaran bentuk dan spesifikasinya."_ — never _"BELI
-SEKARANG"_. Disclosure must remain explicit but lightweight, and the
-operator picks the style:
+SEKARANG"_. The CTA says what the reader gets; it never points at the link
+or funnels toward it (_"cek link di bawah"_, _"link-nya di reply"_, _"cek
+reply"_, _"DM aku"_, scarcity lines). Those patterns come back from
+`validate_thread.py` as the soft `funnel_phrase` signal. Disclosure must
+remain explicit but lightweight, and the operator picks the style:
 
 - `disclosure_style: marker` (default) — any configured marker, in any
   post. "Link afiliasi." on the same post as the URL is the usual form.
@@ -505,6 +520,30 @@ intent; not every post needs an image. Preserve recognizable physical
 characteristics (shape/color/material/distinctive features); never
 invent unverified controls/features. If unavailable, publish text-only —
 a normal path, not a degraded fallback.
+
+### 10.13 Hashtags, Topic Tags, and Community Reach
+
+Threads gives a post exactly **one** clickable tag — a *topic tag* — and
+reads it from the `topic_tag` publish argument rather than from the copy. A
+topic that has a Threads community also surfaces the post inside that
+community, which is the platform's real discovery mechanism.
+
+So the pipeline:
+
+- keeps hashtags out of the copy entirely. `hashtag_in_copy` is a hard
+guardrail; the only hashtags any post may contain are the configured
+disclosure markers (`#ad` and friends, which is how `disclosure_style: tag`
+works);
+- requires one topic tag per thread by default (`require_topic_tag`),
+validated against the platform's own limits before anything is sent — 1-50
+characters, no `.` or `&`, no leading `#`, one line (`topic_tag_missing`,
+`topic_tag_invalid`);
+- shows that tag in the Telegram preview, so the human approves it before it
+is published;
+- treats teaser copy as a warning (`funnel_phrase`), not as a tactic;
+- documents link-card behaviour honestly: no API removes the card, value
+posts carry no URL at all, an `IMAGE` post carries no card, and under
+`publish_mode: two_stage` the card only ever appears on the link reply.
 
 ---
 
@@ -568,6 +607,8 @@ before the questions below are answered.
    something useful rather than summarizing?
 8. Are claims supported (traceable to Section 9's tiers)?
 9. Is the angle too similar to recent content (Section 10.4)?
+10. Is the topic tag the topic of the conversation — something a reader would
+    search for, not the product name — and within the platform's limits?
 
 ---
 
@@ -635,22 +676,26 @@ Meta Threads (official Graph API)
 13. Affiliate disclosure must remain clear — either a configured marker
     anywhere in the thread, or, under `disclosure_style: tag`, a hashtag
     on the post that carries the link.
-14. The product should naturally support the story, never be forced into
+14. Copy carries no hashtags beyond the configured disclosure markers.
+    Every thread publishes under exactly one topic tag, chosen for the
+    conversation rather than the product, shown in the preview, and
+    validated against the platform's limits before the API sees it.
+15. The product should naturally support the story, never be forced into
     it.
-15. Final content should be worth reading even without the affiliate
+16. Final content should be worth reading even without the affiliate
     link.
-16. Angle and narrative structure should vary over time (checked via
-    Hermes memory, not a database).
-17. No SQLite or other separate database is used — the Sheet itself is
+17. Angle, narrative structure and hook pattern should vary over time
+    (checked via Hermes memory, not a database).
+18. No SQLite or other separate database is used — the Sheet itself is
     the state lock, and Hermes' own memory covers content-repetition
     checks.
-18. No uncontrolled autonomous publishing by the AI — `threads_publish`
+19. No uncontrolled autonomous publishing by the AI — `threads_publish`
     is the only path to Threads, and it re-validates state itself. The
     optional deferred link reply (Section 5.1) is one more publish, not
     an exception: it needs its own approval and its own re-validation.
-19. Application code (the Tool), not prompts, is the final authority for
+20. Application code (the Tool), not prompts, is the final authority for
     the publish side effect.
-20. Keep the plugin minimal: reuse Hermes' bundled capabilities wherever
+21. Keep the plugin minimal: reuse Hermes' bundled capabilities wherever
     possible; write custom code only where a side effect must not depend
     on model behavior.
 
@@ -683,9 +728,15 @@ Meta Threads (official Graph API)
 [ ] Affiliate disclosure present, short, and in the shape the configured
     disclosure style requires (a marker anywhere, or a hashtag on the
     post carrying the link)
+[ ] No hashtags in the copy beyond the configured disclosure markers; one
+    topic tag per thread, shown in the preview and validated against the
+    platform's limits
+[ ] The opening hook pattern rotates across runs and is recorded in the
+    content note
 [ ] Optional two-stage mode: the thread publishes first, the affiliate
     link follows as a reply, and each half is separately approved
-[ ] Link preview cards documented as unremovable through the API
+[ ] Link cards documented as unremovable through the API, with the image
+    post and two-stage workarounds documented too
 [ ] Images generated only when FAL_KEY is configured; text-only
     otherwise
 [ ] Telegram preview always shows the Product ID explicitly

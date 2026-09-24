@@ -209,15 +209,27 @@ config_schema:
     label: "Require the affiliate URL"
     description: "Refuse to publish when the row's Affiliate URL does not appear in any post."
 
+  require_topic_tag:
+    type: bool
+    default: true
+    label: "Require a topic tag"
+    description: >-
+      Refuse to publish a thread that carries no topic tag. The topic tag is
+      how a post reaches its topic feed on Threads — and, when that topic has a
+      community, the community itself — and it is metadata: it travels in the
+      topic_tag argument, never in the copy. Turn this off only if you would
+      rather every thread publish untagged.
+
   blocked_phrases:
     type: list
     default:
-      - '\baku (sudah|udah|pernah|sering) (coba|nyoba|cobain|pakai|pake|beli|gunakan|pesan)\b'
-      - '\bsaya (sudah|udah|pernah|sering) (coba|nyoba|cobain|pakai|pake|beli|gunakan|pesan)\b'
-      - '\b(saya|aku) (pakai|pake|memakai|gunakan|menggunakan|pesan) (ini|itu|produk ini|produk itu|barang ini)\b'
-      - '\bmenurut pengalaman (saya|aku)\b'
-      - '\bpengalaman (saya|aku) (pakai|pake|memakai)\b'
-      - '\bdi (rumah|kantor) (saya|aku) (pakai|pake)\b'
+      - '\b(aku|saya|gua|gue) (sudah|udah|pernah|sering|baru) (coba|nyoba|cobain|nyobain|pakai|pake|beli|gunakan|pesan)\b'
+      - '\b(aku|saya|gua|gue) (pakai|pake|memakai|gunakan|menggunakan|pesan) (ini|itu|produk ini|produk itu|barang ini)\b'
+      - '\bmenurut pengalaman (saya|aku|gua|gue)\b'
+      - '\bpengalaman (saya|aku|gua|gue) (pakai|pake|memakai)\b'
+      - '\bdi (rumah|kantor) (saya|aku|gua|gue) (pakai|pake)\b'
+      - '\b(anak|bayi|adik|kakak|istri|suami|ibu|bapak)(ku| saya| aku| gua| gue) (cocok|suka|senang|nyaman|betah|pakai|pake)\b'
+      - '\b(temen|teman|sahabat|sepupu)(ku| saya| aku| gua| gue)? (bilang|nyaranin|rekomendasiin|rekomen)\b'
       - '\bi (have|''ve) (personally )?(tried|used|bought|tested)\b'
       - '\bi (use|used) (this|it) every day\b'
       - '\bwhen i (tried|used|bought|tested)\b'
@@ -225,7 +237,20 @@ config_schema:
     label: "Blocked phrases"
     description: >-
       Regular expressions that may never appear in published copy — the
-      fabricated-personal-experience guardrail. Matched case-insensitively.
+      fabricated-personal-experience guardrail, including the second-hand
+      forms that read as first-hand ("anakku cocok", "temenku bilang").
+      Matched case-insensitively.
+
+  allowed_hashtags:
+    type: list
+    default: []
+    label: "Allowed hashtags in the copy"
+    description: >-
+      Hashtag-shaped tokens the copy may keep, e.g. "#ootd". Empty by default:
+      the only hashtags allowed in a post are the disclosure markers. Threads
+      makes exactly one tag per post clickable and that tag is set through the
+      topic_tag argument, so a hashtag trail in the copy adds nothing and
+      reads as spam. Strings are matched without the leading "#".
 
   max_posts:
     type: int
