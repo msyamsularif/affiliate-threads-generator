@@ -201,15 +201,16 @@ The soft ones are `warnings`, and they never block. They are worth reading anywa
 because they are the difference between a preview that reads like a person wrote
 it and one that reads like a template:
 
-| Warning                       | Means                                                                 |
-| ----------------------------- | --------------------------------------------------------------------- |
-| `excessive_signposting`       | The copy announces what it is about to do ("mari kita bahas")         |
-| `repeated_transition_density` | Too many "Jadi, ..." / "Makanya, ..." sentence openers                |
-| `excessive_enumeration`       | "Pertama, ... Kedua, ..." — prose turned into a list                  |
-| `product_detail_density`      | Spec dumping: too many number-plus-unit tokens in one thread          |
-| `generic_phrase`              | An affiliate cliché with nothing specific behind it                   |
-| `product_overexposed`         | The product name carries the thread instead of supporting it          |
-| `funnel_phrase`               | Copy that only points at the link ("klik link di bawah", "cek reply") |
+| Warning                       | Means                                                                                                             |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `excessive_signposting`       | The copy announces what it is about to do ("mari kita bahas")                                                     |
+| `repeated_transition_density` | Too many "Jadi, ..." / "Makanya, ..." sentence openers                                                            |
+| `excessive_enumeration`       | "Pertama, ... Kedua, ..." — prose turned into a list                                                              |
+| `product_detail_density`      | Spec dumping: too many number-plus-unit tokens in one thread                                                      |
+| `generic_phrase`              | An affiliate cliché with nothing specific behind it                                                               |
+| `product_overexposed`         | The product name carries the thread instead of supporting it                                                      |
+| `funnel_phrase`               | Copy that only points at the link ("klik link di bawah", "cek reply")                                             |
+| `seller_viewpoint`            | Copy written from the seller's seat — a claim repeated or attributed from the Description, or brochure vocabulary |
 
 Thresholds are configurable and `0` disables a signal — see
 [configuration.md](configuration.md#structural-soft-signals). The prose audit

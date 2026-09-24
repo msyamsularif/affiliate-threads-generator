@@ -71,8 +71,10 @@ the fact the testimony actually contains, without adding to it.
 | `comparison`                             | `comparison_open`                        |
 | `use_case`                               | `scenario`                               |
 
-A starting point, not a rule. The critic's second question — does post 1 open a
-loop that only reading on can close? — is what actually decides.
+A starting point, not a rule. The product's category family narrows the menu
+further — `references/category-playbook.md` names the hooks that fit each
+family. The critic's second question — does post 1 open a loop that only reading
+on can close? — is what actually decides.
 
 ## The shape rules
 

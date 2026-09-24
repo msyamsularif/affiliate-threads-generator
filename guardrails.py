@@ -11,12 +11,14 @@ Two classes of finding:
     tag the API would reject.
 
 ``warnings``
-    Soft signals: the affiliate-cliché phrase list, funnel language, and a
-    handful of cheap structural counters (signposting, transition density,
-    enumeration, spec density). They are reported back to the model so it can
-    rewrite, but they never block — and none of them is proof that a text is
-    AI-written. The prose audit itself belongs to the external ``antislop`` /
-    ``antislop-copywriting`` skills, not here.
+    Soft signals: the affiliate-cliché phrase list, funnel language, the
+    seller-viewpoint list (copy written from the seller's seat, or a claim
+    repeated from the Description), and a handful of cheap structural counters
+    (signposting, transition density, enumeration, spec density). They are
+    reported back to the model so it can rewrite, but they never block — and
+    none of them is proof that a text is AI-written. The prose audit itself
+    belongs to the external ``antislop`` / ``antislop-copywriting`` skills,
+    not here.
 
 Nothing here does I/O, so it is cheap to run on every draft.
 """
@@ -273,6 +275,34 @@ DEFAULT_FUNNEL_PHRASES: tuple[str, ...] = (
     "jangan sampai kehabisan",
 )
 
+#: The seller's seat: copy that repeats the seller's own words or speaks from
+#: their side of the counter. The `Description` column orients the research —
+#: it is never copy material, and neither its claims nor its voice belong in
+#: the thread, attributed or not (``references/category-playbook.md``).
+#: Warnings only: the honest fix is a rewrite, and a human chooses the wording.
+DEFAULT_SELLER_VIEWPOINT_PHRASES: tuple[str, ...] = (
+    # The seller's claim standing in for evidence
+    "di deskripsi produknya",
+    "klaim di deskripsi",
+    "menurut deskripsi produk",
+    "di halaman produknya",
+    "menurut penjual",
+    "kata penjual",
+    "kata sellernya",
+    "produsen mengklaim",
+    "menurut produsen",
+    # Seller-brochure vocabulary: praise, urgency, category superlatives
+    "kualitas premium",
+    "harga terjangkau",
+    "solusi terbaik",
+    "best seller",
+    "wajib punya",
+    "segera beli",
+    "dapatkan sekarang",
+    "diskon gila",
+    "buruan checkout",
+)
+
 
 # --------------------------------------------------------------------------- #
 # Experience provenance helpers (used only in firsthand mode)
@@ -349,6 +379,7 @@ def validate_thread(
     testimonial: str = "",
     suspicious_phrases: Iterable[str] = DEFAULT_SUSPICIOUS_PHRASES,
     funnel_phrases: Iterable[str] = DEFAULT_FUNNEL_PHRASES,
+    seller_viewpoint_phrases: Iterable[str] = DEFAULT_SELLER_VIEWPOINT_PHRASES,
     transition_words: Iterable[str] = DEFAULT_TRANSITION_WORDS,
     enumeration_words: Iterable[str] = DEFAULT_ENUMERATION_WORDS,
     signposting_phrases: Iterable[str] = DEFAULT_SIGNPOSTING_PHRASES,
@@ -639,6 +670,23 @@ def validate_thread(
                         f'"{phrase}" talks the reader toward the link instead of giving them a '
                         "reason to click. Say what they get — a detail, a boundary, a buying "
                         "consideration — and let the link post follow it.",
+                        post_index=index,
+                        detail={"phrase": phrase},
+                    )
+                )
+                break
+
+    for phrase in seller_viewpoint_phrases:
+        needle = phrase.lower()
+        for index, text in enumerate(lowered_posts):
+            if needle in text:
+                report.warnings.append(
+                    Finding(
+                        "seller_viewpoint",
+                        f'"{phrase}" writes from the seller\'s seat. The Description orients the '
+                        "research, it never writes the copy: its claims are leads to verify with "
+                        "independent sources or to leave out — not to repeat, rephrase, or "
+                        "attribute.",
                         post_index=index,
                         detail={"phrase": phrase},
                     )

@@ -177,6 +177,14 @@ The soft signal in the same family is `funnel_phrase`: copy whose only job is to
 move the reader toward the link ("cek link di bawah", "link di bio", "cek
 reply"). It is a warning, never a block — the honest fix is a rewrite.
 
+`seller_viewpoint` covers the other side of the same principle: copy written
+from the seller's seat — a claim repeated or attributed from the `Description`
+("Klaim di deskripsi produknya…"), or brochure vocabulary ("kualitas premium",
+"harga terjangkau", "best seller"). The `Description` orients the research; it
+never supplies the copy. Also a warning, and the fix is the same: rewrite it
+from the writer's own seat, backed by independent evidence or the stored
+testimony.
+
 ### First-hand experience (`Used` + `Testimonial`)
 
 The copy is written either from independent research, or — when the human has

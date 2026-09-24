@@ -19,6 +19,9 @@ Each candidate is:
 `tension` is the part that makes it worth reading. If you cannot name the tension
 in one line, the angle is not ready.
 
+Which types fit first depends on the product's category family — see
+`references/category-playbook.md`.
+
 ## The types
 
 ### `problem`

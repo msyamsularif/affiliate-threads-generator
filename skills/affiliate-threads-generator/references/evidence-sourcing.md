@@ -20,12 +20,12 @@ not with `execute_code`. If a page does not load, that is the end of that path.
 Every factual claim in the final copy must trace to exactly one of these — in
 `firsthand` mode, tier 0 below included.
 
-| Tier | Source                                                                                           | How much you may claim                                                                                                                                                                                           |
-| ---- | ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | **External web / review research**                                                               | "Review-derived observation" tier. Category norms, forum threads, video reviews, comparison articles. Search generally — do not scrape Shopee. This is the tier a thread is built from: nobody in it is selling. |
-| 2    | **Seller material** — the `Description` column and the product page (only if it actually loaded) | "Seller's own description" tier. Background and orientation only. Attribute whatever you take from it: _"Klaim di deskripsi produknya..."_ It may not become the thread's main material.                         |
-| 3    | **Inference**                                                                                    | Reasonable deduction from tiers 1-2. **Always hedged**: _"kemungkinan", "biasanya", "bisa jadi"_.                                                                                                                |
-| 4    | **Unsupported**                                                                                  | Never used as a factual claim. Remove it, or rewrite it as an explicit hedge or a question.                                                                                                                      |
+| Tier | Source                                                                                           | How much you may claim                                                                                                                                                                                                          |
+| ---- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | **External web / review research**                                                               | "Review-derived observation" tier. Category norms, forum threads, video reviews, comparison articles. Search generally — do not scrape Shopee. This is the tier a thread is built from: nobody in it is selling.                |
+| 2    | **Seller material** — the `Description` column and the product page (only if it actually loaded) | "Seller's own description" tier. Background and orientation only — **never copy**. Its claims are leads to verify: a claim that matters needs tier-1 corroboration or it stays out. No quotes, no paraphrases, no attributions. |
+| 3    | **Inference**                                                                                    | Reasonable deduction from tiers 1-2. **Always hedged**: _"kemungkinan", "biasanya", "bisa jadi"_.                                                                                                                               |
+| 4    | **Unsupported**                                                                                  | Never used as a factual claim. Remove it, or rewrite it as an explicit hedge or a question.                                                                                                                                     |
 
 **Tier 0 — the stored testimony.** With `Used=Yes` and a non-empty `Testimonial`
 (Step 1.5), the human's own account exists, and it outranks everything below as
@@ -54,8 +54,9 @@ What seller material is genuinely good for:
 - **Vocabulary** — the seller's words for the product's features are often the
   words buyers search with.
 - **A claim to check** — "tahan 12 jam" in the description is a lead for tier-1
-  research, not a fact. If nothing independent confirms it, attribute it
-  (_"Klaim di deskripsi produknya..."_) or leave it out.
+  research, not a fact. If nothing independent confirms it, leave it out:
+  attributing it ("Klaim di deskripsi produknya...") is still the seller's
+  seat, and the copy never sits there.
 - **The visual profile** — physical details for Step 7, taken as description
   rather than as proof.
 
@@ -88,8 +89,9 @@ One attempt. If it fails, note the failure and move on. Do not retry with
 variations.
 
 If it does load, extract only what you can quote as a claim: stated
-specifications, dimensions, materials, warranty. Remember it is tier 2 — the
-seller talking about their own product.
+specifications, dimensions, materials, warranty — as leads for tier-1
+verification. Remember it is tier 2 — the seller talking about their own
+product, so nothing from it goes into the copy.
 
 ### 3. External research
 
@@ -136,21 +138,24 @@ likely fine for a day trip                     3     inference from capacity
 Anything that lands in tier 4 does not go into the draft. Not softened, not
 implied — removed.
 
-A ledger that is _all_ tier 2 is not a thread yet. It is the seller's copy with
-different punctuation, and it fails the editorial audit in
-`references/editorial-rules.md`.
+A ledger holding tier-2 rows is holding leads, not copy material. Any of them
+either earns tier-1 corroboration or it leaves the thread — attributed tier-2
+claims are gone with the rest. A ledger that is _all_ tier 2 is not a thread
+yet: it is the seller's copy with different punctuation, and it fails the
+editorial audit in `references/editorial-rules.md`.
 
 ## Hedging language
 
-When you must use a tier-2 or tier-3 claim, hedge it in a way that sounds like a
-person being honest, not like a disclaimer:
+The copy carries tier-1 claims; what still needs hedging is a tier-3 inference
+built on them. Hedge it in a way that sounds like a person being honest, not
+like a disclaimer:
 
-| Instead of                 | Write                                                                                          |
-| -------------------------- | ---------------------------------------------------------------------------------------------- |
-| "Baterainya tahan 2 hari." | "Klaim di halaman produknya tahan 2 hari — angka itu biasanya tergantung pemakaian."           |
-| "Ini yang paling nyaman."  | "Yang paling sering disebut di review: bagian ini."                                            |
-| "Kualitasnya bagus."       | "Bahannya [material from the description], yang untuk kelas harga ini biasanya [expectation]." |
-| "Cocok untuk semua orang." | "Cocok kalau [specific scenario]. Kalau [other scenario], ada opsi lain yang lebih masuk."     |
+| Instead of                 | Write                                                                                      |
+| -------------------------- | ------------------------------------------------------------------------------------------ |
+| "Baterainya tahan 2 hari." | "Buat perjalanan sehari biasanya aman; lebih dari itu tergantung pemakaian."               |
+| "Ini yang paling nyaman."  | "Yang paling sering disebut di review: bagian ini."                                        |
+| "Kualitasnya bagus."       | "Untuk kelas harga ini, yang biasanya jadi patokan: [what the reviews actually check]."    |
+| "Cocok untuk semua orang." | "Cocok kalau [specific scenario]. Kalau [other scenario], ada opsi lain yang lebih masuk." |
 
 ## What this step is not
 

@@ -233,8 +233,8 @@ It re-reads the Sheet, filters to rows whose `Status` is exactly
   Never fall back to a different status, never invent a candidate.
 - Never process more than one row per request, scheduled or manual.
 
-Read the candidate's full row — `Description`, and the `Used` / `Testimonial`
-answer — before moving on:
+Read the candidate's full row — `Category`, `Description`, and the `Used` /
+`Testimonial` answer — before moving on:
 
 ```bash
 python3 ${HERMES_SKILL_DIR}/scripts/select_candidate.py --id 12 --full
@@ -308,11 +308,14 @@ Confidence tiers, highest first:
    selling the product, which is why the thread's substance comes from here.
 2. **Seller material** — the `Description` column and, if it loads, the product
    page. The operator wrote the description and the seller wrote the page; both
-   are self-description, so they are **background, not proof**. Use them for
-   orientation — what the product is, who it is for, the physical details — and
-   attribute anything taken from them ("Klaim di deskripsi produknya..."). They
-   may not become the thread's main material: a thread that paraphrases the
-   seller's copy is an advertisement wearing a hook.
+   are self-description, so they are **background, not proof — and never copy**.
+   Use them for orientation — what the product is, who it is for, which moment
+   it plausibly serves, the physical details — and as a research agenda: every
+   claim in them is a lead to verify with tier-1 evidence or to leave out.
+   Nothing from them is quoted, paraphrased, or attributed in the copy
+   ("Klaim di deskripsi produknya..." is the seller's seat too), apart from the
+   bare identifiers a reader needs to find the right variant in the link post.
+   A thread that repeats the seller's copy is an advertisement wearing a hook.
 3. **Inference** — reasonable deduction from 1-2. Always hedged.
 4. **Unsupported** — never used as a factual claim. Remove or rewrite it.
 
@@ -331,6 +334,12 @@ Full procedure: `references/evidence-sourcing.md`.
 ### Step 3 — Angle discovery
 
 Generate **5-8 distinct angle candidates**. Never jump to one "best angle".
+
+First resolve the two pattern inputs in `references/category-playbook.md`: the
+row's `Category` maps to a family, and the `Description` is read for orientation
+only — what the object is and which moment it plausibly serves, never sentences
+or claims to reuse. The family fixes the audience, the angles and hooks that
+fit, and the sentence patterns; it never loosens the evidence rule.
 
 Each candidate is `{angle_type, core_idea, tension}`. Draw `angle_type` from the
 library in `references/angle-library.md`.
@@ -363,11 +372,15 @@ stop. That is an angle problem, not a wording problem — go back to Step 3.
 **Planner.** Decide, explicitly:
 
 - topic, audience, and the point of view above
+- the `category_family` from `references/category-playbook.md`, and the
+  audience address the copy will use
 - the tension that makes it worth reading
 - hook strategy for post 1, and the `hook_pattern` behind it — the shape rotates
   across runs too (`references/hook-patterns.md`)
 - the objective of each post — what the reader notices, understands, or can do
   next because of it (objectives, not a fixed role template)
+- the bridge between posts — what each post hands to the next, so the thread
+  reads as one thought moving forward
 - where the product becomes relevant, and why the narrative is ready for it
   there (post 3-4 is the normal range, not a rule)
 - which post carries the CTA
@@ -377,7 +390,7 @@ stop. That is an angle problem, not a wording problem — go back to Step 3.
 - `must_include` and `must_not_claim` lists
 - which evidence tier each factual claim traces to
 
-**Critic.** Before writing a single line of copy, answer all ten questions in
+**Critic.** Before writing a single line of copy, answer all twelve questions in
 `references/narrative-planner-critic.md`. If any answer is weak, revise the plan.
 
 Bounded loop: **2-3 revision rounds maximum.** If it still fails after that, pick
@@ -411,6 +424,26 @@ Select the two to four details the angle needs. Leave the rest in the research.
 Include a genuine, evidence-backed trade-off when the angle has room for one —
 and never fabricate a weakness.
 
+**Write in the family's register** (`references/category-playbook.md`): spoken
+Indonesian in the second person — friendly, casual, polite. Colloquial is right
+("banget", "sih", "kok", "nih", "deh"); brochure phrasing ("produk ini
+menawarkan…", "sangat cocok bagi…") is not. Address the audience the family
+names, not a generic "kalian". The playbook's patterns are shapes with
+placeholders — fill them with facts the research established, never copy the
+example sentences.
+
+**Posts have to connect.** Each post opens from the thought the previous one
+left behind; a reader who lands mid-thread can tell what conversation they
+joined. No orphan post, and no post that only summarizes — the ending hands the
+reader something useful.
+
+**The seller's seat.** The `Description` orients the research; it never reaches
+the copy. No claim, praise, urgency, or sentence from it — not quoted, not
+paraphrased, not attributed ("Klaim di deskripsi produknya…" included). A claim
+it raises is a lead to verify with independent evidence or to drop. Bare
+identifiers (the shade, size, or contents a reader needs to find the right
+variant in the link post) are the one exception, and they carry no promise.
+
 **The personal experience rule.** The mode the row resolved to in Step 1.5
 decides this:
 
@@ -436,7 +469,9 @@ Four passes on the draft, in this order:
 2. **Affiliate editorial review** — the questions in
    `references/editorial-rules.md`: is there a point of view? would the thread be
    useful without the link? is the product supporting the conversation rather
-   than starring in it? is the ending earned rather than a summary?
+   than starring in it? is the copy in the family's register, and does every post
+   connect to the one before it? is the ending earned rather than a summary? is
+   there a line written from the seller's seat?
 3. **Evidence review** — every factual claim traces to one of Step 2's tiers.
    Anything untraceable is removed or rewritten as an explicit hedge. Check that
    the rewrite did not introduce a new fact or drop a qualification.
@@ -451,9 +486,10 @@ python3 ${HERMES_SKILL_DIR}/scripts/validate_thread.py --file draft.json
 Fix every `violation`. Read the `warnings` and decide — they are signals, not
 orders. Alongside the phrase warnings, `validate_thread.py` reports four
 structural signals — `excessive_signposting`, `repeated_transition_density`,
-`excessive_enumeration`, `product_detail_density` — and `funnel_phrase` for copy
-that only talks the reader toward the link ("klik link di bawah", "link di bio",
-"cek reply"). None of them blocks, and none of them is proof that the text is
+`excessive_enumeration`, `product_detail_density` — plus `funnel_phrase` for
+copy that only talks the reader toward the link ("klik link di bawah", "link di
+bio", "cek reply") and `seller_viewpoint` for copy written from the seller's
+seat. None of them blocks, and none of them is proof that the text is
 AI-written — treat each as a reason to look again.
 
 Three violations are newer to the list and easy to trip: `hashtag_in_copy` (a
@@ -497,11 +533,11 @@ in front of them:
 
 ```
 📦 Product ID: <ID>
-🏷️ <Product> — <Category>
+🏷️ <Product> — <Category> · <family>
 🎯 Angle: <angle_type> — <core idea in one line>
 🧭 Structure: <the narrative structure you used> · hook: <hook_pattern>
 🔖 Topic: <topic_tag>
-📊 Evidence: description (primary) · <what else you actually found>
+📊 Evidence: independent research — <what the substance traces to>
 🧪 Experience: <none — tanpa klaim pengalaman | firsthand — dari testimoni tersimpan>
 🧹 Anti-slop: antislop + antislop-copywriting · <N> revision round(s)
 🖼️ Image: <yes, N images | text-only>
@@ -524,6 +560,10 @@ Reply with: approve · hold · cancel · regenerate <what to change>
 **The Product ID line is mandatory.** It is the review context for every
 approve/hold/cancel that follows. Do not use a separate store, do not rely on
 conversation memory across a reset.
+
+**The `🏷️` line carries the playbook family** (`<Category> · <family>`) — which
+audience and register the copy was written for, so a wrong mapping is visible
+before approval.
 
 **The Topic line is mandatory too.** It is the tag that will be published with
 the root post, so the human can veto it before anything goes out; changing it
@@ -603,6 +643,7 @@ thread's novelty check possible.
 | `topic_tag_missing`                               | `require_topic_tag` is on (the default) and nothing was passed. Choose the topic a reader would search for — not the product name — show it on the preview, and pass it to `threads_publish`.                                                         |
 | `topic_tag_invalid`                               | The tag breaks the platform's limits: 1-50 characters, no `.` or `&`, no leading `#`, one line.                                                                                                                                                       |
 | `funnel_phrase` warning                           | Copy like "klik link di bawah" or "cek reply" points at the link instead of giving a reason to click it. Rewrite it as something the reader gets.                                                                                                     |
+| `seller_viewpoint` warning                        | The copy repeats or attributes the seller's words ("klaim di deskripsi produknya…", "kualitas premium"). The `Description` orients the research; its claims are leads to verify with independent sources or to drop — rewrite from the writer's seat. |
 | `amplifier_language`                              | Guarantee/absolute wording ("dijamin", "100% ampuh") is refused in **both** modes. A personal account is one experience, not a promise — hedge it or drop it.                                                                                         |
 | `experience_detail_unsupported`                   | A number, duration or frequency sits in a first-hand sentence but not in the stored testimony. Drop it, or use the testimony's own wording.                                                                                                           |
 | `experience_attribution_unsupported`              | A second-hand claim names a person ("anakku", "temenku") the testimony never mentions. Write the witness the testimony describes, or drop it.                                                                                                         |
@@ -619,14 +660,16 @@ Before you send the preview, confirm all of these are true:
 - [ ] 5-8 angles were generated and scored before one was chosen
 - [ ] The novelty check against recent content notes ran
 - [ ] A one-line point of view existed before drafting, and it is not generic
-- [ ] The narrative critic answered all ten questions
-- [ ] `antislop` and `antislop-copywritieleven questions
+- [ ] The narrative critic answered all twelve questions
 - [ ] `antislop` and `antislop-copywriting` were loaded, or the preview says they were not
 - [ ] The anti-slop audit ran as an audit of the draft, not only as writing advice
 - [ ] The affiliate editorial review ran after it
 - [ ] Every factual claim traces to a named evidence tier
 - [ ] The thread's substance comes from independent evidence, not from the seller's description
-- [ ] Anything taken from the seller's material is attributed to the seller
+- [ ] No claim, sentence, or voice from the seller's material appears in the copy
+- [ ] The `Category` was mapped to a playbook family, and the copy speaks to that family's audience
+- [ ] The register is friendly, casual, polite — no stiff brochure lines
+- [ ] Every post opens from the thought the previous one left; nothing reads as an orphan
 - [ ] The row's experience answer was resolved before research — asked for and
       stored when blank, never guessed
 - [ ] In `none` mode: no first-hand claim anywhere in the copy

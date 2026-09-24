@@ -6,17 +6,17 @@ true.
 
 ## Columns
 
-| Col | Field           | Meaning                                                                                                          |
-| --- | --------------- | ---------------------------------------------------------------------------------------------------------------- |
-| A   | `ID`            | Unique product/content identifier. Numeric IDs sort first.                                                       |
-| B   | `Product`       | Product name                                                                                                     |
-| C   | `Description`   | Operator-written product description — the seller's own framing: **background for the writer, never evidence**   |
-| D   | `Affiliate URL` | The affiliate URL supplied by the operator                                                                       |
-| E   | `Category`      | Product category                                                                                                 |
-| F   | `Threads URL`   | Published Threads URL. **Blank before publication.**                                                             |
-| G   | `Used`          | `Yes` / `No`: has the human personally used the product? Blank = not answered yet → the pipeline asks (Step 1.5) |
-| H   | `Testimonial`   | The human's own account of that use, stored verbatim; meaningful only with `Used=Yes`, never a model paraphrase  |
-| I   | `Status`        | Current workflow state                                                                                           |
+| Col | Field           | Meaning                                                                                                                |
+| --- | --------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| A   | `ID`            | Unique product/content identifier. Numeric IDs sort first.                                                             |
+| B   | `Product`       | Product name                                                                                                           |
+| C   | `Description`   | Operator-written product description — the seller's own framing: background for the writer, never evidence, never copy |
+| D   | `Affiliate URL` | The affiliate URL supplied by the operator                                                                             |
+| E   | `Category`      | Product category — resolved by the writer to a playbook family (audience, hooks, sentence patterns)                    |
+| F   | `Threads URL`   | Published Threads URL. **Blank before publication.**                                                                   |
+| G   | `Used`          | `Yes` / `No`: has the human personally used the product? Blank = not answered yet → the pipeline asks (Step 1.5)       |
+| H   | `Testimonial`   | The human's own account of that use, stored verbatim; meaningful only with `Used=Yes`, never a model paraphrase        |
+| I   | `Status`        | Current workflow state                                                                                                 |
 
 A header row is optional. When A1 is `ID`, the first data row is row 2; otherwise
 data starts at row 1. Everything in this skill handles both.

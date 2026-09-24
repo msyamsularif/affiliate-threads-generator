@@ -155,6 +155,12 @@ Does this thread have a clear point of view?
 Would the thread still be useful if the affiliate link disappeared?
 Is the product supporting the conversation rather than becoming a product listing?
 Is the thread more than a paraphrase of the seller's description?
+Is there a line written from the seller's seat — a claim, adjective, or
+sentence taken from the Description? (It orients research; it never writes copy.)
+Does the copy speak to the family's audience, in the family's register —
+friendly, casual, polite? (`references/category-playbook.md`)
+Does every post open from the thought the previous one left, so the thread reads
+as one movement instead of stacked observations?
 Did we select only the evidence the angle required?
 Does the ending feel like the natural next step of the conversation?
 Does any post carry a hashtag at all?
@@ -203,9 +209,16 @@ editorial_audit:
   natural_ending: true
 ```
 
-Add the two reach checks to the same record when they are clean:
+Add the category and reach checks to the same record when they are clean:
 
 ```yaml
+category_audit:
+  family: <kids-mom | skincare-makeup | food | fashion | household | gadget | other>
+  audience_address: true
+  register: true
+  flow_linked: true
+  no_seller_seat: true
+
 reach_audit:
   no_stray_hashtags: true
   topic_tag_earned: true

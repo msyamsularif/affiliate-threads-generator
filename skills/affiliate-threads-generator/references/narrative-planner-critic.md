@@ -15,6 +15,7 @@ the writer both read it.
 ```yaml
 topic: <one line — what this thread is actually about>
 audience: <who specifically this is for>
+category_family: <from references/category-playbook.md — and the audience address it implies>
 angle_type: <from the angle library>
 point_of_view: <one line — what the writer believes, and wants the reader to notice>
 tension: <one line — the thing that makes it worth reading>
@@ -39,10 +40,11 @@ narrative_structure: <the structure used this time — rotated across runs>
 topic_tag: <the one topic for the root post — what a reader would search for, not the product name>
 
 must_include:
-  - <specific detail from tier-1 evidence, or a tier-2 seller claim attributed to the seller>
+  - <specific detail from tier-1 evidence>
   - <the real trade-off, when the angle has room for one>
 must_not_claim:
   - <anything unsupported (tier 4)>
+  - <any claim, praise, or sentence from the seller's Description — it orients research, it never writes copy>
   - <in none mode: any first-hand experience; in firsthand mode: anything the stored testimony does not say>
   - <any invented weakness>
   - <guarantees and absolutes ("dijamin", "100% ampuh") — refused in both modes>
@@ -52,6 +54,10 @@ evidence_ledger:
     tier: 1
     source: <where it came from>
 ```
+
+Tier-2 rows in the ledger are leads, not copy material: a seller claim either
+gets tier-1 corroboration or it leaves the thread entirely — it is never
+attributed, paraphrased, or repeated.
 
 ### On `point_of_view`
 
@@ -69,6 +75,19 @@ Good:
 Objectives, not post roles. Two objectives may collapse into one post; one
 objective may take two posts. The list is the order the reader moves through, and
 it is allowed to be three items or six.
+
+Each objective also carries the **bridge** to the next: what this post hands to
+the one after it, so the thread reads as one movement instead of stacked
+observations. The family's patterns (`references/category-playbook.md`) are
+shapes; the bridges are what keep them a thread.
+
+### On `category_family`
+
+The family comes from the row's `Category` and fixes who the copy speaks to,
+which angles and hooks fit, the sentence patterns, and the register — friendly,
+casual, polite, second person. A category that does not map cleanly uses
+`other`. The choice is visible on the preview (`🏷️ … · <family>`), so it is a
+decision the human can veto.
 
 ### On `hook_pattern`
 
@@ -115,7 +134,7 @@ name, a brand, or a generic label like `teknologi`. It also has to respect the
 platform's limits (1-50 characters, no `.` or `&`, no leading `#`), because a tag
 the API rejects is a failed publish.
 
-## Critic — the gate, then eleven questions
+## Critic — the gate, then twelve questions
 
 ### Gate: the point of view
 
@@ -138,10 +157,12 @@ Read post 1 in isolation. Does it open a loop that only reading on can close? Or
 is it a summary of what is coming (which closes the loop immediately and gives no
 reason to continue)?
 
-### 3. Is there progression between posts?
+### 3. Is there progression between posts — and do they connect?
 
-Each post must add something the previous one did not have. If post 3 restates
-post 2 in different words, the plan fails.
+Each post must add something the previous one did not have, and it has to open
+from the thought the previous post left behind: the question it raised, the
+detail it promised. If post 3 restates post 2 in different words, the plan
+fails; if no post depends on any other, the plan fails too.
 
 ### 4. Is the product introduced when the reader already has a reason to care?
 
@@ -171,12 +192,13 @@ or does it merely summarize what came before? A summary is not an ending.
 
 ### 8. Are the claims supported?
 
-Walk the evidence ledger. Every claim must map to tier 1-3 — plus tier 0, the
-stored testimony, whenever the row is in `firsthand` mode. The thread's substance
-has to come from tier 1: a thread built out of the seller's own description is a
-paraphrase with a hook, and it fails here. Anything unsupported (tier 4) is
-removed, not softened; anything taken from seller material (tier 2) is attributed
-to the seller in the copy.
+Walk the evidence ledger. The copy may carry tier 0 (the stored testimony, in
+`firsthand` mode), tier 1 (independent research), and tier-3 inference hedged on
+top of them. Tier-2 seller material is not copy material: no quote, no
+paraphrase, no attribution — a claim it raised either gets tier-1 corroboration
+or it stays out. The thread's substance has to come from tier 1: a thread built
+out of the seller's own description is a paraphrase with a hook, and it fails
+here. Anything unsupported (tier 4) is removed, not softened.
 
 ### 9. Is the angle too similar to recent content?
 
@@ -197,6 +219,14 @@ duration, an outcome, a comparison, a number — fails this question. The voice
 must be the witness's own: an account where the child used it never becomes
 "saya pakai". Guarantees are refused in both modes, so "dijamin" or "100% ampuh"
 is a failure here too.
+
+### 12. Does it speak to the right audience, in the right register?
+
+Read the copy against the resolved family in `references/category-playbook.md`.
+Does it address the audience that family names, warmly, in the second person —
+friendly, casual, polite — with no stiff brochure lines ("Produk ini
+menawarkan…", "sangat cocok bagi…", a wall of features)? A stiff line, or any
+sentence written from the seller's seat, fails this question.
 
 ## The bounded loop
 

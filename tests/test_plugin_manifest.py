@@ -237,6 +237,42 @@ class TestBundledSkill:
         for relative in sorted(referenced):
             assert (SKILL_DIR / relative).is_file(), f"missing {relative}"
 
+    def test_category_playbook_covers_every_family(self) -> None:
+        """The playbook is the sentence-pattern contract. Every family a writer
+        can resolve to needs a section, and each section carries the four things
+        that decide the pattern: the audience, the hooks, the sentence shapes,
+        and the category's own limits."""
+        path = SKILL_DIR / "references" / "category-playbook.md"
+        assert path.is_file(), "missing references/category-playbook.md"
+        text = path.read_text(encoding="utf-8")
+
+        families = (
+            "kids-mom",
+            "skincare-makeup",
+            "food",
+            "fashion",
+            "household",
+            "gadget",
+            "other",
+        )
+        sections = re.split(r"^### ", text, flags=re.MULTILINE)[1:]
+        found = {section.split("\n", 1)[0].strip(): section for section in sections}
+
+        for family in families:
+            assert family in found, f"missing family section: ### {family}"
+            body = found[family]
+            for required in (
+                "**Audience**",
+                "**Hooks that fit**",
+                "**Patterns**",
+                "**Keep it real**",
+            ):
+                assert required in body, f"{family}: missing {required}"
+
+        # The playbook is only reachable if the skill points at it.
+        skill_text = (SKILL_DIR / "SKILL.md").read_text(encoding="utf-8")
+        assert "`references/category-playbook.md`" in skill_text
+
     @pytest.mark.parametrize(
         "script",
         [

@@ -300,17 +300,17 @@ Extended in this revision — Google Sheets remains the business-data
 source of truth, and also doubles as the state lock (no SQLite). Two
 columns are new (`Used`, `Testimonial`); everything else is unchanged:
 
-| Column          | Description                                                                                                                    |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `ID`            | Unique product/content identifier                                                                                              |
-| `Product`       | Product name                                                                                                                   |
-| `Description`   | Seller-side product description/context — **background material for the writer, never evidence, see Section 9**                |
-| `Affiliate URL` | Affiliate URL (Shopee) supplied by the user                                                                                    |
-| `Category`      | Product category                                                                                                               |
-| `Threads URL`   | Published Threads URL; blank before publication                                                                                |
-| `Used`          | Has the human personally used the product? `Yes` / `No`; blank = not answered yet, which triggers the question in Section 10.8 |
-| `Testimonial`   | The human's own account of that use, stored verbatim; meaningful only when `Used=Yes`, never a model paraphrase                |
-| `Status`        | Current workflow state                                                                                                         |
+| Column          | Description                                                                                                                                                                   |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ID`            | Unique product/content identifier                                                                                                                                             |
+| `Product`       | Product name                                                                                                                                                                  |
+| `Description`   | Seller-side product description/context — background for the writer; **never evidence and never copy**: it orients research and its claims are leads to verify, see Section 9 |
+| `Affiliate URL` | Affiliate URL (Shopee) supplied by the user                                                                                                                                   |
+| `Category`      | Product category — resolved by the Skill to a category family (Section 10.6)                                                                                                  |
+| `Threads URL`   | Published Threads URL; blank before publication                                                                                                                               |
+| `Used`          | Has the human personally used the product? `Yes` / `No`; blank = not answered yet, which triggers the question in Section 10.8                                                |
+| `Testimonial`   | The human's own account of that use, stored verbatim; meaningful only when `Used=Yes`, never a model paraphrase                                                               |
+| `Status`        | Current workflow state                                                                                                                                                        |
 
 Allowed statuses: `In Progress`, `Ready To Generate`, `Hold`, `Cancel`,
 `Done` — semantics unchanged from the original spec. The optional two-stage
@@ -381,12 +381,13 @@ CAPTCHA/anti-bot/auth walls to work around it.
 2. **Seller material** — the `Description` column and the fetched
    product page (best-effort, only if it actually succeeds). This is the
    seller's own framing of their product, so it is **background and
-   orientation, not evidence**: what the product is, who it is for, the
-   physical details, and claims worth checking elsewhere. Anything taken
-   from it is attributed back to the seller (_"Klaim di deskripsi
-   produknya..."_), and it may never become the thread's main material —
-   a thread that paraphrases the seller's copy is an advertisement with a
-   hook.
+   orientation, not evidence — and never copy**: what the product is, who
+   it is for, the physical details, and claims worth checking elsewhere.
+   Its claims are leads to verify: a claim that matters needs tier-1
+   corroboration or it stays out. Nothing from it is quoted, paraphrased,
+   or attributed in the thread (_"Klaim di deskripsi produknya..."_
+   included) — a thread that repeats the seller's copy is an
+   advertisement with a hook.
 3. **Inference** — reasonable deduction from tiers 1-2, always hedged.
 4. **Unsupported** — never used as a factual claim; removed or rewritten.
 
@@ -450,10 +451,12 @@ separate infrastructure required.
 
 ### 10.5 Narrative Planner & Critic
 
-Planner determines topic, audience, a required one-line **point of view**,
-the tension, hook strategy together with its **hook pattern** (Section 10.6),
-per-post **objectives** (not fixed roles), the product entry point _together
-with why the narrative is ready for it there_, CTA post, `affiliate_intensity`
+Planner determines topic, audience — including the row's **category family**
+(Section 10.6) and the audience address it implies — a required one-line
+**point of view**, the tension, hook strategy together with its **hook
+pattern** (Section 10.6), per-post **objectives** (not fixed roles) and the
+**bridges** between them, the product entry point _together with why the
+narrative is ready for it there_, CTA post, `affiliate_intensity`
 (default `2`, ~80% value / 20% product), `must_include`/`must_not_claim`
 (in `none` mode: no first-hand experience at all; in `firsthand` mode:
 nothing beyond the stored testimony), the `topic_tag` the thread publishes
@@ -464,7 +467,7 @@ take two posts. The product enters when the reader already has a reason to
 care — post 3-4 is the normal range, not a rule.
 
 Critic gates on the point of view first (a generic one fails immediately),
-then answers 11 questions before Thread Generation proceeds (see Section 12
+then answers 12 questions before Thread Generation proceeds (see Section 12
 for the full checklist). Bounded to 2-3 revision rounds — never an
 unbounded loop.
 
@@ -485,6 +488,20 @@ no hook pattern may imply personal experience: the rhetorical form of "wish I
 had known" is allowed, the first-hand form is not. In `firsthand` mode a
 first-hand hook is allowed, but only when the stored testimony supports it
 (Section 10.8).
+
+The row's `Category` is resolved to a **category family**
+(`references/category-playbook.md` — `kids-mom`, `skincare-makeup`, `food`,
+`fashion`, `household`, `gadget`, or `other`). The family fixes the audience
+address, the angles and hooks that fit, the sentence patterns, and the
+register: friendly, casual, polite, second person. The `Description` orients
+that choice — what the object is and which moment it plausibly serves — and
+**never supplies copy**: its claims are leads to verify with independent
+evidence or to drop, never sentences to quote, paraphrase, or attribute.
+`guardrails.py` reports that leak as the soft `seller_viewpoint` signal.
+
+The thread reads as one thought moving forward: every post opens from the
+thought the previous post left behind, and a reader who lands mid-thread can
+still tell what conversation they joined.
 
 No post carries a hashtag — the reach mechanism is the topic tag, covered
 separately in Section 10.13.
@@ -512,7 +529,10 @@ theater — never intentionally inject bad grammar or random mistakes.
 `guardrails.py` keeps only what is specific to affiliate copy: a short
 cliché list (_"praktis dan nyaman digunakan", "cocok untuk berbagai
 kebutuhan", "wajib banget punya", "solusi yang tepat untuk kamu",
-"kualitas terjamin", "worth it banget", "game changer", "must have"_) and
+"kualitas terjamin", "worth it banget", "game changer", "must have"_),
+the funnel list, the seller-viewpoint list (`seller_viewpoint` — a claim
+repeated or attributed from the `Description`, or brochure vocabulary like
+_"kualitas premium"_, _"harga terjangkau"_, _"best seller"_), and
 four structural counters — `excessive_signposting`,
 `repeated_transition_density`, `excessive_enumeration`,
 `product_detail_density`. All are warnings, never blocks, and none is
@@ -714,14 +734,17 @@ before the questions below are answered.
 
 1. Is the topic interesting without the product?
 2. Does the hook create real curiosity?
-3. Is there progression between posts?
+3. Is there progression between posts — does each one open from the thought
+   the previous post left behind, so the thread reads as one movement?
 4. Is the product introduced when the reader already has a reason to care?
 5. Is the Thread only a feature list?
 6. Does each post create a reason to continue?
 7. Does the ending feel like an advertisement — and does it give the reader
    something useful rather than summarizing?
 8. Are claims supported — traceable to Section 9's tiers, tier 0 (the
-   stored testimony) included whenever the row is in `firsthand` mode?
+   stored testimony) included whenever the row is in `firsthand` mode? The
+   copy may carry tier 0, tier 1 and hedged tier-3 inference; tier-2 seller
+   material is never copy, not even attributed.
 9. Is the angle too similar to recent content (Section 10.4)?
 10. Is the topic tag the topic of the conversation — something a reader would
     search for, not the product name — and within the platform's limits?
@@ -729,6 +752,9 @@ before the questions below are answered.
     testimony, with nothing amplified or extended beyond it — and is the
     voice the witness's own (an account where the child used it never reads
     as "saya pakai")?
+12. Does the copy speak to the resolved category family's audience, in that
+    family's register — friendly, casual, polite, second person — with no
+    stiff brochure lines and no sentence written from the seller's seat?
 
 ---
 
@@ -785,10 +811,12 @@ Meta Threads (official Graph API)
 7. The scheduler never publishes automatically.
 8. Product research must happen before content generation, and must never
    attempt to bypass anti-bot/CAPTCHA/auth protections on Shopee.
-9. `Description` is seller-side background material, not evidence: the
-   thread's substance comes from independent research, anything taken
-   from the seller's copy is attributed, and scraped/external data is
-   never treated as automatically true.
+9. `Description` is seller-side background material, not evidence, and
+   never copy: it orients the research and its claims are leads to
+   verify — no quote, paraphrase, or attribution reaches the thread
+   ("Klaim di deskripsi produknya..." included); the thread's substance
+   comes from independent research, and scraped/external data is never
+   treated as automatically true.
 10. Generated images (if used) must preserve recognizable product
     characteristics and never invent unverified features.
 11. Do not fabricate personal experience. First-hand claims are allowed

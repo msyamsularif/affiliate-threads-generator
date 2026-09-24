@@ -206,15 +206,19 @@ the link reply that goes out later. So:
 - **Post 1** earns the next post. No product mention.
 - **The product enters when the reader already has a reason to care.** Post 3-4
   is the normal range, not a rule. Never post 1.
-- **Every post creates a reason to continue.** If a post could be deleted without
-  loss, delete it.
+- **Every post creates a reason to continue**, and opens from the thought the
+  previous post left behind — a reader who lands mid-thread can tell what
+  conversation they joined (`references/category-playbook.md` §3). If a post
+  could be deleted without loss, delete it.
 - **`affiliate_intensity` ≈ 2** — roughly 80% value, 20% product across the thread.
 - **The ending gives the reader something useful** — a practical boundary, a
   buying consideration, one concrete observation — not a summary of what came
   before. The CTA follows it; it does not replace it.
-- **The seller's description is background.** Paraphrasing it is not a thread; the
-  observation has to come from independent research or be attributed to the owner
-  of the claim.
+- **The seller's description never reaches the copy.** It orients the research —
+  what the product is, what to look for — and its claims are leads to verify.
+  No quote, no paraphrase, no attribution: a claim only ships when independent
+  evidence carries it, and bare identifiers (shade, size, contents) carry no
+  promise.
 - **Max 500 characters per post** (emoji count as their UTF-8 byte length), and no
   more than 5 unique links in one post. `threads_publish` enforces both.
 

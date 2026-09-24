@@ -416,6 +416,54 @@ class TestFunnelLanguage:
         assert "funnel_phrase" not in self.codes(report)
 
 
+class TestSellerViewpoint:
+    """The Description column orients the research; it never writes the copy.
+    Copy that repeats or attributes the seller's words is a rewrite signal —
+    soft, like the funnel list, because the honest fix is wording, not a block."""
+
+    def codes(self, report: guardrails.GuardrailReport) -> set[str]:
+        return {item.code for item in report.warnings}
+
+    def test_a_repeated_seller_claim_warns_without_blocking(
+        self, settings: config.Settings
+    ) -> None:
+        posts = [
+            {"text": "Kapasitas besar biasanya berarti berat."},
+            {"text": "Klaim di deskripsi produknya, baterainya tahan dua hari."},
+            {"text": "Link afiliasi. https://shope.ee/abc123"},
+        ]
+        report = guardrails.validate_thread(
+            posts, settings, affiliate_url="https://shope.ee/abc123"
+        )
+        assert report.ok
+        assert "seller_viewpoint" in self.codes(report)
+
+    def test_brochure_vocabulary_warns_too(self, settings: config.Settings) -> None:
+        posts = [
+            {"text": "Kapasitas besar biasanya berarti berat."},
+            {"text": "Kualitas premium dengan harga terjangkau."},
+            {"text": "Link afiliasi. https://shope.ee/abc123"},
+        ]
+        report = guardrails.validate_thread(
+            posts, settings, affiliate_url="https://shope.ee/abc123"
+        )
+        assert report.ok
+        assert "seller_viewpoint" in self.codes(report)
+
+    def test_an_independent_observation_does_not_warn(
+        self, settings: config.Settings
+    ) -> None:
+        posts = [
+            {"text": "Kapasitas besar biasanya berarti berat."},
+            {"text": "Yang paling sering disebut di review: 380g itu terasa di saku."},
+            {"text": "Link afiliasi. https://shope.ee/abc123"},
+        ]
+        report = guardrails.validate_thread(
+            posts, settings, affiliate_url="https://shope.ee/abc123"
+        )
+        assert "seller_viewpoint" not in self.codes(report)
+
+
 class TestTopicTag:
     """The topic tag is Threads' discovery mechanism — and how a post reaches a
     community when its topic has one — so the requirement and the platform's own
