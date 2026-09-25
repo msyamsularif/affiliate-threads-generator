@@ -33,7 +33,10 @@ Threads publishes.       Google Sheets records the business state.
 
 One `hermes plugins install` is the whole install. The plugin is a bundle — it
 carries its own tools, hooks, skill and slash command, and Hermes loads all four
-from this one directory. Nothing is copied into `~/.hermes/skills/`.
+from this one directory. Nothing is copied into `~/.hermes/skills/`. The install
+ends by showing `after-install.md`, the note the agent reads as instructions: it
+offers the monthly Threads token refresh and the generation schedule, with the
+exact commands for both.
 
 ---
 

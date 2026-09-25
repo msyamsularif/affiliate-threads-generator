@@ -196,9 +196,9 @@ value:
 hermes gateway restart
 ```
 
-Cron scripts run with a sanitized environment, so `THREADS_ACCESS_TOKEN` from
-`.env` is not inherited by the script — which is fine, because the script reads
-the token from the same `.env` through the plugin's config layer.
+This refresh is a second job, separate from the generation schedule. Both are
+listed side by side in
+[cron-setup.md](cron-setup.md#the-second-job-the-monthly-token-refresh).
 
 ## Scopes: what a missing one looks like
 

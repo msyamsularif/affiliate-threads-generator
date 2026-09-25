@@ -14,7 +14,9 @@ Checks
 6. the next eligible candidate, if any
 7. the bundled skill is present where Hermes loads it
 8. a cron job exists for this skill
-9. any publish that went live without its Sheet write landing
+9. a cron job keeps the Threads token alive (it lasts 60 days, and nothing here
+   renews it on its own)
+10. any publish that went live without its Sheet write landing
 
 Exit codes
 ----------
@@ -256,8 +258,10 @@ def main(argv: list[str] | None = None) -> int:
         }
     )
 
-    # ---- 8. cron job ------------------------------------------------------
-    checks.append(_cron_check())
+    # ---- 8. cron jobs -----------------------------------------------------
+    jobs, jobs_error = _read_cron_jobs()
+    checks.append(_cron_check(jobs, jobs_error))
+    checks.append(_token_refresh_check(jobs, jobs_error))
 
     # ---- 9. unsynced publishes -------------------------------------------
     unsynced = _unsynced_publishes()
@@ -314,56 +318,124 @@ def _days(epoch) -> float | None:  # noqa: ANN001
         return None
 
 
-def _cron_check() -> dict:
+#: What to do when nothing renews the token. The 60-day cliff is the one setup gap
+#: that stays invisible until publishing stops, so the hint carries the whole fix.
+TOKEN_REFRESH_HINT = (
+    "The token lasts 60 days and nothing in this plugin renews it, so publishing stops on "
+    'day 60. Create the job: hermes cron create "0 9 1 * *" "Refresh the Threads token" '
+    "--no-agent --script refresh-threads-token.sh --deliver telegram "
+    '--name "threads-token-refresh" — the script it runs is in '
+    "docs/threads-app-setup.md#automate-it."
+)
+
+
+def _read_cron_jobs() -> tuple[list[dict] | None, str]:
+    """The cron job table, or ``(None, reason)`` when it cannot be read."""
     jobs_path = hermes_home() / "cron" / "jobs.json"
     if not jobs_path.is_file():
-        return {
-            "check": "cron_job",
-            "ok": False,
-            "detail": f"no cron job table at {jobs_path}",
-            "hint": "See docs/cron-setup.md to schedule Mon/Wed/Fri/Sun 08:00 Asia/Jakarta.",
-        }
+        return None, f"no cron job table at {jobs_path}"
     try:
         data = json.loads(jobs_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        return {"check": "cron_job", "ok": False, "detail": f"could not read {jobs_path}: {exc}"}
+        return None, f"could not read {jobs_path}: {exc}"
 
     jobs = data.get("jobs") if isinstance(data, dict) else data
     if not isinstance(jobs, list):
-        return {"check": "cron_job", "ok": False, "detail": "unexpected jobs.json shape"}
+        return None, "unexpected jobs.json shape"
+    return [job for job in jobs if isinstance(job, dict)], ""
+
+
+def _job_summary(job: dict) -> str:
+    return (
+        f"{job.get('name') or job.get('id')} [{job.get('schedule')}] "
+        f"next={job.get('next_run_at') or 'n/a'} enabled={job.get('enabled', True)}"
+    )
+
+
+def _cron_check(jobs: list[dict] | None, error: str) -> dict:
+    if jobs is None:
+        return {
+            "check": "cron_job",
+            "ok": False,
+            "detail": error,
+            "hint": "See docs/cron-setup.md to schedule Mon/Wed/Fri/Sun 08:00 Asia/Jakarta.",
+        }
 
     # A job either attaches the skill by name, or names it in the prompt — which
     # is what the bundle-only setup does, since cron resolves a bare name
     # against the installed skills and this one is namespaced.
     namespaced = f"{PLUGIN_NAME}:{SKILL_NAME}"
-    matches = []
-    for job in jobs:
-        if not isinstance(job, dict):
-            continue
-        skills = job.get("skills") or []
-        if isinstance(skills, str):
-            skills = [skills]
-        if (
-            SKILL_NAME in skills
-            or namespaced in str(job.get("prompt") or "")
-            or PLUGIN_NAME in str(job.get("name") or "")
-        ):
-            matches.append(job)
-
+    matches = [job for job in jobs if _references_skill(job, namespaced)]
     if not matches:
         return {
             "check": "cron_job",
             "ok": False,
             "detail": "no cron job references this skill",
-            "hint": "See docs/cron-setup.md, or accept the blueprint with /suggestions.",
+            "hint": "See docs/cron-setup.md for the command; the plugin's after-install.md "
+            "walks through it.",
         }
 
-    summary = "; ".join(
-        f"{job.get('name') or job.get('id')} [{job.get('schedule')}] "
-        f"next={job.get('next_run_at') or 'n/a'} enabled={job.get('enabled', True)}"
-        for job in matches
+    return {
+        "check": "cron_job",
+        "ok": True,
+        "detail": "; ".join(_job_summary(job) for job in matches),
+    }
+
+
+def _references_skill(job: dict, namespaced: str) -> bool:
+    skills = job.get("skills") or []
+    if isinstance(skills, str):
+        skills = [skills]
+    return (
+        SKILL_NAME in skills
+        or namespaced in str(job.get("prompt") or "")
+        or PLUGIN_NAME in str(job.get("name") or "")
     )
-    return {"check": "cron_job", "ok": True, "detail": summary}
+
+
+def _token_refresh_check(jobs: list[dict] | None, error: str) -> dict:
+    """Whether something renews the token before the 60 days run out.
+
+    Its own check, not part of ``cron_job``: a refresh job neither names this
+    skill nor attaches it, so the job that keeps publishing alive would otherwise
+    be the one nobody looks for.
+    """
+    if jobs is None:
+        return {
+            "check": "token_refresh_job",
+            "ok": False,
+            "detail": error,
+            "hint": TOKEN_REFRESH_HINT,
+        }
+
+    matches = [job for job in jobs if _looks_like_token_refresh(job)]
+    if not matches:
+        return {
+            "check": "token_refresh_job",
+            "ok": False,
+            "detail": "no cron job refreshes the Threads token",
+            "hint": TOKEN_REFRESH_HINT,
+        }
+
+    return {
+        "check": "token_refresh_job",
+        "ok": True,
+        "detail": "; ".join(_job_summary(job) for job in matches),
+    }
+
+
+def _looks_like_token_refresh(job: dict) -> bool:
+    """Match on script, name or prompt — the operator names the job.
+
+    A false positive costs one green line; a false negative nags about a job that
+    exists, so this leans generous on the two words that mean the same thing in
+    any wording of it.
+    """
+    haystack = " ".join(str(job.get(key) or "") for key in ("script", "name", "prompt")).lower()
+    if "threads_token" in haystack or "refresh_access_token" in haystack:
+        return True
+    words = set(re.findall(r"[a-z0-9]+", haystack))
+    return "token" in words and "refresh" in words
 
 
 def _unsynced_publishes() -> list[dict]:

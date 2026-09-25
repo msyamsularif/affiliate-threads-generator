@@ -125,3 +125,97 @@ class TestDoctorLedgerDiscovery:
         monkeypatch.setenv("HERMES_HOME", str(home))
 
         assert doctor._unsynced_publishes() == []
+
+
+def _write_jobs(home: Path, jobs: list[dict]) -> None:
+    directory = home / "cron"
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / "jobs.json").write_text(json.dumps({"jobs": jobs}), encoding="utf-8")
+
+
+class TestDoctorCronJobs:
+    """Two jobs matter and they answer different questions: one runs the pipeline,
+    the other keeps the Threads token alive. A refresh job names neither the skill
+    nor the plugin, so it has to be found on its own terms — and a missing one has
+    to fail loudly, because nothing else notices for sixty days."""
+
+    def test_a_missing_table_fails_with_the_command_to_fix_it(
+        self, doctor: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
+
+        jobs, error = doctor._read_cron_jobs()
+
+        assert jobs is None and "no cron job table" in error
+        refresh = doctor._token_refresh_check(jobs, error)
+        assert refresh["ok"] is False
+        assert "hermes cron create" in refresh["hint"]
+
+    def test_the_generation_job_is_not_a_refresh_job(
+        self, doctor: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        home = tmp_path / "hermes"
+        _write_jobs(
+            home,
+            [
+                {
+                    "name": "affiliate-threads-generator",
+                    "schedule": "0 8 * * 0,1,3,5",
+                    "prompt": "Load the skill affiliate-threads-generator:affiliate-threads-generator",
+                }
+            ],
+        )
+        monkeypatch.setenv("HERMES_HOME", str(home))
+
+        jobs, error = doctor._read_cron_jobs()
+
+        assert doctor._cron_check(jobs, error)["ok"] is True
+        refresh = doctor._token_refresh_check(jobs, error)
+        assert refresh["ok"] is False
+        assert refresh["detail"] == "no cron job refreshes the Threads token"
+
+    def test_a_refresh_job_does_not_answer_for_the_generation_job(
+        self, doctor: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        home = tmp_path / "hermes"
+        _write_jobs(home, [{"name": "threads-token-refresh", "schedule": "0 9 1 * *"}])
+        monkeypatch.setenv("HERMES_HOME", str(home))
+
+        jobs, error = doctor._read_cron_jobs()
+
+        assert doctor._token_refresh_check(jobs, error)["ok"] is True
+        assert doctor._cron_check(jobs, error)["ok"] is False
+
+    @pytest.mark.parametrize(
+        "job",
+        [
+            {"name": "threads-token-refresh", "schedule": "0 9 1 * *"},
+            {"name": "monthly", "script": "refresh-threads-token.sh"},
+            {"name": "monthly", "prompt": "Run scripts/threads_token.py refresh --write-env."},
+            {"prompt": "Refresh the Threads access token, then restart the gateway."},
+        ],
+    )
+    def test_every_wording_of_the_job_counts(
+        self, doctor: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, job: dict
+    ) -> None:
+        home = tmp_path / "hermes"
+        _write_jobs(home, [job])
+        monkeypatch.setenv("HERMES_HOME", str(home))
+
+        jobs, error = doctor._read_cron_jobs()
+
+        assert doctor._token_refresh_check(jobs, error)["ok"] is True
+
+    def test_an_unreadable_table_reports_the_reason(
+        self, doctor: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        home = tmp_path / "hermes"
+        (home / "cron").mkdir(parents=True)
+        (home / "cron" / "jobs.json").write_text('{"jobs": 3}', encoding="utf-8")
+        monkeypatch.setenv("HERMES_HOME", str(home))
+
+        jobs, error = doctor._read_cron_jobs()
+
+        assert jobs is None
+        assert error == "unexpected jobs.json shape"
+        assert doctor._token_refresh_check(jobs, error)["ok"] is False

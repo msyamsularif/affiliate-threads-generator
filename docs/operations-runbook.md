@@ -46,8 +46,8 @@ python3 "$SKILL_DIR/scripts/doctor.py"
 From any session, `/affiliate-threads status` runs the same read-only preflight
 without spending a model turn.
 
-Eight checks plus one that reports where the settings came from. Any `✗` comes
-with a `→` hint.
+Eight checks plus one that reports where the settings came from, and one that
+watches the token. Any `✗` comes with a `→` hint.
 
 ```
   ✓ plugin: found at .../plugins/affiliate-threads-generator (v1.1.1)
@@ -58,6 +58,7 @@ with a `→` hint.
   ✓ next_candidate: ID 3 — Wireless Earbuds X (row 5)
   ✓ bundled_skill: .../plugins/affiliate-threads-generator/skills/affiliate-threads-generator/SKILL.md
   ✓ cron_job: affiliate-threads-generator [0 8 * * 0,1,3,5] next=... enabled=True
+  ✓ token_refresh_job: threads-token-refresh [0 9 1 * *] next=... enabled=True
   ✓ unsynced_publishes: none
 ```
 
@@ -173,7 +174,9 @@ short-lived token.
 
 A long-lived token lasts 60 days and refreshing resets the clock. Set up the
 monthly refresh job in [threads-app-setup.md](threads-app-setup.md#automate-it)
-so this never becomes an incident.
+so this never becomes an incident. `doctor.py` watches for it as
+`token_refresh_job`, so a missing job is visible there long before the morning
+publishing stops.
 
 ### "Publishing is refused by the guardrails"
 

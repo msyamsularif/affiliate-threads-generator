@@ -351,3 +351,30 @@ class TestRepositoryLayout:
         namespaces it as ``<plugin-id>:<directory-name>``."""
         skills = PLUGIN_DIR / "skills"
         assert [child.name for child in skills.iterdir() if child.is_dir()] == [PLUGIN_DIR.name]
+
+
+class TestAfterInstallNote:
+    """``hermes plugins install`` shows ``after-install.md`` and Hermes reads it as
+    agent instructions — so it is where a fresh install has to hear that the
+    Threads token needs a scheduled refresh, sixty days before it matters."""
+
+    def _note(self) -> str:
+        return (PLUGIN_DIR / "after-install.md").read_text(encoding="utf-8")
+
+    def test_it_sits_at_the_plugin_root(self) -> None:
+        assert (PLUGIN_DIR / "after-install.md").is_file()
+
+    def test_it_carries_the_refresh_job_and_the_command_that_creates_it(self) -> None:
+        note = self._note()
+        assert 'hermes cron create "0 9 1 * *"' in note
+        assert "refresh-threads-token.sh" in note
+        assert "--no-agent" in note
+        assert "terminal.env_passthrough" in note
+        assert "hermes gateway restart" in note
+
+    def test_it_checks_whether_the_job_already_exists_first(self) -> None:
+        assert "hermes cron list" in self._note()
+
+    def test_it_never_asks_for_a_second_install(self) -> None:
+        """The note is agent-facing; a stray install step is how copies drift."""
+        assert "hermes skills install" not in self._note()

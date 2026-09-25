@@ -49,23 +49,19 @@ directly.
 
 ---
 
-## Option A — accept the blueprint suggestion
+## Option A — let the install note create it
 
-The skill declares a blueprint in its frontmatter, so Hermes offers it as a
-_suggested_ job; nothing is scheduled until you accept.
+`hermes plugins install` ends by showing the plugin's
+[`after-install.md`](../after-install.md), and Hermes hands that note to the agent
+as instructions. It asks the agent to offer both jobs — this one and the monthly
+token refresh — with the exact commands, so a fresh install can end with
+everything scheduled and nothing left to remember.
 
-In any session:
-
-```
-/suggestions
-/suggestions accept 1
-```
-
-That creates the job through the same `cron.jobs.create_job` path as the CLI —
-there is no second scheduler. The blueprint's prompt names the skill explicitly,
-so the job works whether or not the suggestion attaches it by name.
-
-If no suggestion appears, use Option B — it creates the same job.
+The skill's `blueprint:` frontmatter is not a second path to the same thing. Hermes
+turns a blueprint into a `/suggestions` entry only for a skill installed from the
+skills hub; this skill ships inside the plugin and is never copied into
+`~/.hermes/skills/`, so nothing offers it there. Option B below is the scheduling
+step either way.
 
 ## Option B — create it from the CLI
 
@@ -203,6 +199,60 @@ not a failure.
 The run is a **fresh session**, so the prompt has to be self-contained — which is
 why the prompt above names the skill and spells out "exactly one candidate, then
 stop". The skill supplies everything else.
+
+---
+
+## The second job: the monthly token refresh
+
+The generation job is the one this plugin ships a blueprint for. There is a
+second job worth having, and it has no model in it at all.
+
+A Threads long-lived token lasts **60 days**. Refreshing resets the clock, and it
+works at any point — even a day after the token was issued — so a monthly refresh
+is plenty, and nothing expires because a human forgot:
+
+```bash
+hermes cron create "0 9 1 * *" \
+  "Refresh the Threads token" \
+  --no-agent \
+  --script refresh-threads-token.sh \
+  --deliver telegram \
+  --name "threads-token-refresh"
+```
+
+`--no-agent` is the point. The job runs a shell script: no prompt, no model call,
+no tools, nothing to approve. On success the script prints nothing, so the job
+delivers nothing — a silent month is the good outcome, and any message means it
+needs you.
+
+The script body, and the one line this job needs that the generation job does
+not, are in [threads-app-setup.md](threads-app-setup.md#automate-it). Read both
+before scheduling it.
+
+Two ways this job goes wrong, both of them quiet for a month:
+
+- **`THREADS_ACCESS_TOKEN is not set`, delivered on every tick.** A `no_agent`
+  script still runs as a child with a sanitized environment, so `.env` is not
+  inherited. Add the variable to `terminal.env_passthrough` — the YAML block on
+  the setup page.
+- **The refresh succeeds, and publishing still fails on an expired token.** The
+  job writes the new value to `~/.hermes/.env`, while a running gateway keeps
+  serving the old one it read at start. Restart it (`hermes gateway restart`)
+  after the tick.
+
+Check where the token stands at any time, without waiting for the schedule:
+
+```bash
+SKILL_DIR="$HERMES_HOME/plugins/affiliate-threads-generator/skills/affiliate-threads-generator"
+python3 "$SKILL_DIR/scripts/threads_token.py" status
+```
+
+`days_remaining` back near 60 is what a healthy run looks like. The manual path
+and the rotation reasoning are in [credentials.md](credentials.md#rotation).
+
+`doctor.py` reports both jobs: `cron_job` for the generation schedule and
+`token_refresh_job` for this one, so a refresh job that was never created shows up
+red with the command that fixes it.
 
 ---
 

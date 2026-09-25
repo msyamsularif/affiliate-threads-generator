@@ -182,16 +182,20 @@ A healthy setup looks like:
   ✓ next_candidate: ID 3 — Wireless Earbuds X (row 5)
   ✓ bundled_skill: .../plugins/affiliate-threads-generator/skills/affiliate-threads-generator/SKILL.md
   ✓ cron_job: affiliate-threads-generator [0 8 * * 0,1,3,5] next=... enabled=True
+  ✓ token_refresh_job: threads-token-refresh [0 9 1 * *] next=... enabled=True
   ✓ unsynced_publishes: none
 
-9/9 checks passed.
+10/10 checks passed.
 ```
 
 Any `✗` line comes with a `→` hint telling you exactly what to fix.
 
 ## 6. Schedule generation
 
-See [cron-setup.md](cron-setup.md). The short version:
+See [cron-setup.md](cron-setup.md). A fresh `hermes plugins install` shows the
+plugin's [after-install.md](../after-install.md), which the agent reads as
+instructions and can act on with you — both jobs, the monthly token refresh
+included. By hand, the generation job is:
 
 ```bash
 hermes cron create "0 8 * * 0,1,3,5" \
@@ -201,6 +205,24 @@ hermes cron create "0 8 * * 0,1,3,5" \
 ```
 
 The scheduler only generates and previews. It never publishes.
+
+### The other job: refresh the token monthly
+
+The Threads token expires after 60 days, and a refresh resets the clock. That is
+a second cron job, a script instead of a prompt — no model, nothing to approve:
+
+```bash
+hermes cron create "0 9 1 * *" \
+  "Refresh the Threads token" \
+  --no-agent \
+  --script refresh-threads-token.sh \
+  --deliver telegram \
+  --name "threads-token-refresh"
+```
+
+It needs a `terminal.env_passthrough` line that the generation job does not, plus
+the script body to go beside it. Both are in
+[cron-setup.md](cron-setup.md#the-second-job-the-monthly-token-refresh).
 
 ## 7. First run
 
