@@ -49,8 +49,9 @@ User ──► Telegram (Hermes Messaging Gateway)
               │
               ▼
      Skill: affiliate-threads-generator
-     (research, angles, point of view, narrative, drafting,
-      antislop audit, editorial + evidence review)
+     (research, angles, voice, point of view, beats, hook variants,
+      drafting, antislop audit, naturalization, editorial + evidence
+      review, diversity review)
               │
               ├─► Hermes bundled google-workspace skill  → Google Sheets (source of truth)
               ├─► Hermes bundled web/browser tools       → research
@@ -70,8 +71,9 @@ User ──► Telegram (Hermes Messaging Gateway)
 **Skill vs Tool, in this project:**
 
 - **Skill** — everything that can be expressed as instructions plus tools that
-  already exist. Research, angle discovery, narrative planning, writing,
-  anti-slop review, interpreting natural-language approve/hold/cancel.
+  already exist. Research, angle discovery, voice resolution, beat planning,
+  hook variants, drafting, the antislop audit and the naturalization rewrite,
+  interpreting natural-language approve/hold/cancel.
 - **Tool** — exactly one thing: `threads_publish`. A side effect must never
   depend on the model getting it right.
   Both live in the same bundle. The plugin registers the skill from its own
@@ -186,7 +188,7 @@ uv run --no-project --with ruff ruff check .
 | `test_hooks.py`                  | The approval gate fires for `threads_publish` and nothing else                                                                |
 | `test_plugin_manifest.py`        | Declared tools/hooks match what `register()` registers; the skill is loadable                                                 |
 | `test_skill_scripts.py`          | The doctor finds the publish ledger wherever Hermes filed it                                                                  |
-| `test_content_regression.py`     | The content corpus: templated drafts are flagged, the style target stays clean                                                |
+| `test_content_regression.py`     | The content corpus: templated drafts are flagged, the style target stays clean, blocked drafts stay blocked                   |
 | `test_integration_end_to_end.py` | The whole cycle through a real subprocess to a fake `google_api.py`                                                           |
 
 Before changing anything in `guardrails.py` or `tools.py`, run both commands.

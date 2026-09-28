@@ -14,11 +14,14 @@ Two classes of finding:
     Soft signals: the affiliate-cliché phrase list, funnel language, the
     seller-viewpoint list (copy written from the seller's seat, or a claim
     repeated from the Description), and a handful of cheap structural counters
-    (signposting, transition density, enumeration, spec density). They are
-    reported back to the model so it can rewrite, but they never block — and
-    none of them is proof that a text is AI-written. The prose audit itself
-    belongs to the external ``antislop`` / ``antislop-copywriting`` skills,
-    not here.
+    (signposting, transition density, enumeration, spec density) plus the
+    anti-template diversity signals (uniform post length, uniform sentence
+    counts, repeated openings, explanation density, and — when recent content
+    notes are supplied — repeated product-entry positions, CTA shapes and
+    question hooks). They are reported back to the model so it can rewrite, but
+    they never block — and none of them is proof that a text is AI-written. The
+    prose audit itself belongs to the external ``antislop`` /
+    ``antislop-copywriting`` skills, not here.
 
 Nothing here does I/O, so it is cheap to run on every draft.
 """
@@ -26,7 +29,7 @@ Nothing here does I/O, so it is cheap to run on every draft.
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -233,6 +236,49 @@ DEFAULT_SIGNPOSTING_PHRASES: tuple[str, ...] = (
     "here's what you need to know",
 )
 
+#: Explanation markers — the connectives that narrate the reasoning instead of
+#: carrying it. Matched at sentence boundaries only, so "menjadi" and the verb
+#: "jadi" ("hasilnya jadi lebih baik") stay invisible. Overlaps the transition
+#: list on purpose: this counter has its own vocabulary (artinya, intinya) and
+#: its own threshold, so the density signal is readable on its own.
+DEFAULT_EXPLANATION_WORDS: tuple[str, ...] = (
+    "jadi",
+    "makanya",
+    "artinya",
+    "dengan kata lain",
+    "intinya",
+    "kesimpulannya",
+)
+
+#: CTA sentence shapes that repeat easily. The CTA has to exist where the
+#: publishing mode requires one; the shape of its opening sentence is what
+#: rotates. Compared against the shapes recorded in recent content notes
+#: (``cta_shape``), and read from the closing post of this thread.
+DEFAULT_CTA_SHAPES: tuple[str, ...] = (
+    "buat yang penasaran",
+    "kalau mau lihat",
+    "kalau mau cek",
+    "kalau penasaran",
+    "untuk yang mau",
+    "yang mau lihat",
+    "yang penasaran",
+)
+
+#: Question-shaped openings: a ``?`` anywhere in the first line, or one of these
+#: at the front of it. The question-hook signal reads the text itself, because
+#: the content note's ``hook_pattern`` metadata can say anything.
+_QUESTION_OPENER_RE = re.compile(
+    r"^\s*(?:apa|apakah|kenapa|mengapa|gimana|bagaimana|kapan|dimana|di mana|siapa|berapa)\b",
+    re.IGNORECASE,
+)
+
+#: Minimum posts before "every post is the same" can mean anything. Three posts
+#: cannot be uniform; four can.
+_DIVERSITY_MIN_POSTS = 4
+
+#: How many recent content notes the cross-thread signals compare against.
+_RECENT_NOTE_WINDOW = 2
+
 #: A number with a unit — the cheapest deterministic proxy for spec dumping.
 _SPEC_TOKEN_RE = re.compile(
     r"\d+(?:[.,]\d+)?\s*(?:mah|wh|kwh|watt|volt|gram|kg|mg|cm|mm|km|ml|liter"
@@ -383,6 +429,9 @@ def validate_thread(
     transition_words: Iterable[str] = DEFAULT_TRANSITION_WORDS,
     enumeration_words: Iterable[str] = DEFAULT_ENUMERATION_WORDS,
     signposting_phrases: Iterable[str] = DEFAULT_SIGNPOSTING_PHRASES,
+    explanation_words: Iterable[str] = DEFAULT_EXPLANATION_WORDS,
+    cta_shapes: Iterable[str] = DEFAULT_CTA_SHAPES,
+    recent: Sequence[Mapping[str, Any]] = (),
 ) -> GuardrailReport:
     """Check a thread against every rule that must not depend on model judgement.
 
@@ -396,6 +445,12 @@ def validate_thread(
     model. ``firsthand`` (``Used=Yes`` plus a non-empty testimony) is the only
     mode where first-hand claims may ship, and even then nothing may go beyond
     what the testimony says. Everything else validates in ``none`` mode.
+
+    ``recent`` is the window of recent content notes (newest first) recalled
+    from Hermes memory. The cross-thread anti-template signals — a repeated
+    product-entry position, CTA shape or question hook, and an opening that
+    echoes a recent one — compare against it. Without it those signals simply do
+    not run; nothing about the in-thread checks changes.
     """
     report = GuardrailReport()
 
@@ -763,6 +818,23 @@ def validate_thread(
                 )
             )
 
+    # ---- anti-template diversity signals ---------------------------------
+    # The shapes a generated thread falls back into: uniform construction,
+    # repeated openings, narrated reasoning, the product entering at the same
+    # post every time, the same CTA phrase, a third question hook in a row. The
+    # in-thread checks always run; the cross-thread ones need the recent notes.
+    # Warnings only — a signal to look again, never a block.
+    report.warnings.extend(
+        _diversity_findings(
+            posts,
+            settings,
+            product_name=product_name,
+            recent=recent,
+            explanation_words=explanation_words,
+            cta_shapes=cta_shapes,
+        )
+    )
+
     return report
 
 
@@ -817,3 +889,244 @@ def _spec_token_hits(texts: Sequence[str]) -> list[str]:
     for text in texts:
         hits.extend(match.group(0).strip() for match in _SPEC_TOKEN_RE.finditer(text))
     return hits
+
+
+def _word_count(text: str) -> int:
+    return len(re.findall(r"\S+", text or ""))
+
+
+def _sentence_count(text: str) -> int:
+    """Sentences in ``text``: URLs are masked first — a URL's dots are not
+    sentence ends — and neither is a dot between digits ("22.5")."""
+    masked = _URL_RE.sub(" ", text or "")
+    masked = re.sub(r"(?<=\d)\.(?=\d)", "", masked)
+    return len([part for part in re.split(r"[.!?]+", masked) if part.strip()])
+
+
+def _first_word(text: str) -> str:
+    match = re.search(r"[^\W\d_]+", text or "", re.UNICODE)
+    return match.group(0).casefold() if match else ""
+
+
+def _first_tokens(text: str, count: int = 2) -> tuple[str, ...]:
+    words = re.findall(r"[^\W\d_]+", text or "", re.UNICODE)
+    return tuple(word.casefold() for word in words[:count])
+
+
+def _question_opening(text: str) -> bool:
+    """Whether the first line of ``text`` reads as a question — the text itself,
+    not the pattern metadata a content note may carry."""
+    line = next((line.strip() for line in (text or "").splitlines() if line.strip()), "")
+    if not line:
+        return False
+    if "?" in line:
+        return True
+    return bool(_QUESTION_OPENER_RE.match(line))
+
+
+def _recent_window(recent: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
+    """The most recent notes, newest first — what the repetition signals compare
+    against. Notes are memory output and may be partial; a note missing the key
+    a signal reads is simply invisible to that signal."""
+    window: list[Mapping[str, Any]] = []
+    for note in recent:
+        if isinstance(note, Mapping):
+            window.append(note)
+        if len(window) >= _RECENT_NOTE_WINDOW:
+            break
+    return window
+
+
+def _post_number(value: Any) -> int:  # noqa: ANN401
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _cta_shape(text: str, shapes: Iterable[str]) -> str:
+    """The first CTA shape that appears in ``text``, longest phrases first so
+    "buat yang penasaran" does not degrade to "yang penasaran"."""
+    lowered = (text or "").casefold()
+    for shape in sorted((shape for shape in shapes if shape), key=len, reverse=True):
+        if shape.casefold() in lowered:
+            return shape.casefold()
+    return ""
+
+
+def _diversity_findings(
+    posts: Sequence[Mapping[str, Any]],
+    settings: Settings,
+    *,
+    product_name: str,
+    recent: Sequence[Mapping[str, Any]],
+    explanation_words: Iterable[str],
+    cta_shapes: Iterable[str],
+) -> list[Finding]:
+    """Anti-template signals: the shapes a generated thread falls back into.
+
+    The in-thread checks run whenever their thresholds are non-zero. The
+    cross-thread checks need ``recent`` — "the same as last time" cannot be read
+    off one thread — and stay silent without it. All of them are warnings.
+    """
+    findings: list[Finding] = []
+    texts = [str(post.get("text") or "") for post in posts]
+    if len(texts) < 2:
+        return findings
+
+    # 1. Uniform post length — every post the same size.
+    if settings.uniform_length_ratio > 0 and len(texts) >= _DIVERSITY_MIN_POSTS:
+        counts = [_word_count(text) for text in texts if text.strip()]
+        if counts:
+            mean = sum(counts) / len(counts)
+            spread = (max(counts) - min(counts)) / mean if mean else 0.0
+            if spread < settings.uniform_length_ratio:
+                findings.append(
+                    Finding(
+                        "uniform_post_length",
+                        f"Every post is about the same length ({min(counts)}-{max(counts)} "
+                        "words). Soft signal, not a block — a varied thread has a short post, a "
+                        "longer one, and one that is short because the thought needed no more.",
+                        detail={"word_counts": counts, "spread_ratio": round(spread, 3)},
+                    )
+                )
+
+    # 2. Uniform sentence count — every post built the same way.
+    if (
+        settings.uniform_sentence_min_posts > 0
+        and len(texts) >= settings.uniform_sentence_min_posts
+    ):
+        counts = [_sentence_count(text) for text in texts if text.strip()]
+        if counts and len(set(counts)) == 1 and counts[0] > 1:
+            findings.append(
+                Finding(
+                    "uniform_sentence_count",
+                    f"Every post carries exactly {counts[0]} sentences. Soft signal, not a "
+                    "block — uniform construction is the generated-thread shape; let one post be "
+                    "a single line and another run longer.",
+                    detail={"sentence_counts": counts},
+                )
+            )
+
+    # 3. Opening similarity — the same first word over and over, or an opening
+    #    that echoes a recent thread's.
+    if settings.opening_similarity_min_posts > 0:
+        first_words = [_first_word(text) for text in texts]
+        repeated: dict[str, int] = {}
+        for word in set(first_words):
+            count = first_words.count(word)
+            if word and count >= settings.opening_similarity_min_posts:
+                repeated[word] = count
+        if repeated:
+            word, count = max(repeated.items(), key=lambda item: item[1])
+            findings.append(
+                Finding(
+                    "opening_similarity",
+                    f'{count} posts open with "{word}". Soft signal, not a block — repeated '
+                    "openings make the thread read as a list, not a thought.",
+                    detail={"repeated_word": word, "count": count},
+                )
+            )
+        opening = _first_tokens(texts[0])
+        if opening:
+            for note in _recent_window(recent):
+                if (
+                    _first_tokens(str(note.get("opening") or "")) == opening
+                    and str(note.get("opening") or "").strip()
+                ):
+                    findings.append(
+                        Finding(
+                            "opening_similarity",
+                            "This thread opens the same way as a recent one. Soft signal, not a "
+                            "block — the rotation is checked through the content notes' openings, "
+                            "not just the pattern name.",
+                            detail={"opening": " ".join(opening)},
+                        )
+                    )
+                    break
+
+    # 4. Explanation density — reasoning narrated instead of carried.
+    if settings.explanation_warning_threshold > 0:
+        hits = _sentence_opener_hits(texts, explanation_words)
+        if len(hits) >= settings.explanation_warning_threshold:
+            findings.append(
+                Finding(
+                    "explanation_density",
+                    f'{len(hits)} explanation marker(s) open sentences ("Jadi, ...", '
+                    '"Artinya, ..."). Soft signal, not a block — the reasoning may be sound, but '
+                    "the reader can feel the seams.",
+                    detail={"count": len(hits), "matches": hits[:8]},
+                )
+            )
+
+    # Cross-thread signals — only when the recent notes were supplied.
+    window = _recent_window(recent)
+    if not window:
+        return findings
+
+    # 5. Product-entry repetition — the product back at the same post number.
+    if product_name:
+        needle = product_name.casefold()
+        entry = next(
+            (index + 1 for index, text in enumerate(texts) if needle in text.casefold()),
+            0,
+        )
+        if entry:
+            matches = [
+                note for note in window if _post_number(note.get("product_entry_post")) == entry
+            ]
+            if len(matches) >= _RECENT_NOTE_WINDOW:
+                findings.append(
+                    Finding(
+                        "product_entry_repetition",
+                        f"The product entered at post {entry} in the last "
+                        f"{_RECENT_NOTE_WINDOW} threads too. Soft signal, not a block — the entry "
+                        "point is a consequence of the narrative, not a schedule.",
+                        detail={
+                            "product_entry_post": entry,
+                            "recent": [
+                                _post_number(note.get("product_entry_post")) for note in window
+                            ],
+                        },
+                    )
+                )
+
+    # 6. CTA-shape repetition — the same closing sentence, run after run.
+    shape = _cta_shape(texts[-1], cta_shapes)
+    if shape:
+        matches = [
+            note for note in window if shape in str(note.get("cta_shape") or "").casefold()
+        ]
+        if len(matches) >= _RECENT_NOTE_WINDOW:
+            findings.append(
+                Finding(
+                    "cta_shape_repetition",
+                    f'The closing post opens with "{shape}" like the last '
+                    f"{_RECENT_NOTE_WINDOW} threads. Soft signal, not a block — the CTA still has "
+                    "to exist, but its sentence shape rotates.",
+                    detail={"cta_shape": shape},
+                )
+            )
+
+    # 7. Question-hook repetition — a third question opening in a row.
+    if _question_opening(texts[0]):
+        question_notes = [
+            note
+            for note in window
+            if str(note.get("hook_pattern") or "").strip().casefold() == "question"
+            or _question_opening(str(note.get("opening") or ""))
+        ]
+        if len(question_notes) >= _RECENT_NOTE_WINDOW:
+            findings.append(
+                Finding(
+                    "question_hook_repetition",
+                    f"The last {_RECENT_NOTE_WINDOW} threads opened with a question too. Soft "
+                    "signal, not a block — a question hook repeated three runs in a row reads as "
+                    "a formula, even when the pattern metadata differs.",
+                    detail={
+                        "recent": [str(note.get("hook_pattern") or "") for note in window]
+                    },
+                )
+            )
+
+    return findings

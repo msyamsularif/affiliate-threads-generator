@@ -96,6 +96,13 @@ def _as_int(value: Any, default: int) -> int:  # noqa: ANN401
         return default
 
 
+def _as_float(value: Any, default: float) -> float:  # noqa: ANN401
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def _publish_mode(value: Any) -> str:  # noqa: ANN401
     """``two_stage`` or ``single``; anything unrecognised falls back to ``single``."""
     text = str(value or "").strip().lower()
@@ -343,6 +350,24 @@ class Settings:
     enumeration_warning_threshold: int = 2
     spec_token_warning_threshold: int = 6
 
+    # Anti-template diversity signals — warnings only, never blocks. See
+    # ``guardrails.py``: uniform construction and repeated furniture are how a
+    # thread drifts back into the last one. A value of 0 disables that signal;
+    # the length ratio uses 0.0.
+    #: Warn when every post in a 4+-post thread sits within this fraction of
+    #: the average word count — the classic uniform generated shape.
+    uniform_length_ratio: float = 0.15
+    #: Warn when every post in a run of this many posts carries the same
+    #: sentence count (2, 2, 2, ...).
+    uniform_sentence_min_posts: int = 4
+    #: Warn when this many posts open with the same word, or when the opening
+    #: echoes a recent thread's (needs the ``recent`` notes, see
+    #: ``guardrails.validate_thread``).
+    opening_similarity_min_posts: int = 3
+    #: Warn when this many sentence-opening explanation markers appear
+    #: ("Jadi, ...", "Makanya, ...", "Artinya, ...", "Intinya, ...").
+    explanation_warning_threshold: int = 3
+
     # Sheets plumbing
     google_api_path: str = ""
     google_api_command: str = "{python} {script}"
@@ -421,6 +446,10 @@ class Settings:
             "transition_warning_threshold": self.transition_warning_threshold,
             "enumeration_warning_threshold": self.enumeration_warning_threshold,
             "spec_token_warning_threshold": self.spec_token_warning_threshold,
+            "uniform_length_ratio": self.uniform_length_ratio,
+            "uniform_sentence_min_posts": self.uniform_sentence_min_posts,
+            "opening_similarity_min_posts": self.opening_similarity_min_posts,
+            "explanation_warning_threshold": self.explanation_warning_threshold,
             "require_approval_prompt": self.require_approval_prompt,
             "content_language": self.content_language,
             "threads_credentials_configured": self.credentials_configured,
@@ -477,6 +506,10 @@ def resolve(overrides: dict[str, Any] | None = None) -> Settings:
         transition_warning_threshold=_as_int(_lookup("transition_warning_threshold", 3), 3),
         enumeration_warning_threshold=_as_int(_lookup("enumeration_warning_threshold", 2), 2),
         spec_token_warning_threshold=_as_int(_lookup("spec_token_warning_threshold", 6), 6),
+        uniform_length_ratio=_as_float(_lookup("uniform_length_ratio", 0.15), 0.15),
+        uniform_sentence_min_posts=_as_int(_lookup("uniform_sentence_min_posts", 4), 4),
+        opening_similarity_min_posts=_as_int(_lookup("opening_similarity_min_posts", 3), 3),
+        explanation_warning_threshold=_as_int(_lookup("explanation_warning_threshold", 3), 3),
         google_api_path=str(_lookup("google_api_path", "") or "").strip(),
         google_api_command=str(_lookup("google_api_command", "{python} {script}")).strip()
         or "{python} {script}",

@@ -1,0 +1,23 @@
+{
+    "note": "Every post the same size and the same construction: two sentences, ~10 words each. A classic generated-thread shape. Fires uniform_post_length + uniform_sentence_count.",
+    "product_id": "20",
+    "product_name": "Power Bank Slim",
+    "affiliate_url": "https://shope.ee/abc123",
+    "posts": [
+        {
+            "text": "Kapasitas besar enak dilihat di kotaknya. Harga yang dibayar justru beratnya."
+        },
+        {
+            "text": "Angka mAh paling gampang dibandingkan. Beratnya baru terasa tiap hari."
+        },
+        {
+            "text": "Kabel bawaan sering terlalu pendek. Colokan jadi rebutan di meja kafe."
+        },
+        {
+            "text": "Pengisian penuh butuh waktu lama. Siapkan jeda sebelum berangkat kerja."
+        },
+        {
+            "text": "Detail lengkapnya ada di sini. Varian warnanya ikut kelihatan: https://shope.ee/abc123"
+        }
+    ]
+}

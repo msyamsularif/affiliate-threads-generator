@@ -73,10 +73,14 @@ affiliate editorial audit and the audit record).
 The division of labour, in one line each:
 
 - `antislop` and `antislop-copywriting` say **how the prose reads**.
+- `references/naturalization.md` says **what the rewrite may touch** — the
+  scaffolding the audit left behind, never the facts; it runs after the audit
+  and before the affiliate editorial review.
 - The affiliate editorial audit says **whether the thread is worth reading at
   all**, and whether the product earned its place.
 - `guardrails.py` and `threads_publish` say **what may not ship** — and they run
-  last, in code.
+  last, in code. The anti-template diversity signals (`uniform_post_length`,
+  `cta_shape_repetition`, ...) are warnings there, never blocks.
 
 Anti-slop rules never override evidence, product fit, or the
 fabricated-experience ban. A rewrite that removes a qualification to sound more

@@ -5,22 +5,35 @@ Everything in this file is enforced by judgement during writing, and partly by
 
 ## 1. Content philosophy
 
+Two shapes, deliberately different. The first is what the writing does; the
+second is what a finished thread must be true of.
+
+**What the reader experiences** — the generation guide:
+
+```
+Conversation → Discovery → Relevance → Consequence → Optional product →
+Useful ending
+```
+
+**What a finished thread must be true of** — the test, not the order:
+
 ```
 Audience → Problem/curiosity/observation → Interesting insight →
 Specific evidence → Possible solution → Product → Contextual CTA
 ```
 
-Not this:
+Do not hand the test back to the writer as a mandatory post order. Hook → body →
+CTA is an educational model of how a thread reads; the moment it becomes the
+sequence the draft is written in, every sentence starts existing to serve the
+next section and the reader can feel the machinery. What the writer follows is
+the beat plan (`references/beat-library.md`), and a beat is an intention, never
+a post.
 
-```
-Product → "great product" → Features → Benefits → Affiliate link
-```
+Three conceptual layers still decide whether a topic works at all:
 
-Every thread moves through three conceptual layers:
-
-1. **Conversation** — is this worth discussing at all?
+1. **Conversation** — is this worth discussing?
 2. **Discovery** — is there an insight that keeps someone reading?
-3. **Solution** — can the product naturally address what was raised?
+3. **Relevance** — can the product naturally join the conversation?
 
 If the product feels inserted rather than arrived at, reject the angle.
 
@@ -45,10 +58,15 @@ Before writing, check recent content notes in Hermes memory. If the last two
 threads used the same structure, use a different one even if it fits slightly
 less well.
 
-A structure is a starting shape, not a template. The objective-based plan in
+A structure is a starting shape, not a template. The beat plan in
 `references/narrative-planner-critic.md` wins when the two disagree — if the
 angle needs a different shape, use it and say which structure you actually used
 in the preview.
+
+The structure is the remembered shape; the beats inside it are planned fresh
+every run (`references/beat-library.md`). Writing the same beat sequence as the
+last two threads is repetition one level up from a repeated hook, and the
+`beats` line in the content note is what the next run checks.
 
 Post 1 rotates on the same principle, with its own vocabulary of opening shapes:
 `references/hook-patterns.md`. If the last two threads opened the same way, take
@@ -95,6 +113,11 @@ The generic AI-writing filter is not in this file. Load `antislop` and
 `antislop-copywriting` and apply them as an audit — structure, rhythm,
 signposting, forced parallelism, filler, promotional tone. This file keeps only
 what is specific to affiliate copy.
+
+Anti-slop removes generic tells. It does not remove the scaffolding a structured
+draft still carries, and it is not a naturalness pass. That is the targeted
+rewrite in `references/naturalization.md`, which runs after the audit and
+changes only the sentences the audit questions identify.
 
 ### The replacement technique
 
@@ -186,6 +209,11 @@ Never:
 - "Jangan sampai kehabisan!"
 - Anything with a scarcity claim you cannot verify.
 
+Rotate the sentence shape across runs. "Kalau penasaran", "kalau mau lihat",
+"buat yang penasaran" are each fine once — and a formula when one of them becomes
+the only ending the account ever uses. The content note records the shape
+(`cta_shape`), and a third run with the same one is the signal to change it.
+
 ### When the link is deferred (`publish_mode: two_stage`)
 
 Under two-stage publishing the thread body carries no URL at all — it belongs to
@@ -243,6 +271,9 @@ content_id: 12
 angle_type: trade_off
 topic: power bank capacity vs weight
 hook_pattern: cost_statement — "Kamu dapat kapasitas, kamu bayar pakai berat."
+beats: observation → friction → evidence → product_clue → boundary
+product_entry_post: 3
+cta_shape: <the phrase that opens the CTA> — "<the first words of the last post>"
 topic_tag: power bank
 published: 2026-09-23
 threads_url: https://www.threads.net/@.../post/...
@@ -250,8 +281,13 @@ threads_url: https://www.threads.net/@.../post/...
 
 `hook_pattern` is the pattern's name from `references/hook-patterns.md`, with the
 opening quoted after it — the name is what you check against next time, so keep
-the vocabulary stable. `topic_tag` records the topic the post went out under,
-which is how you notice a whole category drifting onto one tag.
+the vocabulary stable. `beats` is the sequence actually used, arrows between the
+beat names (`references/beat-library.md`) — the shape check one level above the
+hook. `product_entry_post` is the post number where the product first appears.
+`cta_shape` is the phrase shape the closing post opens with ("kalau penasaran",
+"buat yang penasaran", "kalau mau lihat"), with its first words quoted.
+`topic_tag` records the topic the post went out under, which is how you notice a
+whole category drifting onto one tag.
 
 ### What to do with a repeat
 
@@ -259,3 +295,22 @@ If the leading angle repeats a recent `angle_type`, penalise its
 `novelty_vs_recent` score hard (0-2) and pick the next-best angle. If _every_
 angle repeats, that is a signal the research step was too shallow — go back to
 Step 2 and look wider before writing.
+
+The same treatment applies to the rest of the note:
+
+- **Same `beats` as the last two runs** — rework the beat plan, not the wording.
+- **Same `product_entry_post` for a third run** — move the entry; the position
+  is a consequence of the narrative, not a schedule.
+- **Same `cta_shape` for a third run** — take a different sentence shape. The
+  CTA still has to exist where the publishing mode requires it; its phrasing
+  rotates.
+- **A question hook when the last two threads also opened with a question** —
+  take a different pattern, even if the `hook_pattern` metadata would differ.
+
+`validate_thread.py` reports the same signals deterministically when it is given
+the recent notes: `--recent notes.json` adds `product_entry_repetition`,
+`cta_shape_repetition`, `question_hook_repetition` and a cross-thread
+`opening_similarity` to the lint, and the in-thread checks
+(`uniform_post_length`, `uniform_sentence_count`, `explanation_density`) need no
+notes at all. They are all warnings — read them, and rewrite where the thread
+genuinely repeats itself.

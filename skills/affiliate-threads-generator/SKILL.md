@@ -8,10 +8,11 @@ description: >-
   Runs the full pipeline: deterministic candidate selection, the experience
   check (asks whether the human has used the product before any research),
   review-first research (the seller's description is background, never
-  evidence), angle discovery and scoring, a one-line point of view, narrative
-  planning with a critic pass, drafting, an antislop audit, the affiliate
-  editorial and evidence reviews, then a Telegram preview that waits for a
-  human decision. Never publishes on its own.
+  evidence), angle discovery and scoring, voice resolution, a one-line point of
+  view, beat planning with a critic pass, hook variants, drafting, an antislop
+  audit, a targeted naturalization rewrite, the affiliate editorial and evidence
+  reviews, a deterministic diversity review, then a Telegram preview that waits
+  for a human decision. Never publishes on its own.
 version: 1.1.2
 author: Affiliate Threads
 license: MIT
@@ -132,12 +133,15 @@ When they are available:
 2. Apply them as an **audit** of the draft, not only as advice while writing.
 3. Never let anti-slop rules override affiliate evidence, product
    fit, or safety requirements. They govern prose, not facts.
-4. After the anti-slop pass, run this plugin's affiliate editorial review —
-   `references/editorial-rules.md`.
+4. After the anti-slop pass, run the targeted naturalization rewrite
+   (`references/naturalization.md`), then this plugin's affiliate editorial
+   review — `references/editorial-rules.md`.
 
 When they are not, skip that pass and say so on the preview's anti-slop line
 instead of implying an audit that did not happen. Do not reimplement the missing
-rules from memory — that is how the two layers drift apart.
+rules from memory — that is how the two layers drift apart. The naturalization
+pass still runs: it is this plugin's own rewrite, and it does not depend on the
+external skills.
 
 Setup, if you want it: [`docs/antislop-integration.md`](../../docs/antislop-integration.md).
 
@@ -167,14 +171,14 @@ reset — ask.
 All scripts live in this skill's directory. `${HERMES_SKILL_DIR}` is substituted
 for you when the skill loads.
 
-| Need                              | Command                                                                                          |
-| --------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Pick the next candidate           | `python3 ${HERMES_SKILL_DIR}/scripts/select_candidate.py`                                        |
-| Set a status (hold/cancel/resume) | `python3 ${HERMES_SKILL_DIR}/scripts/set_status.py <PRODUCT_ID> <STATUS>`                        |
-| Record the experience answer      | `python3 ${HERMES_SKILL_DIR}/scripts/set_experience.py <PRODUCT_ID> --used no`                   |
-| Lint a draft before showing it    | `python3 ${HERMES_SKILL_DIR}/scripts/validate_thread.py --file draft.json --topic-tag "<topic>"` |
-| Health check                      | `python3 ${HERMES_SKILL_DIR}/scripts/doctor.py`                                                  |
-| Threads token status / refresh    | `python3 ${HERMES_SKILL_DIR}/scripts/threads_token.py status`                                    |
+| Need                              | Command                                                                                                                                                      |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Pick the next candidate           | `python3 ${HERMES_SKILL_DIR}/scripts/select_candidate.py`                                                                                                    |
+| Set a status (hold/cancel/resume) | `python3 ${HERMES_SKILL_DIR}/scripts/set_status.py <PRODUCT_ID> <STATUS>`                                                                                    |
+| Record the experience answer      | `python3 ${HERMES_SKILL_DIR}/scripts/set_experience.py <PRODUCT_ID> --used no`                                                                               |
+| Lint a draft before showing it    | `python3 ${HERMES_SKILL_DIR}/scripts/validate_thread.py --file draft.json --topic-tag "<topic>"` (add `--recent notes.json` when recent content notes exist) |
+| Health check                      | `python3 ${HERMES_SKILL_DIR}/scripts/doctor.py`                                                                                                              |
+| Threads token status / refresh    | `python3 ${HERMES_SKILL_DIR}/scripts/threads_token.py status`                                                                                                |
 
 | Tool                                                            | Use                                                              |
 | --------------------------------------------------------------- | ---------------------------------------------------------------- |
@@ -360,7 +364,13 @@ the next one. Read `references/content-rules.md` for the exact memory format.
 Show the human your angle shortlist only when they asked to see the reasoning.
 Otherwise carry it into Step 4.
 
-### Step 4 — Point of view → narrative planner → narrative critic
+### Step 4 — Voice → point of view → beat plan → critic → hook variants
+
+**Voice.** Before planning, load `references/voice-profile.md` and fix the voice
+this thread is written in — register, rhythm, directness. The profile is the
+account's, not a persona invented for the run; if it has not been refined from
+the owner's samples, its documented default is the floor, and the family
+register from `references/category-playbook.md` still applies.
 
 **Point of view.** Write the thread's position in one line before anything else:
 
@@ -369,18 +379,24 @@ Otherwise carry it into Step 4.
 If the line is generic ("produk ini punya beberapa kelebihan dan kekurangan"),
 stop. That is an angle problem, not a wording problem — go back to Step 3.
 
-**Planner.** Decide, explicitly:
+**Planner (beat plan).** Decide, explicitly:
 
 - topic, audience, and the point of view above
 - the `category_family` from `references/category-playbook.md`, and the
   audience address the copy will use
 - the tension that makes it worth reading
+- the **beats** — the intentions the thread needs, in order, each with its
+  purpose, chosen from `references/beat-library.md`. A beat is an intention, not
+  a post: two beats may live in one post, and one beat may take two. Use the
+  smallest number of beats that makes the thought work, and record the shapes
+  deliberately skipped in `beats_to_skip` (`summary`, `generic_conclusion`)
+- the `reader_progression` — what the reader assumes at the top (`start_state`)
+  and what they understand by the end (`end_state`). If those are the same
+  thought, the plan has no movement: rework it, do not write it
 - hook strategy for post 1, and the `hook_pattern` behind it — the shape rotates
   across runs too (`references/hook-patterns.md`)
-- the objective of each post — what the reader notices, understands, or can do
-  next because of it (objectives, not a fixed role template)
-- the bridge between posts — what each post hands to the next, so the thread
-  reads as one thought moving forward
+- the bridge between beats — what each hands to the next, so the thread reads as
+  one thought moving forward
 - where the product becomes relevant, and why the narrative is ready for it
   there (post 3-4 is the normal range, not a rule)
 - which post carries the CTA
@@ -390,18 +406,27 @@ stop. That is an angle problem, not a wording problem — go back to Step 3.
 - `must_include` and `must_not_claim` lists
 - which evidence tier each factual claim traces to
 
-**Critic.** Before writing a single line of copy, answer all twelve questions in
-`references/narrative-planner-critic.md`. If any answer is weak, revise the plan.
+**Critic.** Before writing a single line of copy, answer all seventeen questions
+in `references/narrative-planner-critic.md`. If any answer is weak, revise the
+plan.
 
 Bounded loop: **2-3 revision rounds maximum.** If it still fails after that, pick
 a different angle from Step 3 rather than looping forever.
+
+**Hook variants.** After the plan passes the critic, write three hook variants
+for the chosen angle — the same angle, three different sentences, not three
+marketing formulas. Score each on `specificity`, `curiosity`, `voice_fit`,
+`naturalness`, `novelty_vs_recent` and `product_relevance`, and take the winner.
+The winner's shape is the `hook_pattern` recorded in the content note; the other
+two are discarded.
 
 ### Step 5 — Thread generation
 
 Write **3-10 posts**. Dynamic — post length varies, and not every thread is the
 same shape. Rotate the narrative structure across runs; never default to
 `Hook → 3 benefits → CTA`. The structures are in `references/content-rules.md`,
-the opening shapes in `references/hook-patterns.md`.
+the opening shapes in `references/hook-patterns.md`, the beats in
+`references/beat-library.md`.
 
 **No post carries a hashtag.** Threads is not Instagram: exactly one tag per post
 becomes clickable, it is called a topic tag, and it is passed to
@@ -412,13 +437,22 @@ the one topic a reader would search for —
 the conversation, not the product name — within the platform's limits (1-50
 characters, no `.` or `&`, no leading `#`). Details: `references/content-rules.md`.
 
-Follow the content philosophy in `references/content-rules.md` and the editorial
-rules in `references/editorial-rules.md`. The short version:
+Write from the beat plan, in the account's voice (`references/voice-profile.md`)
+and the family's register. Load `references/beat-library.md` — the post breaks
+follow the writing, not the beat list's line count, and a beat is an intention
+to land, never a section to fill.
+
+What the reader experiences (`references/content-rules.md`):
 
 ```
-Audience → Problem/curiosity/observation → Interesting insight →
-Specific evidence → Possible solution → Product → Contextual CTA
+Conversation → Discovery → Relevance → Consequence → Optional product →
+Useful ending
 ```
+
+The editorial chain in `references/editorial-rules.md` (audience → problem →
+insight → evidence → solution → product → CTA) is the test a finished thread must
+pass, not the order it is written in. Do not draft against it as a sequence —
+that is exactly how the machinery becomes visible.
 
 Select the two to four details the angle needs. Leave the rest in the research.
 Include a genuine, evidence-backed trade-off when the angle has room for one —
@@ -457,36 +491,64 @@ decides this:
   says so — never _"saya pakai"_); and guarantee language — _"dijamin"_,
   _"100% ampuh"_, _"pasti sembuh"_ — is refused in both modes
 
-### Step 6 — Audit, rewrite, then lint
+**Two internal drafts.** Write two versions before choosing one: same research,
+same angle, same beats — different opening emphasis, rhythm and degree of
+directness. Never different facts. Compare both against the beat plan and the
+voice profile, keep the stronger one, and carry anything the other did better
+into the audit. One request still produces one candidate and one preview; the
+second draft is internal.
 
-Four passes on the draft, in this order:
+### Step 6 — Audit, naturalize, then lint
+
+Six passes on the selected draft, in this order:
 
 1. **Anti-slop audit** (when the skills are installed) — with `antislop` and
    `antislop-copywriting` loaded, ask what makes this obviously AI-written.
    Structure, rhythm, signposting, symmetry and unnecessary explanation count
    for more than vocabulary. If the skills are not installed, skip this pass and
    note it on the preview's anti-slop line.
-2. **Affiliate editorial review** — the questions in
+2. **Naturalization rewrite** — the targeted pass in
+   `references/naturalization.md`. Ask its ten questions, then rewrite only the
+   sentences they identify: scaffolding, over-explanation, seller-voice slips,
+   lines that exist only because the template expected them. Not a re-roll — the
+   parts that were working stay. Never inject typos, slang or randomness, and
+   never let the rewrite add a fact or drop a qualification.
+3. **Affiliate editorial review** — the questions in
    `references/editorial-rules.md`: is there a point of view? would the thread be
    useful without the link? is the product supporting the conversation rather
    than starring in it? is the copy in the family's register, and does every post
    connect to the one before it? is the ending earned rather than a summary? is
-   there a line written from the seller's seat?
-3. **Evidence review** — every factual claim traces to one of Step 2's tiers.
-   Anything untraceable is removed or rewritten as an explicit hedge. Check that
-   the rewrite did not introduce a new fact or drop a qualification.
-4. **Deterministic lint** — the same check the publish tool will run In
+   there a line written from the seller's seat? does the account voice
+   (`references/voice-profile.md`) still show through?
+4. **Evidence review** — every factual claim traces to one of Step 2's tiers.
+   Anything untraceable is removed or rewritten as an explicit hedge. It runs
+   again after every rewrite: check that naturalization did not introduce a new
+   fact or drop a qualification.
+5. **Deterministic lint** — the same check the publish tool will run. In
    `firsthand` mode, every first-hand sentence must trace to the stored
-   testimony too — a detail it does not contain fails this pass.:
+   testimony too — a detail it does not contain fails this pass. Write the
+   content notes you recalled in Step 3 to a file and pass them with `--recent`
+   so the cross-thread signals have something to compare against:
 
 ```bash
-python3 ${HERMES_SKILL_DIR}/scripts/validate_thread.py --file draft.json
+python3 ${HERMES_SKILL_DIR}/scripts/validate_thread.py --file draft.json --recent notes.json
 ```
 
+6. **Diversity review** — read the anti-template signals the lint reports.
+   In-thread: `uniform_post_length`, `uniform_sentence_count`,
+   `opening_similarity`, `explanation_density`. Against the recent notes:
+   `product_entry_repetition`, `cta_shape_repetition`,
+   `question_hook_repetition`, and a cross-thread `opening_similarity`. A signal
+   firing means the thread is drifting back toward the last one — rework that
+   part, do not just reword it.
+
 Fix every `violation`. Read the `warnings` and decide — they are signals, not
-orders. Alongside the phrase warnings, `validate_thread.py` reports four
-structural signals — `excessive_signposting`, `repeated_transition_density`,
-`excessive_enumeration`, `product_detail_density` — plus `funnel_phrase` for
+orders. Alongside the phrase warnings, `validate_thread.py` reports the
+structural signals (`excessive_signposting`, `repeated_transition_density`,
+`excessive_enumeration`, `product_detail_density`, `uniform_post_length`,
+`uniform_sentence_count`, `opening_similarity`, `explanation_density`) and the
+cross-thread ones when `--recent` is supplied (`product_entry_repetition`,
+`cta_shape_repetition`, `question_hook_repetition`) — plus `funnel_phrase` for
 copy that only talks the reader toward the link ("klik link di bawah", "link di
 bio", "cek reply") and `seller_viewpoint` for copy written from the seller's
 seat. None of them blocks, and none of them is proof that the text is
@@ -509,9 +571,13 @@ Pass `--product-id` so the lint reads the row's own experience answer — the mo
 and the stored testimony — instead of assuming `none`. With no row to read, the
 explicit form is `--experience firsthand --testimonial "<stored text>"`.
 
+Any rewrite after the lint means the lint runs again: the validation covers the
+final copy, never an earlier draft.
+
 Bounded loop: **2 revision rounds maximum.** If the thread still reads as
-templated after two rounds, the angle is the problem — go back to Step 3 and take
-the next candidate. Do not keep polishing the same structure.
+templated after two rounds — naturalization included — the angle is the problem.
+Go back to Step 3 and take the next candidate. Do not keep polishing the same
+structure.
 
 ### Step 7 — Image (optional)
 
@@ -535,7 +601,7 @@ in front of them:
 📦 Product ID: <ID>
 🏷️ <Product> — <Category> · <family>
 🎯 Angle: <angle_type> — <core idea in one line>
-🧭 Structure: <the narrative structure you used> · hook: <hook_pattern>
+🧭 Structure: <the narrative structure you used> · hook: <hook_pattern> · beats: <beat sequence>
 🔖 Topic: <topic_tag>
 📊 Evidence: independent research — <what the substance traces to>
 🧪 Experience: <none — tanpa klaim pengalaman | firsthand — dari testimoni tersimpan>
@@ -659,12 +725,17 @@ Before you send the preview, confirm all of these are true:
 - [ ] Exactly one candidate was processed
 - [ ] 5-8 angles were generated and scored before one was chosen
 - [ ] The novelty check against recent content notes ran
+- [ ] The account voice was resolved from `references/voice-profile.md` before planning
 - [ ] A one-line point of view existed before drafting, and it is not generic
-- [ ] The narrative critic answered all twelve questions
+- [ ] The beat plan carried a reader progression (`start_state` → `end_state`) and beat purposes, not a fixed role template
+- [ ] Three hook variants were written and one was chosen on its merits
+- [ ] The narrative critic answered all seventeen questions
 - [ ] `antislop` and `antislop-copywriting` were loaded, or the preview says they were not
 - [ ] The anti-slop audit ran as an audit of the draft, not only as writing advice
-- [ ] The affiliate editorial review ran after it
+- [ ] The naturalization rewrite ran after it, changing only the sentences its questions identified
+- [ ] The affiliate editorial review ran after that, and the account voice is still visible in the copy
 - [ ] Every factual claim traces to a named evidence tier
+- [ ] The evidence review ran after the last rewrite — no new fact, no dropped qualification
 - [ ] The thread's substance comes from independent evidence, not from the seller's description
 - [ ] No claim, sentence, or voice from the seller's material appears in the copy
 - [ ] The `Category` was mapped to a playbook family, and the copy speaks to that family's audience
@@ -680,9 +751,12 @@ Before you send the preview, confirm all of these are true:
 - [ ] Exactly one topic tag is chosen, it names the conversation rather than the product, and the preview shows it
 - [ ] The topic tag respects the platform's limits (1-50 characters, no `.` or `&`, no leading `#`)
 - [ ] The `hook_pattern` is not a repeat of the last two threads
+- [ ] The beat sequence, product-entry position and CTA shape are not repeats of the last two runs
 - [ ] A trade-off or limitation is present when the angle has room for one, and it is real
 - [ ] The ending gives the reader something useful instead of summarizing
 - [ ] `validate_thread.py` reports zero violations — run it with `--topic-tag` and the stage the draft is for
+- [ ] The lint ran on the final copy, with the Step 3 content notes passed via `--recent` when they exist
+- [ ] The anti-template signals were read: uniform length, uniform sentence count, repeated openers, explanation density, and the cross-thread repetition signals
 - [ ] In two-stage mode the preview says the link is deferred, and the thread body really has no URL in it
 - [ ] The preview shows the Product ID explicitly
 - [ ] You stopped and waited instead of publishing

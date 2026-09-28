@@ -1,0 +1,20 @@
+{
+    "note": "A first-hand claim with no stored testimony. Publishable-looking, and the hard rule must refuse it — the deterministic half of the acceptance list.",
+    "product_id": "30",
+    "product_name": "Blender Mini",
+    "affiliate_url": "https://shope.ee/def456",
+    "expect_violations": [
+        "fabricated_personal_experience"
+    ],
+    "posts": [
+        {
+            "text": "Aku sudah pakai blender mini ini tiap pagi untuk jus."
+        },
+        {
+            "text": "Hasilnya halus dan bagian yang dilepas gampang dibersihkan."
+        },
+        {
+            "text": "Detail dan variannya ada di sini:\nhttps://shope.ee/def456"
+        }
+    ]
+}

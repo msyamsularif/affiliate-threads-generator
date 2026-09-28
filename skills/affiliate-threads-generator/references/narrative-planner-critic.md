@@ -3,9 +3,9 @@
 Step 4 of the pipeline. The planner produces a plan; the critic tries to destroy
 it. Only a plan that survives the critic gets written.
 
-The planner is not a fill-in-the-blanks template. Objectives, not roles: do not
-force the same sequence of posts every time, and do not decide the product enters
-at post 3 just because post 3 is where it usually enters.
+The planner is not a fill-in-the-blanks template. Intentions, not roles: write
+the beats the thought needs (`references/beat-library.md`), and do not decide the
+product enters at post 3 just because post 3 is where it usually enters.
 
 ## Planner output
 
@@ -25,12 +25,22 @@ hook_strategy: >
 
 hook_pattern: <from references/hook-patterns.md — and different from the last two runs>
 
-narrative:
-  - objective: <what the reader learns or notices>
-  - objective: <what changes in their understanding>
-  - objective: <where the product becomes relevant, and why here>
-  - objective: <the qualification or boundary>
-  - objective: <the natural next action>
+beats:
+  - beat: <from references/beat-library.md>
+    purpose: <why this beat exists here>
+  - beat: <...>
+    purpose: <...>
+
+reader_progression:
+  start_state: <what the reader assumes at the top>
+  end_state: <what they understand by the end>
+
+optional_beats:
+  - <a beat that fits only if the writing has room — e.g. trade_off>
+
+beats_to_skip:
+  - summary # a closing restatement of what is already above
+  - generic_conclusion # "jadi, produk ini cocok untuk..." with no new information
 
 product_role: <supporting evidence / worked example / one answer among several>
 product_entry: <post N — and the reason the reader is ready for it there>
@@ -70,16 +80,34 @@ Good:
 > "Yang menentukan mainan ini bukan banyaknya tekstur, tapi kapan tekstur itu
 > aman untuk dikenalkan."
 
-### On `narrative`
+### On `beats`
 
-Objectives, not post roles. Two objectives may collapse into one post; one
-objective may take two posts. The list is the order the reader moves through, and
-it is allowed to be three items or six.
+Beats are intentions, not post roles. Two beats may collapse into one post; one
+beat may take two posts. The list is the order the reader moves through, and it
+is allowed to be three items or six — as few as the thought needs
+(`references/beat-library.md`).
 
-Each objective also carries the **bridge** to the next: what this post hands to
+Each beat's purpose is also the **bridge** to the next: what this part hands to
 the one after it, so the thread reads as one movement instead of stacked
 observations. The family's patterns (`references/category-playbook.md`) are
 shapes; the bridges are what keep them a thread.
+
+If every plan starts arriving with the same beat sequence, the plan has become a
+template again. The novelty check reads the last content notes' `beats` line the
+same way it reads `hook_pattern`.
+
+### On `reader_progression`
+
+The most useful line in the plan. `start_state` is what the reader assumes
+before the thread; `end_state` is what they understand after it. If the two are
+the same thought, there is nothing to write: the thread has no movement, only
+topics.
+
+Good: `start_state` "bigger mAh means better" → `end_state` "capacity is a
+weight decision, not a number decision".
+
+Bad: `start_state` "people buy power banks" → `end_state` "people understand
+power banks better". That is a topic, not a progression.
 
 ### On `category_family`
 
@@ -134,7 +162,7 @@ name, a brand, or a generic label like `teknologi`. It also has to respect the
 platform's limits (1-50 characters, no `.` or `&`, no leading `#`), because a tag
 the API rejects is a failed publish.
 
-## Critic — the gate, then twelve questions
+## Critic — the gate, then seventeen questions
 
 ### Gate: the point of view
 
@@ -164,23 +192,47 @@ from the thought the previous post left behind: the question it raised, the
 detail it promised. If post 3 restates post 2 in different words, the plan
 fails; if no post depends on any other, the plan fails too.
 
-### 4. Is the product introduced when the reader already has a reason to care?
+### 4. Does the thread sound like it is following a known copywriting sequence?
+
+Read `beats` and ask what shape the reader will feel. Hook → problem → insight →
+product → CTA is the sequence every affiliate thread knows, and a reader who has
+seen three of them can feel the machinery even when every sentence is true. If
+the beat list could be swapped into any other product thread unchanged, the plan
+fails — rework the beats, not the wording.
+
+### 5. Is the product introduced when the reader already has a reason to care?
 
 Read `product_entry` and the reason attached to it, then read the posts before
 it. If the only reason the product appears where it does is "that is where the
 product usually appears", move it later or strengthen what comes before. It
 never belongs in post 1.
 
-### 5. Is the thread only a feature list?
+### 6. Is the thread only a feature list?
 
 Cover the product name. Does the text still read as an argument? If it becomes a
 list of specifications, the plan fails.
 
-### 6. Does each post create a reason to continue?
+### 7. Does each post create a reason to continue?
 
 For each post, name the reason. "Because the thread is good" is not a reason.
 
-### 7. Does the ending feel like an advertisement?
+### 8. Does every post need to exist?
+
+Delete each post in turn and re-read. If the thread is equally clear without it,
+it does not need to exist — cut it.
+
+### 9. Could two adjacent posts collapse into one?
+
+If two neighbours share a beat, merge them. Fewer, denser posts read as a person
+thinking; a stretched sequence reads as a system filling slots.
+
+### 10. Does the writer explain something the reader can already infer?
+
+Look for the sentence that explains the sentence before it. The reader gets the
+implication; spelling it out is scaffolding. Cut it, or replace it with the
+detail it was explaining.
+
+### 11. Does the ending feel like an advertisement?
 
 Read the last two posts together. If the answer is "yes, that turned into an ad",
 rewrite the ending — not by trimming the value, but by making sure the last
@@ -190,7 +242,7 @@ Ask the second half of the question too: does the ending give the reader
 something useful — a boundary, a buying consideration, one concrete observation —
 or does it merely summarize what came before? A summary is not an ending.
 
-### 8. Are the claims supported?
+### 12. Are the claims supported?
 
 Walk the evidence ledger. The copy may carry tier 0 (the stored testimony, in
 `firsthand` mode), tier 1 (independent research), and tier-3 inference hedged on
@@ -200,19 +252,26 @@ or it stays out. The thread's substance has to come from tier 1: a thread built
 out of the seller's own description is a paraphrase with a hook, and it fails
 here. Anything unsupported (tier 4) is removed, not softened.
 
-### 9. Is the angle too similar to recent content?
+### 13. Is the angle too similar to recent content?
 
-Check the recalled content notes for `angle_type` and `hook_pattern`. If it
-matches one of the last three, the plan fails — go back to Step 3.
+Check the recalled content notes for `angle_type`, `hook_pattern` and `beats`.
+If it matches one of the last three, the plan fails — go back to Step 3.
 
-### 10. Is the topic tag the topic of the conversation?
+### 14. Does this thread have a distinct voice from recent threads?
+
+Hold the planned opening beside the last two notes' `hook_pattern` lines and
+`beats` lines. Two runs can differ in pattern name and still read the same. If
+this plan would be indistinguishable from those with the product name swapped,
+the plan fails.
+
+### 15. Is the topic tag the topic of the conversation?
 
 Read `topic_tag` and the thread's premise together. It has to be a topic someone
 would follow and search for, not the product name, not a brand, and not a label
 that only exists because something is for sale. It must also respect the
 platform's limits (1-50 characters, no `.` or `&`, no leading `#`).
 
-### 11. In `firsthand` mode: is every first-hand claim traceable to the testimony?
+### 16. In `firsthand` mode: is every first-hand claim traceable to the testimony?
 
 Hold the stored testimony beside the draft. Anything the copy adds to it — a
 duration, an outcome, a comparison, a number — fails this question. The voice
@@ -220,7 +279,7 @@ must be the witness's own: an account where the child used it never becomes
 "saya pakai". Guarantees are refused in both modes, so "dijamin" or "100% ampuh"
 is a failure here too.
 
-### 12. Does it speak to the right audience, in the right register?
+### 17. Does it speak to the right audience, in the right register?
 
 Read the copy against the resolved family in `references/category-playbook.md`.
 Does it address the audience that family names, warmly, in the second person —

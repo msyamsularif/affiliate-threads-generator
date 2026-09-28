@@ -319,6 +319,213 @@ class TestStructuralSignals:
         assert self.STRUCTURAL & self.codes(report)
 
 
+class TestDiversitySignals:
+    """Anti-template signals: the shapes a generated thread falls back into.
+
+    Warnings only — never proof of AI writing, never a block. The in-thread
+    checks always run; the cross-thread ones need the recent content notes.
+    """
+
+    DIVERSITY = {
+        "uniform_post_length",
+        "uniform_sentence_count",
+        "opening_similarity",
+        "explanation_density",
+        "product_entry_repetition",
+        "cta_shape_repetition",
+        "question_hook_repetition",
+    }
+
+    URL = "https://shope.ee/abc123"
+
+    #: Every post the same size, two sentences each — the uniform shape.
+    UNIFORM_POSTS = [
+        {"text": "Kapasitas besar enak dilihat di kotaknya. Harga yang dibayar justru beratnya."},
+        {"text": "Angka mAh paling gampang dibandingkan. Beratnya baru terasa tiap hari."},
+        {"text": "Kabel bawaan sering terlalu pendek. Colokan jadi rebutan di meja kafe."},
+        {"text": "Pengisian penuh butuh waktu lama. Siapkan jeda sebelum berangkat kerja."},
+        {
+            "text": (
+                "Detail lengkapnya ada di sini. Varian warnanya ikut kelihatan: "
+                f"{URL}"
+            )
+        },
+    ]
+
+    #: Two recent notes that already used this thread's furniture.
+    RECENT = [
+        {
+            "hook_pattern": "question",
+            "opening": "Kenapa power bank selalu berat kalau kapasitasnya besar?",
+            "product_entry_post": 3,
+            "cta_shape": "buat yang penasaran",
+        },
+        {
+            "hook_pattern": "question",
+            "opening": "Kenapa kabel bawaan selalu pendek waktu dibutuhkan?",
+            "product_entry_post": 3,
+            "cta_shape": "buat yang penasaran",
+        },
+    ]
+
+    #: The same shape again: question opening, product at post 3, one CTA phrase.
+    REPEAT_POSTS = [
+        {"text": "Kenapa power bank sering kalah di angka mAh-nya?"},
+        {
+            "text": (
+                "Karena bobot dan kapasitas memang tarik-menarik. Yang satu naik, "
+                "yang lain ikut."
+            )
+        },
+        {"text": "Power Bank Slim ini jawabannya, tapi cuma buat sebagian orang."},
+        {"text": "Kalau kamu sering jalan seharian tanpa colokan, ini masuk."},
+        {
+            "text": (
+                "Untuk detail dan variannya, saya taruh di sini buat yang penasaran:\n"
+                f"{URL}"
+            )
+        },
+    ]
+
+    def codes(self, report: guardrails.GuardrailReport) -> set[str]:
+        return {item.code for item in report.warnings}
+
+    def test_uniform_length_and_sentence_counts_warn(self, settings: config.Settings) -> None:
+        report = guardrails.validate_thread(
+            self.UNIFORM_POSTS, settings, affiliate_url=self.URL
+        )
+        assert report.ok
+        assert {"uniform_post_length", "uniform_sentence_count"} <= self.codes(report)
+
+    def test_a_varied_rhythm_is_clean(self, settings: config.Settings) -> None:
+        report = guardrails.validate_thread(
+            build_good_thread(), settings, affiliate_url=self.URL
+        )
+        assert self.DIVERSITY.isdisjoint(self.codes(report))
+
+    def test_single_sentence_posts_are_not_uniform(self, settings: config.Settings) -> None:
+        """All one-sentence posts are a style, not the uniform-construction
+        tell — the check looks for the same count repeated above one."""
+        posts = [
+            {"text": "Satu."},
+            {"text": "Dua."},
+            {"text": "Tiga."},
+            {"text": "Empat."},
+            {"text": f"Lima. {self.URL}"},
+        ]
+        report = guardrails.validate_thread(posts, settings, affiliate_url=self.URL)
+        assert "uniform_sentence_count" not in self.codes(report)
+
+    def test_repeated_openers_warn(self, settings: config.Settings) -> None:
+        posts = [
+            {"text": "Tapi kapasitasnya tetap yang paling dicari orang."},
+            {"text": "Tapi beratnya juga yang paling sering dikeluhkan."},
+            {"text": "Tapi harganya belum tentu sepadan dengan bobotnya."},
+            {"text": f"Link afiliasi. {self.URL}"},
+        ]
+        report = guardrails.validate_thread(posts, settings, affiliate_url=self.URL)
+        assert "opening_similarity" in self.codes(report)
+
+    def test_explanation_density_warns(self, settings: config.Settings) -> None:
+        posts = [
+            {"text": "Jadi, kapasitas besar bukan satu-satunya angka yang penting."},
+            {"text": "Makanya, beratnya sering jadi pertimbangan kedua."},
+            {"text": "Artinya, yang paling nyaman dipakai belum tentu yang paling besar."},
+            {"text": "Intinya, pilih sesuai kebiasaan harian, bukan sesuai kotaknya."},
+            {"text": f"Detail lengkapnya ada di sini: {self.URL}"},
+        ]
+        report = guardrails.validate_thread(posts, settings, affiliate_url=self.URL)
+        assert "explanation_density" in self.codes(report)
+
+    def test_cross_thread_repeats_warn_when_notes_are_given(
+        self, settings: config.Settings
+    ) -> None:
+        report = guardrails.validate_thread(
+            self.REPEAT_POSTS,
+            settings,
+            affiliate_url=self.URL,
+            product_name="Power Bank Slim",
+            recent=self.RECENT,
+        )
+        assert report.ok
+        assert {
+            "opening_similarity",
+            "product_entry_repetition",
+            "cta_shape_repetition",
+            "question_hook_repetition",
+        } <= self.codes(report)
+
+    def test_without_recent_notes_the_cross_thread_signals_do_not_run(
+        self, settings: config.Settings
+    ) -> None:
+        report = guardrails.validate_thread(
+            self.REPEAT_POSTS, settings, affiliate_url=self.URL, product_name="Power Bank Slim"
+        )
+        cross_thread = {
+            "product_entry_repetition",
+            "cta_shape_repetition",
+            "question_hook_repetition",
+        }
+        assert cross_thread.isdisjoint(self.codes(report))
+
+    def test_one_recent_note_is_not_a_pattern(self, settings: config.Settings) -> None:
+        """The signals say "the last two runs"; a single note cannot say that."""
+        report = guardrails.validate_thread(
+            self.REPEAT_POSTS,
+            settings,
+            affiliate_url=self.URL,
+            product_name="Power Bank Slim",
+            recent=self.RECENT[:1],
+        )
+        assert "product_entry_repetition" not in self.codes(report)
+        assert "question_hook_repetition" not in self.codes(report)
+
+    def test_recent_notes_without_the_key_are_invisible(
+        self, settings: config.Settings
+    ) -> None:
+        """Memory may be partial; a note missing the key simply does not count."""
+        report = guardrails.validate_thread(
+            self.REPEAT_POSTS,
+            settings,
+            affiliate_url=self.URL,
+            product_name="Power Bank Slim",
+            recent=[{"topic": "power bank"}, {"topic": "kabel"}],
+        )
+        assert "product_entry_repetition" not in self.codes(report)
+        assert "cta_shape_repetition" not in self.codes(report)
+        assert "question_hook_repetition" not in self.codes(report)
+
+    def test_bad_recent_entries_are_ignored(self, settings: config.Settings) -> None:
+        report = guardrails.validate_thread(
+            self.REPEAT_POSTS,
+            settings,
+            affiliate_url=self.URL,
+            product_name="Power Bank Slim",
+            recent=[None, "not a note", 42, {}],  # type: ignore[list-item]
+        )
+        cross_thread = {
+            "product_entry_repetition",
+            "cta_shape_repetition",
+            "question_hook_repetition",
+        }
+        assert cross_thread.isdisjoint(self.codes(report))
+
+    def test_zero_thresholds_disable_the_signals(self, settings: config.Settings) -> None:
+        import dataclasses
+
+        relaxed = dataclasses.replace(
+            settings,
+            uniform_length_ratio=0.0,
+            uniform_sentence_min_posts=0,
+            opening_similarity_min_posts=0,
+            explanation_warning_threshold=0,
+        )
+        report = guardrails.validate_thread(
+            self.UNIFORM_POSTS, relaxed, affiliate_url=self.URL
+        )
+        assert self.DIVERSITY.isdisjoint(self.codes(report))
+
+
 class TestHashtags:
     """Threads is not Instagram: one tag per post becomes the topic tag, and
     that tag is set through its own argument. A hashtag trail in the copy cannot

@@ -291,7 +291,7 @@ the tool then refuses a parked row until it is finished by hand.
 
 ---
 
-## Structural soft signals
+## Structural and anti-template soft signals
 
 These never block publishing. They come back from `threads_publish` and
 `validate_thread.py` as `warnings`, so the model can rewrite before the preview
@@ -306,6 +306,26 @@ them is a rhythm the reader can feel. A value of `0` disables that signal.
 | `transition_warning_threshold`  | `3`     | This many sentence-opening transitions ("Jadi, ...", "Makanya,") |
 | `enumeration_warning_threshold` | `2`     | This many enumeration markers ("Pertama, ...", "Kedua: ...")     |
 | `spec_token_warning_threshold`  | `6`     | This many number-plus-unit tokens in one thread (spec dumping)   |
+| `uniform_length_ratio`          | `0.15`  | Every post within 15% of the average length (4+ posts)           |
+| `uniform_sentence_min_posts`    | `4`     | Every post in a run this long carries the same sentence count    |
+| `opening_similarity_min_posts`  | `3`     | This many posts open with the same word                          |
+| `explanation_warning_threshold` | `3`     | This many sentence-opening explanation markers ("Jadi, ...")     |
+
+The last four are the anti-template checks. The first three of them are
+in-thread, so they run on every validation. Three more signals compare against
+the recent content notes instead, and only run when the lint is given them:
+
+```bash
+python3 validate_thread.py --file draft.json --recent notes.json
+```
+
+`--recent` takes a JSON array of recent content notes, newest first, the shape
+the skill's content memory records (`hook_pattern`, the opening text,
+`product_entry_post`, `cta_shape`). With it, the lint also warns on
+`product_entry_repetition` (the product entered at the same post for the last
+two runs), `cta_shape_repetition` (the closing sentence opens the same way) and
+`question_hook_repetition` (a third question hook in a row). Without it, those
+signals simply do not run — nothing else changes.
 
 None of these is proof that a text is AI-written, and none of them replaces the
 prose audit: that lives in the external `antislop` and `antislop-copywriting`

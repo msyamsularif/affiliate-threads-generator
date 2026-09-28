@@ -1,7 +1,7 @@
 # Editorial rules
 
 The affiliate-specific editorial layer. Read it before drafting, and run the
-audits in section 8 after every draft and every rewrite.
+audits in section 9 after every draft and every rewrite.
 
 `antislop` and `antislop-copywriting` remove the generic AI tells — vocabulary,
 rhythm, signposting, forced parallelism, filler. This file is what is left when
@@ -119,8 +119,10 @@ mechanism here that meaningfully widens the audience.
 
 ## 9. The audit passes
 
-Two passes, in this order, after the draft and after every rewrite. Then the
-evidence pass.
+After the draft and after every rewrite, in this order: the anti-slop audit, the
+naturalization rewrite, the affiliate editorial audit, then the evidence pass.
+Naturalization sits inside the audit sequence because it is a rewrite, not an
+optional extra.
 
 ### 9.1 Anti-slop audit — the external skills
 
@@ -145,10 +147,28 @@ through the generic pass must never be presented as if it did, and the missing
 rules must not be reimplemented from memory — that is how the two layers drift
 apart.
 
-### 9.2 Affiliate editorial audit — this plugin
+### 9.2 Naturalization rewrite — this plugin
 
-Run this after the anti-slop pass, on the same draft. The anti-slop skills do not
-know what an affiliate thread is; this pass does.
+Run this after the anti-slop pass, on the same draft, and only on the sentences
+the questions in `references/naturalization.md` identify. Do not regenerate the
+whole thread by default. The four questions that matter most here:
+
+```
+Does the copy explain the structure instead of simply being the conversation?
+Does any sentence exist solely to connect two required sections?
+Would removing one sentence make the thread sharper?
+Does the account voice remain visible after anti-slop rewriting?
+```
+
+The full question list and the rewrite rules live in
+`references/naturalization.md`. The pass may not add a fact, soften a trade-off,
+extend a testimony, or drop a qualification — and after it, the evidence pass
+runs again.
+
+### 9.3 Affiliate editorial audit — this plugin
+
+Run this after the naturalization rewrite, on the same draft. The anti-slop
+skills do not know what an affiliate thread is; this pass does.
 
 ```
 Does this thread have a clear point of view?
@@ -168,18 +188,20 @@ Is the topic tag the conversation a reader would search for — not the product
 name — and does it fit the platform's limits?
 ```
 
-### 9.3 Evidence pass — last
+### 9.4 Evidence pass — last
+
+Runs after every rewrite, naturalization included:
 
 ```
 Does every product-specific factual claim have an evidence tier?
 Did rewriting accidentally introduce a new fact?
-Did anti-slop rewriting remove an important qualification?
+Did anti-slop or naturalization rewriting remove an important qualification?
 Did the writer invent a personal experience, or add detail beyond the stored
 testimony? In `none` mode any first-hand claim fails this question; in
 `firsthand` mode anything the testimony does not say fails it.
 ```
 
-### 9.4 The audit record
+### 9.5 The audit record
 
 Hold this shape internally — it is what makes the rewrite targeted instead of a
 re-roll:
@@ -207,6 +229,14 @@ editorial_audit:
   evidence_selective: true
   product_fit: true
   natural_ending: true
+
+naturalness_review:
+  template_dependence: low
+  explanation_scaffolding: low
+  voice_fit: high
+  rhythm_variation: high
+  promotional_pressure: low
+  originality_vs_recent: high
 ```
 
 Add the category and reach checks to the same record when they are clean:
@@ -226,10 +256,18 @@ reach_audit:
 
 The human does not see this unless they ask for it.
 
+**No single score.** `naturalness_review` holds targeted signals, not a
+measurement — there is no `human_score: 8.7`, because a number like that is
+false precision. The system cannot objectively detect "human writing"; it can
+only report where it saw scaffolding, where the voice slipped, and where the
+thread repeats the last one. Read the record the same way as the anti-slop
+audit: a diagnostic that points at sentences, not a verdict.
+
 ## 11. Bounded revision
 
 ```
-Draft → anti-slop audit → affiliate audit → rewrite → second audit → final
+Draft → anti-slop audit → naturalization → affiliate audit → evidence →
+(rewrite) → second audit → final
 ```
 
 **Two revision rounds maximum.**

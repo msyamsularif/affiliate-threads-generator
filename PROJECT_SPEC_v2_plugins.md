@@ -180,17 +180,21 @@ preflight as `threads_check`, without spending a model turn.
         5-8 candidates, scored, checked against recent-content memory
         for novelty
                                 ↓
-        STEP 4 — POINT OF VIEW → NARRATIVE PLANNER → NARRATIVE CRITIC
-        One-line point of view first; objective-based plan; bounded revise
-        loop (max 2-3 rounds) against 11 quality questions
+        STEP 4 — VOICE → POINT OF VIEW → BEAT PLANNER → CRITIC → HOOK
+        The account voice is resolved first (references/voice-profile.md);
+        one-line point of view; a beat plan with a reader progression
+        (references/beat-library.md); bounded revise loop (max 2-3 rounds)
+        against 17 quality questions; then three hook variants, one chosen
                                 ↓
         STEP 5 — THREAD GENERATOR
-        Editorial rules, structural variation, the experience guardrail
-        (Section 10.8, applied in the mode the row resolved to),
-        contextual CTA, affiliate_intensity ≈ 2
+        Editorial rules, structural variation, two internal drafts,
+        the experience guardrail (Section 10.8, applied in the mode the
+        row resolved to), contextual CTA, affiliate_intensity ≈ 2
                                 ↓
-        STEP 6 — ANTISLOP AUDIT → AFFILIATE EDITORIAL REVIEW → EVIDENCE
-        Bounded revise loop (max 2 rounds), then the deterministic lint
+        STEP 6 — ANTISLOP AUDIT → NATURALIZATION → AFFILIATE EDITORIAL →
+        EVIDENCE → LINT → DIVERSITY REVIEW
+        Bounded revise loop (max 2 rounds); the deterministic lint carries
+        the anti-template signals, and the validation covers the final copy
                                 ↓
         STEP 7 — IMAGE (OPTIONAL)
         Only if FAL_KEY is configured; otherwise skip to text-only thread
@@ -445,31 +449,48 @@ selection. Not a virality forecast.
 The original spec proposed SQLite for tracking recent angle_type/topic/
 hook_pattern to avoid repetition. This spec instead uses **Hermes' own
 persistent memory**: after every successful publish, the Skill saves a
-short memory note (`content_id, angle_type, topic, hook_pattern`), and
-recalls recent notes during Angle Discovery to penalize repeats. No
+short memory note (`content_id, angle_type, topic, hook_pattern`, plus the
+`beats` sequence used, `product_entry_post`, `cta_shape` and `topic_tag`),
+and recalls recent notes before Angle Discovery to penalize repeats. The
+same notes are what `validate_thread.py --recent` compares the draft
+against, which is how the repetition signals stay deterministic. No
 separate infrastructure required.
 
-### 10.5 Narrative Planner & Critic
+### 10.5 Voice, Narrative Planner & Critic
+
+The account's **voice** is resolved before planning
+(`references/voice-profile.md`): register, rhythm, directness, taken from the
+owner's own samples and never invented. Anti-slop removes what the copy must
+not sound like; the voice profile is what it should sound like. The two are
+complementary, not interchangeable.
 
 Planner determines topic, audience — including the row's **category family**
 (Section 10.6) and the audience address it implies — a required one-line
-**point of view**, the tension, hook strategy together with its **hook
-pattern** (Section 10.6), per-post **objectives** (not fixed roles) and the
-**bridges** between them, the product entry point _together with why the
-narrative is ready for it there_, CTA post, `affiliate_intensity`
-(default `2`, ~80% value / 20% product), `must_include`/`must_not_claim`
-(in `none` mode: no first-hand experience at all; in `firsthand` mode:
-nothing beyond the stored testimony), the `topic_tag` the thread publishes
-under, and the evidence ledger.
+**point of view**, the tension, **beats** (intentions, not post roles, each
+with its purpose — `references/beat-library.md`) and the
+**reader_progression** (`start_state` → `end_state`: what the reader assumes
+before the thread, and what they understand after it), hook strategy together
+with its **hook pattern** (Section 10.6), the **bridges** between beats, the
+product entry point _together with why the narrative is ready for it there_,
+CTA post, `affiliate_intensity` (default `2`, ~80% value / 20% product),
+`must_include`/`must_not_claim` (in `none` mode: no first-hand experience at
+all; in `firsthand` mode: nothing beyond the stored testimony), the
+`topic_tag` the thread publishes under, and the evidence ledger.
 
-Objectives, not roles: two objectives may collapse into one post, one may
-take two posts. The product enters when the reader already has a reason to
-care — post 3-4 is the normal range, not a rule.
+Beats, not roles: two beats may collapse into one post, one may take two.
+The writer chooses the smallest number of beats that makes the thought work.
+The product enters when the reader already has a reason to care — post 3-4 is
+the normal range, not a rule.
 
 Critic gates on the point of view first (a generic one fails immediately),
-then answers 12 questions before Thread Generation proceeds (see Section 12
-for the full checklist). Bounded to 2-3 revision rounds — never an
-unbounded loop.
+then answers 17 questions before Thread Generation proceeds (Section 12 has
+the full checklist). Bounded to 2-3 revision rounds — never an unbounded loop.
+
+After the plan passes the critic, **three hook variants** are written for the
+chosen angle — the same angle, three different sentences, not three marketing
+formulas — and scored on specificity, curiosity, `voice_fit`, naturalness,
+novelty and product relevance. The winner's shape becomes the `hook_pattern`
+recorded in the content note.
 
 ### 10.6 Thread Generator
 
@@ -503,6 +524,14 @@ The thread reads as one thought moving forward: every post opens from the
 thought the previous post left behind, and a reader who lands mid-thread can
 still tell what conversation they joined.
 
+The copy is written in the resolved voice (`references/voice-profile.md`) and
+the family register, from the beat plan — never from a Hook → body → CTA
+sequence handed to the drafting stage, which would make the structure visible
+in every sentence. Two internal drafts are written and compared against the
+beat plan and the voice, and one is selected; `1 request = 1 candidate` still
+holds, because the second draft is internal and the preview shows exactly one
+thread.
+
 No post carries a hashtag — the reach mechanism is the topic tag, covered
 separately in Section 10.13.
 
@@ -522,6 +551,13 @@ Two layers, deliberately separate:
 2. **Affiliate editorial** — this plugin's own rules
    (`references/editorial-rules.md`): point of view, detail selection,
    product entry, ending.
+3. **Naturalization** — the targeted rewrite in
+   `references/naturalization.md`, run after the anti-slop audit and before
+   the affiliate editorial review. Not "humanization": it injects no typos,
+   slang or randomness. It rewrites only the sentences that explain the
+   structure, repeat a thought, or exist because the template expected them —
+   and it may not add a fact, soften a trade-off, or drop a qualification.
+   The evidence review runs again after it.
 
 Human-like writing comes from genuine specifics, not imperfection
 theater — never intentionally inject bad grammar or random mistakes.
@@ -532,12 +568,16 @@ kebutuhan", "wajib banget punya", "solusi yang tepat untuk kamu",
 "kualitas terjamin", "worth it banget", "game changer", "must have"_),
 the funnel list, the seller-viewpoint list (`seller_viewpoint` — a claim
 repeated or attributed from the `Description`, or brochure vocabulary like
-_"kualitas premium"_, _"harga terjangkau"_, _"best seller"_), and
-four structural counters — `excessive_signposting`,
-`repeated_transition_density`, `excessive_enumeration`,
-`product_detail_density`. All are warnings, never blocks, and none is
-proof that a text is AI-written. Thresholds are configurable; `0`
-disables a signal.
+_"kualitas premium"_, _"harga terjangkau"_, _"best seller"_), four structural
+counters — `excessive_signposting`, `repeated_transition_density`,
+`excessive_enumeration`, `product_detail_density` — and seven anti-template
+diversity signals: `uniform_post_length`, `uniform_sentence_count`,
+`opening_similarity` and `explanation_density` read one thread;
+`product_entry_repetition`, `cta_shape_repetition` and
+`question_hook_repetition` compare it against the recent content notes the
+lint is given (`validate_thread.py --recent`). All are warnings, never
+blocks, and none is proof that a text is AI-written. Thresholds are
+configurable; `0` disables a signal.
 
 Bounded to 2 revision rounds. If the thread still reads as templated after
 two, the angle is the problem: return to Angle Discovery.
@@ -736,23 +776,31 @@ before the questions below are answered.
 2. Does the hook create real curiosity?
 3. Is there progression between posts — does each one open from the thought
    the previous post left behind, so the thread reads as one movement?
-4. Is the product introduced when the reader already has a reason to care?
-5. Is the Thread only a feature list?
-6. Does each post create a reason to continue?
-7. Does the ending feel like an advertisement — and does it give the reader
-   something useful rather than summarizing?
-8. Are claims supported — traceable to Section 9's tiers, tier 0 (the
-   stored testimony) included whenever the row is in `firsthand` mode? The
-   copy may carry tier 0, tier 1 and hedged tier-3 inference; tier-2 seller
-   material is never copy, not even attributed.
-9. Is the angle too similar to recent content (Section 10.4)?
-10. Is the topic tag the topic of the conversation — something a reader would
+4. Does the thread sound like it is following a known copywriting sequence —
+   hook → problem → insight → product → CTA — that a reader who has seen a few
+   affiliate threads can feel as machinery?
+5. Is the product introduced when the reader already has a reason to care?
+6. Is the Thread only a feature list?
+7. Does each post create a reason to continue?
+8. Does every post need to exist?
+9. Could two adjacent posts collapse into one?
+10. Does the writer explain something the reader can already infer?
+11. Does the ending feel like an advertisement — and does it give the reader
+    something useful rather than summarizing?
+12. Are claims supported — traceable to Section 9's tiers, tier 0 (the
+    stored testimony) included whenever the row is in `firsthand` mode? (The
+    copy may carry tier 0, tier 1 and hedged tier-3 inference; tier-2 seller
+    material is never copy, not even attributed.)
+13. Is the angle too similar to recent content (Section 10.4) — `angle_type`,
+    `hook_pattern` and `beats`?
+14. Does the thread have a distinct voice from recent threads?
+15. Is the topic tag the topic of the conversation — something a reader would
     search for, not the product name — and within the platform's limits?
-11. In `firsthand` mode: is every first-hand claim traceable to the stored
+16. In `firsthand` mode: is every first-hand claim traceable to the stored
     testimony, with nothing amplified or extended beyond it — and is the
     voice the witness's own (an account where the child used it never reads
     as "saya pakai")?
-12. Does the copy speak to the resolved category family's audience, in that
+17. Does the copy speak to the resolved category family's audience, in that
     family's register — friendly, casual, polite, second person — with no
     stiff brochure lines and no sentence written from the seller's seat?
 
@@ -832,8 +880,9 @@ Meta Threads (official Graph API)
     it.
 15. Final content should be worth reading even without the affiliate
     link.
-16. Angle, narrative structure and hook pattern should vary over time
-    (checked via Hermes memory, not a database).
+16. Angle, narrative structure, beat sequence, hook pattern, product-entry
+    position and CTA shape should vary over time (checked via Hermes memory,
+    not a database).
 17. No SQLite or other separate database is used — the Sheet itself is
     the state lock, and Hermes' own memory covers content-repetition
     checks.
@@ -875,17 +924,26 @@ Meta Threads (official Graph API)
     no amplification, numbers and named persons grounded in it
 [ ] Amplifier/absolute-claim language is blocked in both modes
 [ ] 5-8 angles generated and scored before selection
-[ ] Angle/structure novelty checked via Hermes memory
+[ ] Account voice resolved from references/voice-profile.md before planning
+[ ] Angle/structure/beat/CTA-shape novelty checked via Hermes memory
 [ ] A one-line point of view is required before drafting
+[ ] A beat plan with a reader progression (start_state → end_state) is
+    required before drafting
+[ ] Three hook variants written and one selected on its merits
 [ ] Narrative Critic can reject weak plans (bounded retries)
 [ ] Thread copy follows content-philosophy + the affiliate editorial rules
 [ ] Evidence Checker removes/softens untraceable claims
-[ ] antislop + antislop-copywriting audit runs before the affiliate
-    editorial and evidence reviews (bounded to 2 revision rounds)
+[ ] antislop + antislop-copywriting audit runs, then the naturalization
+    rewrite, before the affiliate editorial and evidence reviews (bounded
+    to 2 revision rounds); evidence is re-validated after every rewrite
 [ ] No hashtags in the copy at all; one topic tag per thread, shown in
     the preview and validated against the platform's limits
 [ ] The opening hook pattern rotates across runs and is recorded in the
     content note
+[ ] Anti-template diversity signals are read, and the lint runs on the final
+    copy with the recent content notes supplied (--recent): uniform post
+    length, uniform sentence count, repeated openings, explanation density,
+    and product-entry / CTA-shape / question-hook repetition
 [ ] Optional two-stage mode: the thread publishes first, the affiliate
     link follows as a reply, and each half is separately approved
 [ ] Link cards documented as unremovable through the API, with the image

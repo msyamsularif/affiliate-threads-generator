@@ -343,6 +343,49 @@ config_schema:
       Warn when a thread contains this many number-plus-unit tokens, a proxy
       for spec dumping. 0 disables.
 
+  # --- Anti-template diversity signals (warnings only, never blocks) --------
+  #
+  # The shapes a generated thread falls back into: every post the same size,
+  # the same sentence count, repeated openings, narrated reasoning, and — when
+  # validate_thread.py is given the recent content notes (--recent) — the same
+  # product-entry position, CTA shape or question hook as the last runs. All
+  # warnings, all configurable, none a proof of AI writing.
+
+  uniform_length_ratio:
+    type: float
+    default: 0.15
+    label: "Uniform post-length warning ratio"
+    description: >-
+      Warn when every post in a run of four or more sits within this fraction
+      of the average word count — the classic uniform generated shape. 0
+      disables.
+
+  uniform_sentence_min_posts:
+    type: int
+    default: 4
+    label: "Uniform sentence-count warning"
+    description: >-
+      Warn when every post in a run of this many posts carries the same
+      sentence count (2, 2, 2, ...). 0 disables.
+
+  opening_similarity_min_posts:
+    type: int
+    default: 3
+    label: "Opening similarity warning"
+    description: >-
+      Warn when this many posts open with the same word, or when the thread
+      opens the way a recent content note's opening did (needs --recent).
+      0 disables.
+
+  explanation_warning_threshold:
+    type: int
+    default: 3
+    label: "Explanation density warning threshold"
+    description: >-
+      Warn when this many sentence-opening explanation markers appear
+      ("Jadi, ...", "Makanya, ...", "Artinya, ...", "Intinya, ...").
+      0 disables.
+
   # --- Google Sheets plumbing ----------------------------------------------
   google_api_path:
     type: str

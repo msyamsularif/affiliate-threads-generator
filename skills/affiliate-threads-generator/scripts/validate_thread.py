@@ -17,6 +17,7 @@ Usage
     cat draft.json | validate_thread.py --stdin
     validate_thread.py --file draft.json --product-id 12      # pull the URL from the Sheet
     validate_thread.py --file draft.json --product-id 12 --stage link
+    validate_thread.py --file draft.json --recent notes.json  # anti-template signals
     validate_thread.py --file draft.json --format text
 
 ``--stage`` mirrors the publish tool. Under ``publish_mode: two_stage`` the
@@ -29,6 +30,12 @@ requirement is checked here so a draft that would be refused at publish time is
 refused now, and the platform's own limits (1-50 characters, no periods or
 ampersands, no leading ``#``) are checked with it. Copy must not carry hashtags —
 only explicitly allowlisted tokens may stay in the text.
+
+``--recent`` takes a JSON file holding the most recent content notes (newest
+first), the shape the skill's content memory records. The cross-thread
+anti-template signals — a repeated product-entry position, CTA shape or question
+hook, and an opening that echoes a recent one — compare the draft against them.
+Without the file those signals do not run; the in-thread checks always do.
 
 ``--experience`` mirrors the row's own answer (``Used`` + ``Testimonial`` in the
 Sheet). With ``--product-id`` it defaults to whatever that row resolves to: a
@@ -98,6 +105,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--testimonial-file",
         default="",
         help="Read the stored testimony from a file instead of --testimonial.",
+    )
+    parser.add_argument(
+        "--recent",
+        default="",
+        help=(
+            "JSON file with the most recent content notes, newest first. Adds the cross-thread "
+            "anti-template signals (product-entry / CTA-shape / question-hook repetition, "
+            "opening similarity). Without it those signals do not run."
+        ),
     )
     parser.add_argument("--format", choices=("json", "text"), default="json")
     parser.add_argument("--spreadsheet-id", default="")
@@ -184,6 +200,28 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps({"ok": False, "error": f"{type(exc).__name__}: {exc}"}), file=sys.stderr)
             return 2
 
+    recent: list[dict] = []
+    if args.recent:
+        try:
+            data = json.loads(Path(args.recent).expanduser().read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            print(
+                json.dumps({"ok": False, "error": f"could not read --recent: {exc}"}),
+                file=sys.stderr,
+            )
+            return 2
+        if isinstance(data, dict):
+            data = data.get("notes", [])
+        if not isinstance(data, list):
+            print(
+                json.dumps(
+                    {"ok": False, "error": "--recent must hold a JSON array of content notes."}
+                ),
+                file=sys.stderr,
+            )
+            return 2
+        recent = [item for item in data if isinstance(item, dict)]
+
     if product_id:
         try:
             sheets_client = _bridge.load("sheets_client")
@@ -238,6 +276,7 @@ def main(argv: list[str] | None = None) -> int:
         topic_tag=checked_topic_tag,
         experience=experience,
         testimonial=testimonial,
+        recent=recent,
     )
 
     payload = {

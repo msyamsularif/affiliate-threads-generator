@@ -1,0 +1,37 @@
+{
+    "note": "The same shape as the last two runs: a question opening, the product back at post 3, the same CTA phrase. Legal copy, repeated furniture — the cross-thread signals must fire.",
+    "product_id": "22",
+    "product_name": "Power Bank Slim",
+    "affiliate_url": "https://shope.ee/abc123",
+    "recent": [
+        {
+            "hook_pattern": "question",
+            "opening": "Kenapa power bank selalu berat kalau kapasitasnya besar?",
+            "product_entry_post": 3,
+            "cta_shape": "buat yang penasaran"
+        },
+        {
+            "hook_pattern": "question",
+            "opening": "Kenapa kabel bawaan selalu pendek waktu dibutuhkan?",
+            "product_entry_post": 3,
+            "cta_shape": "buat yang penasaran"
+        }
+    ],
+    "posts": [
+        {
+            "text": "Kenapa power bank sering kalah di angka mAh-nya?"
+        },
+        {
+            "text": "Karena bobot dan kapasitas memang tarik-menarik. Yang satu naik, yang lain ikut."
+        },
+        {
+            "text": "Power Bank Slim ini jawabannya, tapi cuma buat sebagian orang."
+        },
+        {
+            "text": "Kalau kamu sering jalan seharian tanpa colokan, ini masuk."
+        },
+        {
+            "text": "Untuk detail dan variannya, saya taruh di sini buat yang penasaran:\nhttps://shope.ee/abc123"
+        }
+    ]
+}
