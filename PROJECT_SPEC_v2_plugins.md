@@ -196,8 +196,9 @@ preflight as `threads_check`, without spending a model turn.
         Bounded revise loop (max 2 rounds); the deterministic lint carries
         the anti-template signals, and the validation covers the final copy
                                 ↓
-        STEP 7 — IMAGE (OPTIONAL)
-        Only if FAL_KEY is configured; otherwise skip to text-only thread
+        STEP 7 — MEDIA (OPTIONAL)
+        Generated images only if FAL_KEY is configured; a video needs an
+        existing public URL; otherwise skip to text-only thread
                                 ↓
         STEP 8 — TELEGRAM PREVIEW
         Product ID always shown explicitly (this doubles as the review
@@ -685,14 +686,21 @@ This is a delivery mode, not a relaxation: nothing here attaches the link
 automatically, and the second half is gated by the same approval as the
 first.
 
-### 10.12 Image Strategy (optional)
+### 10.12 Media Strategy (optional: image or video)
 
-Only if Hermes' image-generation tool is available (`FAL_KEY` set).
-Derive image briefs from the visual profile (Section 9) and narrative
-intent; not every post needs an image. Preserve recognizable physical
-characteristics (shape/color/material/distinctive features); never
+Images are generated only if Hermes' image-generation tool is available
+(`FAL_KEY` set). Derive image briefs from the visual profile (Section 9)
+and narrative intent; not every post needs an image. Preserve recognizable
+physical characteristics (shape/color/material/distinctive features); never
 invent unverified controls/features. If unavailable, publish text-only —
 a normal path, not a degraded fallback.
+
+A post may instead carry a video (`video_url`) — only when a public HTTPS
+URL for it already exists, because the Threads API fetches the file itself
+and has no upload step. One media item per post: an image or a video, never
+both (`multiple_media`), and the URL must be `https://` (`bad_video_url`).
+Video containers are transcoded, so the publisher waits for the container
+to finish and refuses a video that is still processing.
 
 ### 10.13 Hashtags, Topic Tags, and Community Reach
 
@@ -714,8 +722,9 @@ So the pipeline:
   is published;
 - treats teaser copy as a warning (`funnel_phrase`), not as a tactic;
 - documents link-card behaviour honestly: no API removes the card, value
-  posts carry no URL at all, an `IMAGE` post carries no card, and under
-  `publish_mode: two_stage` the card only ever appears on the link reply.
+  posts carry no URL at all, an `IMAGE`/`VIDEO` post carries no card, and
+  under `publish_mode: two_stage` the card only ever appears on the link
+  reply.
 
 ---
 
@@ -866,7 +875,9 @@ Meta Threads (official Graph API)
    comes from independent research, and scraped/external data is never
    treated as automatically true.
 10. Generated images (if used) must preserve recognizable product
-    characteristics and never invent unverified features.
+    characteristics and never invent unverified features; a video is
+    attached only from a public URL that already exists (the system does
+    not generate or host video).
 11. Do not fabricate personal experience. First-hand claims are allowed
     only in `firsthand` mode, only where the row's stored `Testimonial`
     supports them, and never amplified beyond it; the mode is derived
@@ -948,7 +959,8 @@ Meta Threads (official Graph API)
     link follows as a reply, and each half is separately approved
 [ ] Link cards documented as unremovable through the API, with the image
     post and two-stage workarounds documented too
-[ ] Images generated only when FAL_KEY is configured; text-only
+[ ] Images generated only when FAL_KEY is configured; a video attaches
+    only from a public video_url (never together with image_url); text-only
     otherwise
 [ ] Telegram preview always shows the Product ID explicitly
 [ ] Approve requires explicit human action in the same turn

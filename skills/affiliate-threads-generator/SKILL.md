@@ -579,7 +579,7 @@ templated after two rounds — naturalization included — the angle is the prob
 Go back to Step 3 and take the next candidate. Do not keep polishing the same
 structure.
 
-### Step 7 — Image (optional)
+### Step 7 — Media (optional)
 
 Only if Hermes' image tool is available (that is, `FAL_KEY` is configured). Not
 every post needs an image.
@@ -588,6 +588,14 @@ Derive the brief from the Step 2 visual profile and the narrative intent. The
 image must preserve the product's recognizable physical characteristics — shape,
 colour, material, distinctive features. **Never invent controls or features that
 the research did not establish.**
+
+A post can also carry a video instead of an image — but only when a public
+`https://` URL for it already exists. Threads fetches the file itself, there is
+no upload step, and this system neither generates nor hosts video: no URL means
+no video. Pass it as `video_url` on one post, inside Meta's limits (MOV or MP4,
+H.264/HEVC, ≤ 5 minutes, ≤ 1 GB). One media item per post — an image or a video,
+never both. Video containers are transcoded, so they take longer; the publisher
+waits and refuses to publish a video that is still processing.
 
 If the image tool is unavailable, publish text-only. That is a normal path, not a
 degraded fallback — do not apologise for it, do not mention it.
@@ -606,7 +614,7 @@ in front of them:
 📊 Evidence: independent research — <what the substance traces to>
 🧪 Experience: <none — tanpa klaim pengalaman | firsthand — dari testimoni tersimpan>
 🧹 Anti-slop: antislop + antislop-copywriting · <N> revision round(s)
-🖼️ Image: <yes, N images | text-only>
+🖼️ Media: <yes, N images | yes, 1 video | text-only>
 
 ———————————————
 
@@ -704,7 +712,7 @@ thread's novelty check possible.
 | Shopee page fetch failed                          | Expected. Research from independent sources instead; do not retry with a bypass.                                                                                                                                                                      |
 | `select_candidate.py` returns `candidate: null`   | Nothing is `Ready To Generate`. Say so and stop.                                                                                                                                                                                                      |
 | Human replies with just "ok"                      | Ambiguous. Ask which of approve/hold/cancel they mean.                                                                                                                                                                                                |
-| A link card shows on the post with the URL        | Threads builds it from the first URL in a text-only post, and no API removes it. An image post carries no card at all, and `publish_mode: two_stage` keeps the card off every value post — say that instead of promising a removal the API cannot do. |
+| A link card shows on the post with the URL        | Threads builds it from the first URL in a text-only post, and no API removes it. An image or video post carries no card at all, and `publish_mode: two_stage` keeps the card off every value post — say that instead of promising a removal the API cannot do. |
 | `hashtag_in_copy`                                 | A `#tag` is in the copy. Drop the trail: the topic is metadata (`topic_tag`), and only explicitly allowlisted tokens may stay in the text.                                                                                                            |
 | `topic_tag_missing`                               | `require_topic_tag` is on (the default) and nothing was passed. Choose the topic a reader would search for — not the product name — show it on the preview, and pass it to `threads_publish`.                                                         |
 | `topic_tag_invalid`                               | The tag breaks the platform's limits: 1-50 characters, no `.` or `&`, no leading `#`, one line.                                                                                                                                                       |

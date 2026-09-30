@@ -207,6 +207,18 @@ class TestGuardrails:
         assert result["warnings"]
         assert len(sheet.writes) == 1
 
+    def test_a_non_https_video_url_blocks_publishing(self, publish_env) -> None:  # noqa: ANN001
+        sheet = publish_env(FakeSheet([make_row()]))
+        posts = [
+            {"text": "a", "video_url": "http://insecure.example/v.mp4"},
+            {"text": "b"},
+            {"text": f"Link afiliasi. {AFFILIATE_URL}"},
+        ]
+        result = call({"product_id": "12", "posts": posts, "confirm_publish": True})
+        assert result["stage"] == "guardrails"
+        assert "bad_video_url" in {item["code"] for item in result["violations"]}
+        assert sheet.writes == []
+
 
 class TestTopicTag:
     """The topic tag is metadata — it travels in its own argument, never in the
@@ -324,6 +336,24 @@ class TestHappyPath:
         assert record is not None
         assert record["sheet_synced"] is True
         assert record["media_ids"] == ["media-1", "media-2", "media-3", "media-4"]
+
+    def test_a_video_post_reaches_the_api_as_a_video_container(self, publish_env) -> None:  # noqa: ANN001
+        transport = scripted_transport(happy_path_responses(posts=4))
+        publish_env(FakeSheet([make_row()]), transport)
+        posts = [
+            {"text": "a"},
+            {"text": "b", "video_url": "https://cdn.example/clip.mp4"},
+            {"text": "c"},
+            {"text": f"Link afiliasi. {AFFILIATE_URL}"},
+        ]
+
+        result = call({"product_id": "12", "posts": posts, "confirm_publish": True})
+
+        assert result["ok"] is True, result
+        creates = [item[2] for item in transport.calls if item[1].endswith("/threads")]
+        assert creates[1]["media_type"] == "VIDEO"
+        assert creates[1]["video_url"] == "https://cdn.example/clip.mp4"
+        assert "image_url" not in creates[1]
 
     def test_a_failed_publish_never_changes_the_sheet(self, publish_env) -> None:  # noqa: ANN001
         transport = scripted_transport(

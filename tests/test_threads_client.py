@@ -16,18 +16,28 @@ def make_client(transport, **kwargs):  # noqa: ANN001, ANN201
 
 class TestNormalizePosts:
     def test_accepts_dicts(self) -> None:
-        posts = threads_client.normalize_posts([{"text": "a"}, {"text": "b", "image_url": "https://i"}])
-        assert posts == [{"text": "a", "image_url": ""}, {"text": "b", "image_url": "https://i"}]
+        posts = threads_client.normalize_posts(
+            [
+                {"text": "a"},
+                {"text": "b", "image_url": "https://i"},
+                {"text": "c", "video_url": "https://v"},
+            ]
+        )
+        assert posts == [
+            {"text": "a", "image_url": "", "video_url": ""},
+            {"text": "b", "image_url": "https://i", "video_url": ""},
+            {"text": "c", "image_url": "", "video_url": "https://v"},
+        ]
 
     def test_accepts_bare_strings(self) -> None:
         assert threads_client.normalize_posts(["a", "b"]) == [
-            {"text": "a", "image_url": ""},
-            {"text": "b", "image_url": ""},
+            {"text": "a", "image_url": "", "video_url": ""},
+            {"text": "b", "image_url": "", "video_url": ""},
         ]
 
     def test_ignores_unsupported_entries(self) -> None:
         assert threads_client.normalize_posts([1, None, {"text": "ok"}]) == [
-            {"text": "ok", "image_url": ""}
+            {"text": "ok", "image_url": "", "video_url": ""}
         ]
 
     def test_empty(self) -> None:
@@ -71,6 +81,66 @@ class TestPublishThread:
         create = next(call for call in transport.calls if call[1].endswith("/threads"))
         assert create[2]["media_type"] == "IMAGE"
         assert create[2]["image_url"] == "https://cdn.example/i.jpg"
+
+    def test_a_video_post_becomes_a_video_container(self) -> None:
+        transport = scripted_transport(happy_path_responses(posts=1))
+        make_client(transport).publish_thread(
+            [{"text": "one", "video_url": "https://cdn.example/clip.mp4"}],
+            container_wait_seconds=0,
+        )
+        create = next(call for call in transport.calls if call[1].endswith("/threads"))
+        assert create[2]["media_type"] == "VIDEO"
+        assert create[2]["video_url"] == "https://cdn.example/clip.mp4"
+        assert "image_url" not in create[2]
+
+    def test_a_video_container_is_polled_until_it_is_finished(self) -> None:
+        transport = scripted_transport(
+            [
+                (200, {"id": "container-1"}),
+                (200, {"id": "container-1", "status": "IN_PROGRESS"}),
+                (200, {"id": "container-1", "status": "FINISHED"}),
+                (200, {"id": "media-1"}),
+                (200, {"permalink": "https://x/y", "username": "tester"}),
+            ]
+        )
+        result = make_client(transport).publish_thread(
+            [{"text": "one", "video_url": "https://cdn.example/clip.mp4"}],
+            container_wait_seconds=0,
+        )
+        assert result.media_ids == ["media-1"]
+
+    def test_a_video_container_that_is_still_processing_is_never_published(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(threads_client, "VIDEO_CONTAINER_TIMEOUT_SECONDS", 0.0)
+        transport = scripted_transport(
+            [(200, {"id": "container-1"}), (200, {"status": "IN_PROGRESS"})]
+        )
+        with pytest.raises(threads_client.ThreadsAPIError) as excinfo:
+            make_client(transport).publish_thread(
+                [{"text": "one", "video_url": "https://cdn.example/clip.mp4"}],
+                container_wait_seconds=0,
+            )
+        assert excinfo.value.stage == "container_status"
+        assert "still processing" in str(excinfo.value)
+        assert not any(item[1].endswith("/threads_publish") for item in transport.calls)
+
+    def test_a_post_with_both_media_kinds_is_refused_before_any_request(self) -> None:
+        transport = scripted_transport([])
+        with pytest.raises(threads_client.ThreadsAPIError) as excinfo:
+            make_client(transport).publish_thread(
+                [
+                    {
+                        "text": "one",
+                        "image_url": "https://cdn.example/i.jpg",
+                        "video_url": "https://cdn.example/clip.mp4",
+                    }
+                ],
+                container_wait_seconds=0,
+            )
+        assert excinfo.value.stage == "create_container[1]"
+        assert "both" in str(excinfo.value)
+        assert transport.calls == []
 
     def test_topic_tag_is_applied_to_the_root_post_only(self) -> None:
         transport = scripted_transport(happy_path_responses(posts=2))
@@ -175,6 +245,28 @@ class TestFailureHandling:
                 [{"text": "one"}], container_wait_seconds=0
             )
         assert "network error" in str(excinfo.value)
+
+
+class TestPublishReply:
+    def test_a_video_link_reply_becomes_a_video_container(self) -> None:
+        transport = scripted_transport(
+            [
+                (200, {"id": "container-1"}),
+                (200, {"status": "FINISHED"}),
+                (200, {"id": "media-1"}),
+            ]
+        )
+        media_id = make_client(transport).publish_reply(
+            text="detail: https://shope.ee/abc123",
+            reply_to_id="media-0",
+            video_url="https://cdn.example/clip.mp4",
+            container_wait_seconds=0,
+        )
+        assert media_id == "media-1"
+        create = next(call for call in transport.calls if call[1].endswith("/threads"))
+        assert create[2]["media_type"] == "VIDEO"
+        assert create[2]["video_url"] == "https://cdn.example/clip.mp4"
+        assert create[2]["reply_to_id"] == "media-0"
 
 
 class TestClientSetup:

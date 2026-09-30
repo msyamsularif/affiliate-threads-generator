@@ -34,6 +34,29 @@ than trusting anything the model reported.
 - `stage` — `auto` (default), `thread` or `link`. Only meaningful under
   `publish_mode: two_stage`; see below.
 
+### Media in a post (image or video)
+
+A post may carry **one** media item — an `image_url` or a `video_url`, never
+both:
+
+```json
+{ "text": "post 3 copy", "image_url": "https://cdn.example.com/product.jpg" }
+{ "text": "post 4 copy", "video_url": "https://cdn.example.com/clip.mp4" }
+```
+
+- Both must be public `https://` URLs: Meta **fetches the file itself**, there
+  is no upload step in this API, and the file has to stay reachable until the
+  post is published.
+- Video limits (Meta's own): MOV or MP4, H.264/HEVC, AAC audio, 23–60 FPS,
+  ≤ 5 minutes, ≤ 1 GB, ≤ 1920px wide.
+- A post with both keys fails the guardrails (`multiple_media`), and so does a
+  non-`https` URL (`bad_image_url`, `bad_video_url`).
+- A video container is **transcoded**, so it takes far longer than text or an
+  image to become `FINISHED`. The client polls the container for up to five
+  minutes and refuses to publish a video that is still processing: the thread
+  is not started, nothing is written to the Sheet, and the human can retry in a
+  minute.
+
 ## What it checks before doing anything
 
 In this order. Any failure returns an error and **publishes nothing**.
@@ -49,7 +72,8 @@ In this order. Any failure returns an error and **publishes nothing**.
    - no empty posts
    - ≤ 500 characters per post, counting emoji as their UTF-8 byte length
    - ≤ 5 unique links per post
-   - `image_url`, if present, is `https://`
+   - `image_url` / `video_url`, if present, are `https://`, and a post never
+     carries both
    - first-hand experience only when the row's stored testimony supports it:
      `fabricated_personal_experience` in `none` mode, and in `firsthand` mode the
      provenance checks `experience_detail_unsupported` (a number, duration or
@@ -224,7 +248,8 @@ platform's own behaviour, and no API turns it off:
   against the per-post link limit.
 - The card follows the **first** URL in the post, so the post carrying the
   affiliate link should keep it as that post's only URL.
-- Link previews are a text-only feature: an `IMAGE` post carries no link card.
+- Link previews are a text-only feature: an `IMAGE` or `VIDEO` post carries no
+  link card.
 - Threads counts unique URLs per post and rejects a post with more than 5. That
   is the same number as `max_links_per_post`, which refuses the copy before the
   API ever sees it. A `link_attachment` repeating a URL already in the text
@@ -235,8 +260,9 @@ answers ready:
 
 - **The value posts never carry a card** — they carry no URL at all. Only the
   link post can show one.
-- **An `IMAGE` post suppresses the card entirely.** If the link reply should look
-  like a post rather than a link, give that post an image.
+- **An `IMAGE` or `VIDEO` post suppresses the card entirely.** If the link
+  reply should look like a post rather than a link, give that post an image or
+  a video.
 - **`publish_mode: two_stage` is the structural answer:** the thread collects its
   views before a link exists anywhere in it, and the card only appears on the
   reply that was already asking for the click.

@@ -3,10 +3,15 @@
 Publishing a thread is a chain of container creations and publishes:
 
     for each post, in order:
-        container_id = POST /{user}/threads   (media_type, text, reply_to_id)
+        container_id = POST /{user}/threads   (media_type, text, media, reply_to_id)
         wait until the container is FINISHED
         media_id     = POST /{user}/threads_publish (creation_id)
         reply_to_id  = media_id              <- the next post replies to this one
+
+A post carries at most one media item — an image (``image_url``) or a video
+(``video_url``), never both. Meta fetches the file from the public URL itself;
+there is no upload step in this API. Videos are transcoded, so their containers
+take minutes rather than seconds to become publishable.
 
 Nothing in here is model-facing. It runs the same way every time, which is the
 whole reason publishing is a Tool and not a Skill instruction.
@@ -34,6 +39,13 @@ GRAPH_BASE = "https://graph.threads.net/v1.0"
 #: Threads error codes that are worth one more attempt.
 RETRYABLE_CODES = {-1, 1, 2, 4, 17, 32, 613}
 RETRYABLE_STATUS = {408, 425, 429, 500, 502, 503, 504}
+
+#: How long a container may take to reach ``FINISHED`` before the client gives
+#: up polling it. Text and image containers settle in seconds.
+CONTAINER_TIMEOUT_SECONDS = 60.0
+#: Video containers are transcoded by the platform, so they can take minutes.
+#: Threads caps a video at 5 minutes; the client is willing to wait that long.
+VIDEO_CONTAINER_TIMEOUT_SECONDS = 300.0
 
 Transport = Callable[..., "tuple[int, dict[str, Any]]"]
 """``(method, url, form_data) -> (status, parsed_json)``.
@@ -130,6 +142,15 @@ def _loads(raw: str) -> dict[str, Any]:
     except json.JSONDecodeError:
         return {"error": {"message": raw[:500]}}
     return parsed if isinstance(parsed, dict) else {"data": parsed}
+
+
+def _media_type_for(image_url: str, video_url: str) -> str:
+    """The container's ``media_type``: a post carries at most one medium."""
+    if video_url:
+        return "VIDEO"
+    if image_url:
+        return "IMAGE"
+    return "TEXT"
 
 
 class ThreadsClient:
@@ -272,10 +293,16 @@ class ThreadsClient:
         text: str,
         media_type: str = "TEXT",
         image_url: str = "",
+        video_url: str = "",
         reply_to_id: str = "",
         topic_tag: str = "",
         stage: str = "create_container",
     ) -> str:
+        if image_url and video_url:
+            raise ThreadsAPIError(
+                "one post carries one media item — image_url and video_url cannot both be set.",
+                stage=stage,
+            )
         # The API also takes a `link_attachment` URL, and it is deliberately not
         # sent: Threads already builds the preview card from the first URL in a
         # text-only post, and passing the parameter would only count a second
@@ -285,6 +312,8 @@ class ThreadsClient:
         data: dict[str, Any] = {"media_type": media_type.upper(), "text": text}
         if image_url:
             data["image_url"] = image_url
+        if video_url:
+            data["video_url"] = video_url
         if reply_to_id:
             data["reply_to_id"] = reply_to_id
         if topic_tag:
@@ -312,15 +341,16 @@ class ThreadsClient:
         self,
         container_id: str,
         *,
-        timeout: float = 60.0,
+        timeout: float = CONTAINER_TIMEOUT_SECONDS,
         interval: float = 2.0,
     ) -> str:
         """Block until the container reports ``FINISHED``.
 
         Text containers are ready almost immediately; media containers can take
-        longer, which is why the Threads docs suggest a delay before publishing.
-        An unknown status is not treated as a failure — the caller's
-        ``container_wait_seconds`` pause covers that case.
+        longer, and a video container is transcoded, so it takes the longest.
+        An unknown status is not treated as a failure here — the caller's
+        ``container_wait_seconds`` pause covers that case; ``_await_container``
+        adds the video-specific refusal on top.
         """
         deadline = time.monotonic() + max(0.0, timeout)
         last_status = ""
@@ -341,6 +371,27 @@ class ThreadsClient:
             if time.monotonic() >= deadline:
                 return last_status
             self._sleep(interval)
+
+    def _await_container(self, container_id: str, *, video: bool = False) -> None:
+        """Wait for a container, refusing to publish a video that is not ready.
+
+        Text and image containers keep the tolerant behaviour: if the status
+        endpoint cannot confirm ``FINISHED``, the publish is still attempted and
+        the API's own error is the one reported. A video is different — it is
+        transcoded, and publishing one that is still processing would fail
+        anyway — so an unconfirmed video container is refused with a message the
+        operator can act on.
+        """
+        status = self.wait_for_container(
+            container_id,
+            timeout=VIDEO_CONTAINER_TIMEOUT_SECONDS if video else CONTAINER_TIMEOUT_SECONDS,
+        )
+        if video and status not in {"FINISHED", "PUBLISHED"}:
+            raise ThreadsAPIError(
+                "the video container is still processing (last status: "
+                f"{status or 'unknown'}), so it was not published. Wait a minute and retry.",
+                stage="container_status",
+            )
 
     def publish_container(self, creation_id: str) -> str:
         body = self._call(
@@ -364,6 +415,7 @@ class ThreadsClient:
         text: str,
         reply_to_id: str,
         image_url: str = "",
+        video_url: str = "",
         container_wait_seconds: float = 5.0,
         stage: str = "create_container[reply]",
     ) -> str:
@@ -371,7 +423,7 @@ class ThreadsClient:
 
         This is the second half of a deferred-link publish: the thread is already
         live, and this attaches a post to it — the reply that carries the
-        affiliate URL.
+        affiliate URL. It may itself carry one media item, an image or a video.
         """
         if not reply_to_id:
             raise ThreadsAPIError(
@@ -379,14 +431,15 @@ class ThreadsClient:
             )
         container_id = self.create_container(
             text=text,
-            media_type="IMAGE" if image_url else "TEXT",
+            media_type=_media_type_for(image_url, video_url),
             image_url=image_url,
+            video_url=video_url,
             reply_to_id=reply_to_id,
             stage=stage,
         )
         if container_wait_seconds > 0:
             self._sleep(container_wait_seconds)
-        self.wait_for_container(container_id)
+        self._await_container(container_id, video=bool(video_url))
         return self.publish_container(container_id)
 
     def get_media(self, media_id: str, fields: str = "id,permalink,username") -> dict[str, Any]:
@@ -414,11 +467,13 @@ class ThreadsClient:
         for index, post in enumerate(posts):
             text = str(post.get("text") or "")
             image_url = str(post.get("image_url") or "").strip()
+            video_url = str(post.get("video_url") or "").strip()
 
             container_id = self.create_container(
                 text=text,
-                media_type="IMAGE" if image_url else "TEXT",
+                media_type=_media_type_for(image_url, video_url),
                 image_url=image_url,
+                video_url=video_url,
                 reply_to_id=reply_to_id,
                 topic_tag=topic_tag if index == 0 else "",
                 stage=f"create_container[{index + 1}]",
@@ -427,7 +482,7 @@ class ThreadsClient:
 
             if container_wait_seconds > 0:
                 self._sleep(container_wait_seconds)
-            self.wait_for_container(container_id)
+            self._await_container(container_id, video=bool(video_url))
 
             media_id = self.publish_container(container_id)
             result.media_ids.append(media_id)
@@ -452,16 +507,18 @@ class ThreadsClient:
 
 
 def normalize_posts(raw: Iterable[Any]) -> list[dict[str, str]]:
-    """Coerce the model-supplied ``posts`` argument into ``[{text, image_url}]``."""
+    """Coerce the model-supplied ``posts`` argument into
+    ``[{text, image_url, video_url}]``."""
     posts: list[dict[str, str]] = []
     for item in raw or []:
         if isinstance(item, str):
-            posts.append({"text": item, "image_url": ""})
+            posts.append({"text": item, "image_url": "", "video_url": ""})
         elif isinstance(item, dict):
             posts.append(
                 {
                     "text": str(item.get("text") or ""),
                     "image_url": str(item.get("image_url") or "").strip(),
+                    "video_url": str(item.get("video_url") or "").strip(),
                 }
             )
     return posts

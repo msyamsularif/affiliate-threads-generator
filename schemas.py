@@ -69,9 +69,21 @@ THREADS_PUBLISH: dict = {
                         "image_url": {
                             "type": "string",
                             "description": (
-                                "Optional public HTTPS URL of an image for this post. Omit for "
-                                "text-only. Threads fetches the image itself, so it must be "
-                                "publicly reachable."
+                                "Optional public HTTPS URL of an image for this post (JPEG or "
+                                "PNG, max 8 MB). Omit for text-only. One media item per post — "
+                                "never combine with video_url, and never both. Threads fetches "
+                                "the image itself, so it must be publicly reachable."
+                            ),
+                        },
+                        "video_url": {
+                            "type": "string",
+                            "description": (
+                                "Optional public HTTPS URL of a video for this post (MOV or MP4; "
+                                "H.264/HEVC; max 5 minutes, 1 GB). Use it instead of image_url, "
+                                "never both — a post carries one media item. Threads fetches "
+                                "the video itself and transcodes it, so it takes far longer to "
+                                "process; the tool waits for the platform to finish and "
+                                "refuses to publish a video that is still processing."
                             ),
                         },
                     },

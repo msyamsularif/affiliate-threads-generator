@@ -144,12 +144,13 @@ def read_draft(args: argparse.Namespace) -> tuple[list[dict], str, str]:
     normalized: list[dict] = []
     for item in posts:
         if isinstance(item, str):
-            normalized.append({"text": item, "image_url": ""})
+            normalized.append({"text": item, "image_url": "", "video_url": ""})
         elif isinstance(item, dict):
             normalized.append(
                 {
                     "text": str(item.get("text") or ""),
                     "image_url": str(item.get("image_url") or ""),
+                    "video_url": str(item.get("video_url") or ""),
                 }
             )
         else:

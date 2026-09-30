@@ -435,6 +435,10 @@ def validate_thread(
 ) -> GuardrailReport:
     """Check a thread against every rule that must not depend on model judgement.
 
+    Media attachments are checked per post as well: an ``image_url`` or
+    ``video_url`` must be a public ``https://`` URL, and one post carries one
+    medium — either an image or a video, never both.
+
     ``topic_tag`` is the tag that will actually be sent with this publish. Pass
     the string (``""`` included, which is how "no tag was chosen" is checked
     against ``settings.require_topic_tag``), or ``None`` when the caller has no
@@ -513,11 +517,28 @@ def validate_thread(
             )
 
         image_url = str(post.get("image_url") or "").strip()
+        video_url = str(post.get("video_url") or "").strip()
         if image_url and not image_url.lower().startswith("https://"):
             report.violations.append(
                 Finding(
                     "bad_image_url",
                     "image_url must be a public https:// URL — Threads fetches it itself.",
+                    post_index=index,
+                )
+            )
+        if video_url and not video_url.lower().startswith("https://"):
+            report.violations.append(
+                Finding(
+                    "bad_video_url",
+                    "video_url must be a public https:// URL — Threads fetches it itself.",
+                    post_index=index,
+                )
+            )
+        if image_url and video_url:
+            report.violations.append(
+                Finding(
+                    "multiple_media",
+                    "A post carries one media item — either an image or a video, never both.",
                     post_index=index,
                 )
             )

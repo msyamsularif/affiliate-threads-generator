@@ -413,6 +413,7 @@ def _publish_link_reply(
             text=posts[0]["text"],
             reply_to_id=media_ids[-1],
             image_url=posts[0]["image_url"],
+            video_url=posts[0]["video_url"],
             container_wait_seconds=settings.container_wait_seconds,
         )
     except ThreadsAPIError as exc:

@@ -91,6 +91,24 @@ class TestHardViolations:
         report = guardrails.validate_thread(posts, settings)
         assert "bad_image_url" in {item.code for item in report.violations}
 
+    def test_non_https_video_url(self, settings: config.Settings) -> None:
+        posts = [{"text": "a", "video_url": "http://insecure.example/v.mp4"}, {"text": "b"}, {"text": "c"}]
+        report = guardrails.validate_thread(posts, settings)
+        assert "bad_video_url" in {item.code for item in report.violations}
+
+    def test_a_post_with_both_image_and_video_is_refused(self, settings: config.Settings) -> None:
+        posts = [
+            {
+                "text": "a",
+                "image_url": "https://cdn.example/i.jpg",
+                "video_url": "https://cdn.example/v.mp4",
+            },
+            {"text": "b"},
+            {"text": "c"},
+        ]
+        report = guardrails.validate_thread(posts, settings)
+        assert "multiple_media" in {item.code for item in report.violations}
+
 
 class TestPersonalExperienceGuardrail:
     @pytest.mark.parametrize(
