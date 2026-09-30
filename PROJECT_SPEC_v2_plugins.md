@@ -332,8 +332,10 @@ answer is `No`. Reading tolerates case and stray whitespace.
 
 The system writes only three things to this sheet: a status change
 (`set_status.py`), the publish result (`threads_publish`), and the
-experience answer (`set_experience.py`). It never touches another cell,
-and it never rewrites a testimony the human wrote.
+experience answer (`set_experience.py`). It never touches another cell:
+each write is scoped to the cells of its own operation, so a publish writes
+`Threads URL` and `Status` without clearing the `Used`/`Testimonial` answer
+on the same row — and it never rewrites a testimony the human wrote.
 
 Access is via Hermes' bundled `google-workspace` skill (`google_api.py
 sheets get/update/append`), not a custom adapter.

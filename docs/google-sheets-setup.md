@@ -56,6 +56,10 @@ python3 ${HERMES_SKILL_DIR}/scripts/set_experience.py 12 --used yes --testimonia
 - Guarantee and absolute language ("dijamin", "100% ampuh") is refused in
   **both** modes (`amplifier_language`).
 
+The two cells belong to the experience flow alone. A publish writes the row's
+`Threads URL` and `Status` and leaves every other cell — the answer included —
+exactly as it found it.
+
 You can also type the answer into the sheet by hand. The script exists so the
 pipeline can store the human's words exactly as given — it never paraphrases
 them.

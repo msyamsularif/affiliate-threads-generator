@@ -206,6 +206,29 @@ class TestFullPublishCycle:
         assert record["permalink"] == "https://www.threads.net/@tester/post/media-1"
         assert ledger.unsynced_records() == []
 
+    def test_publishing_never_clears_the_experience_cells(self, end_to_end) -> None:  # noqa: ANN001
+        """Regression: the row already holds Used=Yes plus a testimony.
+
+        The publish writes F and I only; G and H must survive it. This is the
+        live P0005 data loss, through the real SheetClient plumbing and the
+        on-disk fake google_api.py — which applies ``--values`` positionally,
+        so a span write would blank the cells it passes over.
+        """
+        testimonial = "Dipakai sebulan buat kerja, baterainya masih penuh."
+        sheet = end_to_end["read_sheet"]()
+        sheet[2][6] = "Yes"
+        sheet[2][7] = testimonial
+        end_to_end["state_path"].write_text(json.dumps(sheet, ensure_ascii=False), encoding="utf-8")
+
+        result = call({"product_id": "2", "posts": POSTS, "confirm_publish": True})
+
+        assert result["ok"] is True, result
+        after = end_to_end["read_sheet"]()
+        assert after[2][6] == "Yes"
+        assert after[2][7] == testimonial
+        assert after[2][5] == "https://www.threads.net/@tester/post/media-1"
+        assert after[2][8] == "Done"
+
     def test_a_held_row_is_never_published(self, end_to_end) -> None:  # noqa: ANN001
         # Simulate the human replying "hold" between the preview and the approval.
         sheet = end_to_end["read_sheet"]()

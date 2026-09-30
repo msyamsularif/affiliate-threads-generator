@@ -72,7 +72,10 @@ python3 ${HERMES_SKILL_DIR}/scripts/select_candidate.py --id 12 --full
 
 ## Writing
 
-**Only three things are ever written by this system.**
+**Only three things are ever written by this system** — and each write names
+just its own cells. Nothing in between is ever filled, so a publish writes
+`Threads URL` and `Status` without clearing the `Used`/`Testimonial` answer on
+the same row.
 
 ### 1. A status change (hold / cancel / resume)
 
@@ -89,11 +92,11 @@ mismatch.
 
 ### 2. The publish result (only by `threads_publish`)
 
-`Status=Done` plus `Threads URL`. This happens inside the publish tool, after a
-confirmed media ID, and nowhere else. **You never write these two fields
-yourself.** Under `publish_mode: two_stage` the first half of the publish writes
-the `Threads URL` plus the link-pending status instead of `Done`, and the status
-only becomes `Done` when the deferred link reply goes out.
+`Status=Done` plus `Threads URL` — those two cells only. This happens inside the
+publish tool, after a confirmed media ID, and nowhere else. **You never write
+these two fields yourself.** Under `publish_mode: two_stage` the first half of
+the publish writes the `Threads URL` plus the link-pending status instead of
+`Done`, and the status only becomes `Done` when the deferred link reply goes out.
 
 ### 3. The experience answer (only by `set_experience.py`)
 

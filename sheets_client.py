@@ -27,7 +27,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .config import Settings, column_index, column_letter, experience_mode
+from .config import Settings, column_index, experience_mode
 
 logger = logging.getLogger(__name__)
 
@@ -294,27 +294,41 @@ class SheetClient:
     # ------------------------------------------------------------------ #
 
     def write_fields(self, row_number: int, values: dict[str, str]) -> None:
-        """Write one or more named columns on ``row_number``."""
-        columns = self.settings.columns
-        fields = [name for name in values if name in columns]
-        if not fields:
-            return
-        indexes = sorted(column_index(columns[name]) for name in fields)
-        start, end = indexes[0], indexes[-1]
-        cells = ["" for _ in range(start, end + 1)]
-        for name in fields:
-            cells[column_index(columns[name]) - start] = values[name]
+        """Write one or more named columns on ``row_number``.
 
-        a1_range = f"{self.settings.sheet_tab}!{column_letter(start)}{row_number}:{column_letter(end)}{row_number}"
-        self._run_json(
-            "sheets",
-            "update",
-            self.spreadsheet_id,
-            a1_range,
-            "--values",
-            json.dumps([cells], ensure_ascii=False),
-            stage="sheets_write",
+        Only the named columns are written. The fields are grouped into
+        contiguous runs and each run goes out as its own ``sheets update``, so
+        a column the caller did not name is never filled: a publish writes
+        ``threads_url`` and ``status`` (F and I) without touching the
+        ``Used``/``Testimonial`` cells (G and H) between them.
+        """
+        columns = self.settings.columns
+        requested = sorted(
+            ((column_index(columns[name]), name) for name in values if name in columns),
+            key=lambda item: item[0],
         )
+        if not requested:
+            return
+
+        runs: list[list[str]] = []
+        previous = -2  # sentinel: any column index differs from previous + 1
+        for index, name in requested:
+            if index != previous + 1:
+                runs.append([])
+            runs[-1].append(name)
+            previous = index
+
+        for run in runs:
+            cells = [values[name] for name in run]
+            self._run_json(
+                "sheets",
+                "update",
+                self.spreadsheet_id,
+                self.settings.row_range(row_number, *run),
+                "--values",
+                json.dumps([cells], ensure_ascii=False),
+                stage="sheets_write",
+            )
 
     def write_publish_result(self, row_number: int, *, threads_url: str, status: str) -> None:
         self.write_fields(row_number, {"threads_url": threads_url, "status": status})
