@@ -8,6 +8,11 @@ Turns product candidates in Google Sheets into research-backed,
 conversation-oriented Threads content, then waits for a human to approve before
 anything is published.
 
+The project's site — [home](https://msyamsularif.github.io/affiliate-threads-generator/),
+[privacy policy](https://msyamsularif.github.io/affiliate-threads-generator/privacy-policy.html)
+and [terms of service](https://msyamsularif.github.io/affiliate-threads-generator/terms-of-service.html)
+— is published from `docs/` on GitHub Pages.
+
 > **Do not ask "how do we sell this product?"**
 > Ask "what conversation is worth reading, and can this product naturally become
 > a relevant solution?"

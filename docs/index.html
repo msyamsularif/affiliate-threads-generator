@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Affiliate Threads · AIffiliate</title>
+    <meta
+      name="description"
+      content="A self-hosted Hermes Agent plugin that turns Google Sheets candidates into research-backed Meta Threads posts, with human approval before every publish."
+    />
+    <!-- One stylesheet and one script, both served from this directory. No external fonts, images, or analytics, so no page here makes a third-party request. -->
+    <script src="site.js"></script>
+    <link rel="stylesheet" href="site.css" />
+    <noscript
+      ><style>
+        .theme {
+          display: none;
+        }
+      </style></noscript
+    >
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to the content</a>
+    <header class="masthead">
+      <div class="masthead-inner">
+        <p class="wordmark">Affiliate Threads</p>
+        <nav class="topnav" aria-label="Site">
+          <a href="index.html" aria-current="page">Home</a>
+          <a href="privacy-policy.html">Privacy</a>
+          <a href="terms-of-service.html">Terms</a>
+          <a href="https://github.com/msyamsularif/affiliate-threads-generator"
+            >Repository</a
+          >
+          <button class="theme" id="theme" type="button" aria-pressed="false">
+            Dark theme
+          </button>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main" class="wrap">
+      <header class="title-block">
+        <h1>Affiliate Threads</h1>
+        <p class="lede">
+          An AI-assisted affiliate content engine for Meta Threads, built as a
+          Hermes Agent plugin. It turns product candidates in your Google Sheet
+          into research-backed, conversation-oriented posts — and publishes
+          nothing until a human approves it.
+        </p>
+        <p class="stamp">Self-hosted · MIT licensed · Hermes Agent plugin</p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="#quick-start">Install</a>
+          <a
+            class="btn"
+            href="https://github.com/msyamsularif/affiliate-threads-generator"
+            >Repository</a
+          >
+        </div>
+      </header>
+
+      <section class="summary" aria-labelledby="rule-heading">
+        <h2 id="rule-heading">The rule it is built around</h2>
+        <p>
+          AI creates and reasons. Code controls and validates. Human approves.
+          Threads publishes. Google Sheets records the business state.
+        </p>
+        <p class="note">
+          Publishing is the one step the model never takes by itself: a post
+          goes through threads_publish, which re-checks the row and waits for
+          your approval.
+        </p>
+      </section>
+
+      <div class="prose">
+        <section id="how" aria-labelledby="how-heading">
+          <h2 id="how-heading">How it works</h2>
+          <ol class="steps">
+            <li>
+              <span class="n">1.</span>Candidates live in a Google Sheet you
+              own: product, description, affiliate URL, category, and a status.
+              The pipeline picks exactly one row marked Ready To Generate —
+              deterministically, never by model choice.
+            </li>
+            <li>
+              <span class="n">2.</span>Before any research, it asks whether you
+              have used the product, and parks until you answer. Your Used and
+              Testimonial cells decide whether the copy may speak from
+              experience.
+            </li>
+            <li>
+              <span class="n">3.</span>Research starts on the open web; the
+              seller's description is background, never evidence. Then come the
+              angle, a one-line point of view, your voice, a beat plan, and hook
+              variants.
+            </li>
+            <li>
+              <span class="n">4.</span>The drafts run through an anti-slop
+              audit, a naturalization rewrite, the affiliate editorial and
+              evidence reviews, and a check against your recent posts for
+              repeated shapes.
+            </li>
+            <li>
+              <span class="n">5.</span>A Telegram preview shows the draft with
+              its topic tag, angle, hook, and beats. You approve, hold, cancel,
+              or ask for a regenerate.
+            </li>
+            <li>
+              <span class="n">6.</span>On approval, threads_publish re-checks
+              the row, publishes through the official Threads Graph API, and
+              only then writes Status and the post URL back to the sheet.
+            </li>
+          </ol>
+        </section>
+
+        <section id="requirements" aria-labelledby="requirements-heading">
+          <h2 id="requirements-heading">What it needs</h2>
+          <ul>
+            <li>Hermes Agent, with the gateway configured for Telegram.</li>
+            <li>
+              A Meta app with the Threads use case, and a long-lived Threads
+              user token with <code>threads_basic</code> and
+              <code>threads_content_publish</code>.
+            </li>
+            <li>
+              A Google Sheet with the candidate columns, authorized through the
+              bundled google-workspace skill.
+            </li>
+          </ul>
+        </section>
+
+        <section id="quick-start" aria-labelledby="quick-start-heading">
+          <h2 id="quick-start-heading">Quick start</h2>
+          <pre><code>hermes plugins install msyamsularif/affiliate-threads-generator --enable
+hermes gateway restart</code></pre>
+          <p>
+            The install prompts for the credentials it needs — the Threads
+            token, the sheet id, and the tab name — and Hermes stores them. The
+            plugin arrives as one bundle: its tools, hooks, skill, and the
+            <code>/affiliate-threads status</code> command.
+          </p>
+          <p class="note">
+            Full instructions:
+            <a
+              href="https://github.com/msyamsularif/affiliate-threads-generator/blob/main/docs/installation.md"
+              >docs/installation.md</a
+            >.
+          </p>
+        </section>
+
+        <section id="docs" aria-labelledby="docs-heading">
+          <h2 id="docs-heading">Documentation</h2>
+          <ul>
+            <li>
+              <a
+                href="https://github.com/msyamsularif/affiliate-threads-generator/blob/main/docs/installation.md"
+                >Installation</a
+              >
+              — install the plugin and verify the wiring.
+            </li>
+            <li>
+              <a
+                href="https://github.com/msyamsularif/affiliate-threads-generator/blob/main/docs/configuration.md"
+                >Configuration</a
+              >
+              — every setting, with its default.
+            </li>
+            <li>
+              <a
+                href="https://github.com/msyamsularif/affiliate-threads-generator/blob/main/docs/threads-app-setup.md"
+                >Threads app setup</a
+              >
+              — create the Meta app, mint the long-lived token, and keep it
+              alive.
+            </li>
+            <li>
+              <a
+                href="https://github.com/msyamsularif/affiliate-threads-generator/blob/main/docs/google-sheets-setup.md"
+                >Google Sheets setup</a
+              >
+              — build the candidate sheet and the columns the pipeline reads.
+            </li>
+            <li>
+              <a
+                href="https://github.com/msyamsularif/affiliate-threads-generator/blob/main/docs/cron-setup.md"
+                >Cron setup</a
+              >
+              — schedule generation, and the monthly token refresh.
+            </li>
+            <li>
+              <a
+                href="https://github.com/msyamsularif/affiliate-threads-generator/blob/main/docs/operations-runbook.md"
+                >Operations runbook</a
+              >
+              — day-to-day operation, and what to check when something breaks.
+            </li>
+            <li>
+              <a
+                href="https://github.com/msyamsularif/affiliate-threads-generator/blob/main/docs/credentials.md"
+                >Credentials</a
+              >
+              — where each value comes from, and how to rotate it.
+            </li>
+            <li>
+              <a
+                href="https://github.com/msyamsularif/affiliate-threads-generator/blob/main/docs/antislop-integration.md"
+                >Anti-slop integration</a
+              >
+              — how the bundled writing-quality skill slots into the pipeline.
+            </li>
+          </ul>
+        </section>
+
+        <section id="app" aria-labelledby="app-heading">
+          <h2 id="app-heading">The AIffiliate app</h2>
+          <p>
+            AIffiliate is the Meta Threads app the plugin publishes through — a
+            Threads-use-case app you register and authorize yourself. It asks
+            Meta for two permissions and nothing more:
+            <code>threads_basic</code> and <code>threads_content_publish</code>.
+          </p>
+          <p>
+            Posts go only to the account behind the token, only after a human
+            approves them, and only through Meta's official Graph API. Replies,
+            followers, and insights are outside its permissions.
+          </p>
+          <p>
+            <a href="privacy-policy.html">Privacy Policy</a> ·
+            <a href="terms-of-service.html">Terms of Service</a>
+          </p>
+        </section>
+      </div>
+    </main>
+
+    <footer>
+      <div class="footer-inner">
+        <p>
+          Affiliate Threads is open source under the
+          <a
+            href="https://github.com/msyamsularif/affiliate-threads-generator/blob/main/LICENSE"
+            >MIT License</a
+          >. Bugs and questions go to the
+          <a
+            href="https://github.com/msyamsularif/affiliate-threads-generator/issues"
+            >issue tracker</a
+          >.
+        </p>
+        <p>
+          <a href="privacy-policy.html">Privacy Policy</a> ·
+          <a href="terms-of-service.html">Terms of Service</a>
+        </p>
+        <p>
+          This site is three static pages, one stylesheet, and one script for
+          the theme toggle. It sets no cookies, loads nothing from other sites,
+          and sends no data anywhere.
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>
