@@ -62,8 +62,8 @@ requires_env:
   - name: THREADS_ACCESS_TOKEN
     description: >-
       Long-lived Meta Threads user access token (60 days, refreshable). Needs the
-      threads_basic and threads_content_publish scopes, from a Meta app created
-      with the Threads use case.
+      threads_basic, threads_content_publish and threads_manage_insights scopes,
+      from a Meta app created with the Threads use case.
     prompt: "Meta Threads long-lived user access token"
     url: "https://developers.facebook.com/apps"
     secret: true
@@ -124,6 +124,24 @@ config_schema:
     description: >-
       Tab that holds the candidate table (ID, Product, Description,
       Affiliate URL, Category, Threads URL, Used, Testimonial, Status).
+
+  metrics_tab:
+    type: str
+    default: "Metrics"
+    label: "Metrics tab"
+    description: >-
+      The plugin-owned tab the weekly insights fetch appends to. It lives in the
+      same spreadsheet as the candidate table but is never mixed with it: the
+      table is one row per product, this one is a time series.
+
+  metrics_window_days:
+    type: int
+    default: 30
+    label: "Metrics window (days)"
+    description: >-
+      Published posts older than this many days leave the weekly fetch window.
+      Their recorded snapshots stay in the Metrics tab; they are just no longer
+      queried.
 
   columns:
     type: dict

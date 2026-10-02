@@ -111,6 +111,19 @@ Rules:
 See [google-sheets-setup.md](google-sheets-setup.md) for the column semantics and
 what a good `Description` looks like.
 
+### The Metrics tab (plugin-owned)
+
+| Setting               | Default   | Effect                                                        |
+| --------------------- | --------- | ------------------------------------------------------------- |
+| `metrics_tab`         | `Metrics` | Tab the weekly insights fetch appends to (same spreadsheet)   |
+| `metrics_window_days` | `30`      | Published posts older than this leave the weekly fetch window |
+
+The weekly job (Monday 10:00) appends one row per published post per check to
+`metrics_tab` — lifetime views/likes/replies/reposts/quotes/shares plus the
+week's link clicks. It is the only writer of that tab; the agent may read it,
+never write it. A window below `1` falls back to the default. See
+[cron-setup.md](cron-setup.md#the-third-job-the-weekly-metrics-fetch).
+
 ## Status vocabulary
 
 | Setting              | Default             |
@@ -383,6 +396,9 @@ plugins:
         content_language: "id"
         max_posts: 5
         require_approval_prompt: true
+        # The weekly insights fetch (Monday 10:00) appends to this tab.
+        metrics_tab: "Metrics"
+        metrics_window_days: 30
         # Optional: publish the thread first and attach the link as a reply
         # once the post has been seen. Two approvals, two publishes.
         # publish_mode: "two_stage"

@@ -122,7 +122,9 @@ It refuses when the layout has no `Used`/`Testimonial` columns.
   carry the human's answer; only `set_experience.py` writes them, only with what
   the human said.
 - Delete rows.
-- Touch any other tab or spreadsheet.
+- Touch any other tab or spreadsheet. The one exception is **reading** the
+  plugin-owned `Metrics` tab (below) — read it when the human asks about
+  performance; never write it.
 
 ## Common situations
 
@@ -150,3 +152,22 @@ write failed. In that case the next call for the same `product_id` repairs the
 Sheet and publishes nothing. If you ever see
 `status: "published_sheet_write_failed"`, that is what happened — tell the human
 the thread is live, and re-call with the same ID.
+
+## The Metrics tab (plugin-owned, read-only for you)
+
+A second tab in the same spreadsheet, named `Metrics` by default
+(`metrics_tab` setting), is written by exactly one thing: the weekly insights
+job (`fetch_metrics.py`, run from cron every Monday). It is a time series — one
+row per published post per check:
+
+`Product ID | Media ID | Checked At | Views | Likes | Replies | Reposts | Quotes | Shares | Link Clicks`
+
+`Link Clicks` is the number of clicks on that product's affiliate URL during
+the job's seven-day window, matched by exact URL. `Checked At` is an ISO-8601
+UTC timestamp.
+
+You may read this tab — `show_metrics.py` summarises it, and a direct read is
+fine when the human asks how a post is doing. You never write it: not with
+`terminal`, not with `execute_code`, not by hand. A missing tab means the
+weekly job has nowhere to land; tell the human to create it (or run
+`doctor.py`, whose `metrics_tab` check says exactly that).

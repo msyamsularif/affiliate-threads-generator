@@ -1,17 +1,19 @@
 # Meta Threads app setup
 
-You need a Threads user access token with two scopes. The token is what
-`threads_publish` uses; nothing else in this system touches the Threads API.
+You need a Threads user access token with three scopes. `threads_publish` uses
+the first two; the weekly metrics fetch uses the third. Nothing else in this
+system touches the Threads API.
 
 ## Scopes
 
-| Scope                     | Needed for                                      |
-| ------------------------- | ----------------------------------------------- |
-| `threads_basic`           | `GET /me`, `GET /{media-id}` (permalink lookup) |
-| `threads_content_publish` | Creating containers and publishing              |
+| Scope                     | Needed for                                                                              |
+| ------------------------- | --------------------------------------------------------------------------------------- |
+| `threads_basic`           | `GET /me`, `GET /{media-id}` (permalink lookup)                                         |
+| `threads_content_publish` | Creating containers and publishing                                                      |
+| `threads_manage_insights` | The weekly metrics fetch: `GET /{media-id}/insights`, `GET /{user-id}/threads_insights` |
 
-`threads_manage_replies`, `threads_read_replies` and `threads_manage_insights`
-are **not** needed. The plugin does not read replies or insights.
+`threads_manage_replies` and `threads_read_replies` are **not** needed — the
+plugin does not read replies or mentions.
 
 ## 1. Create the Meta app
 
@@ -45,7 +47,7 @@ The flow:
 GET https://threads.net/oauth/authorize
       ?client_id=<THREADS_APP_ID>
       &redirect_uri=<REDIRECT_URI>
-      &scope=threads_basic,threads_content_publish
+      &scope=threads_basic,threads_content_publish,threads_manage_insights
       &response_type=code
 ```
 
@@ -112,7 +114,11 @@ python3 "$SKILL_DIR/scripts/threads_token.py" status
   "token_valid": true,
   "expires_at": "2026-11-22T08:00:00+00:00",
   "days_remaining": 60.0,
-  "scopes": ["threads_basic", "threads_content_publish"]
+  "scopes": [
+    "threads_basic",
+    "threads_content_publish",
+    "threads_manage_insights"
+  ]
 }
 ```
 
@@ -196,9 +202,11 @@ value:
 hermes gateway restart
 ```
 
-This refresh is a second job, separate from the generation schedule. Both are
-listed side by side in
-[cron-setup.md](cron-setup.md#the-second-job-the-monthly-token-refresh).
+This refresh is one of three jobs, separate from the generation schedule. All
+three are listed side by side in
+[cron-setup.md](cron-setup.md#the-second-job-the-monthly-token-refresh) —
+including
+[the weekly metrics fetch](cron-setup.md#the-third-job-the-weekly-metrics-fetch).
 
 ## Scopes: what a missing one looks like
 
@@ -206,9 +214,14 @@ listed side by side in
 | ----------------------------------------------------------------------- | ------------------------- |
 | `(#10) Application does not have permission for this action` on publish | `threads_content_publish` |
 | `GET /me` fails with an auth error                                      | `threads_basic`           |
+| The weekly metrics fetch fails with `(#10)` or a permission error       | `threads_manage_insights` |
 
-Both are fixed by re-authorizing with the correct scope list — a token cannot be
-widened after the fact.
+All are fixed by re-authorizing with the correct scope list — a token cannot be
+widened after the fact. **A refresh does not add a scope**: `threads_token.py
+refresh` renews the same permissions. To add one, run the authorization window
+again (step 3) with the full scope list, exchange the new code (step 4), write it
+with `--write-env`, and restart the gateway. `doctor.py`'s `metrics_scope` check
+reports whether the insights scope is present.
 
 ## Production note
 

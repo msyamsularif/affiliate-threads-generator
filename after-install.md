@@ -1,8 +1,8 @@
 # Affiliate Threads — finish the setup
 
 You are reading this because the operator just installed this plugin. The plugin
-is loaded; the pipeline is not ready. Two things have to be true first, and one of
-them fails silently if it is skipped.
+is loaded; the pipeline is not ready. Three things have to be true first, and two
+of them fail silently if they are skipped.
 
 Work through them in this order, ask before you create anything, then tell the
 operator in two or three lines what you did. Nothing you do here publishes
@@ -93,7 +93,57 @@ previews replyable, and what a scheduled run does and does not do.
 
 ---
 
-## 3. Prove the wiring before the first real run
+## 3. Schedule the weekly metrics fetch
+
+The third job. Every Monday at 10:00 Asia/Jakarta it pulls Threads insights for
+posts published in the last 30 days — lifetime views/likes/replies/reposts/
+quotes/shares for each thread's root post, plus the account's link-click totals
+for the week — and appends them to a `Metrics` tab in the same spreadsheet. It
+never publishes and never touches the candidate table.
+
+Check whether it is already handled:
+
+```bash
+hermes cron list
+```
+
+If a metrics job already exists, say so and move on. Otherwise two things have
+to be true before it is useful:
+
+- **A `Metrics` tab in the spreadsheet.** Create it once by hand (a different
+  name works if the `metrics_tab` setting is changed to match). The first run
+  writes the header row; `doctor.py`'s `metrics_tab` check confirms it exists.
+- **A token with `threads_manage_insights`.** Fresh installs authorize with the
+  three scopes listed in `docs/threads-app-setup.md`. A token that predates that
+  scope cannot gain it — the operator has to authorize again; that doc has the
+  steps.
+
+Then offer to create the job:
+
+```bash
+hermes cron create "0 10 * * 1" \
+  "Fetch Threads insights for recently published posts" \
+  --no-agent \
+  --script fetch-threads-metrics.sh \
+  --deliver telegram \
+  --name "threads-metrics"
+```
+
+The script it runs sits at `$HERMES_HOME/scripts/fetch-threads-metrics.sh` —
+`docs/cron-setup.md` has its body, and the `terminal.env_passthrough` note that
+decides whether the job works at all. Unlike the token refresh (where silence is
+the good outcome), this job's delivered message **is** the weekly report: posts
+fetched, the top post, and the week's link clicks. Before the first Monday, run
+it once by hand:
+
+```bash
+SKILL_DIR="$HERMES_HOME/plugins/affiliate-threads-generator/skills/affiliate-threads-generator"
+python3 "$SKILL_DIR/scripts/fetch_metrics.py" --dry-run
+```
+
+---
+
+## 4. Prove the wiring before the first real run
 
 ```bash
 SKILL_DIR="$HERMES_HOME/plugins/affiliate-threads-generator/skills/affiliate-threads-generator"
@@ -101,6 +151,6 @@ python3 "$SKILL_DIR/scripts/doctor.py"
 ```
 
 Every line should be `✓`. The `threads_api` line prints the token's validity and
-days remaining, `cron_job` confirms the generation job, and `token_refresh_job`
-confirms the job from step 1 — if that one is `✗`, it did not get created. Any `✗`
-comes with a `→` hint naming the fix.
+days remaining, `cron_job` confirms the generation job, `token_refresh_job`
+confirms the job from step 1, and `metrics_scope` / `metrics_tab` / `metrics_job`
+confirm the job from step 3 — a `✗` on any of them names the fix in its `→` hint.

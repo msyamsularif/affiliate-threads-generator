@@ -226,3 +226,38 @@ class TestResolve:
         summary = config.resolve().public_summary()
         assert "super-secret-token" not in str(summary)
         assert summary["threads_credentials_configured"] is True
+
+
+class TestMetricsSettings:
+    """The weekly insights fetch's two settings."""
+
+    def test_defaults(self, ctx) -> None:  # noqa: ANN001
+        resolved = config.resolve()
+        assert resolved.metrics_tab == "Metrics"
+        assert resolved.metrics_window_days == 30
+
+    def test_the_tab_is_configurable(self, ctx) -> None:  # noqa: ANN001
+        ctx.settings["metrics_tab"] = "Engagement"
+        assert config.resolve().metrics_tab == "Engagement"
+
+    def test_the_window_is_configurable(self, ctx) -> None:  # noqa: ANN001
+        ctx.settings["metrics_window_days"] = "14"
+        assert config.resolve().metrics_window_days == 14
+
+    @pytest.mark.parametrize("junk", ["soon", "", None])
+    def test_a_junk_window_falls_back_to_the_default(self, ctx, junk: object) -> None:  # noqa: ANN001
+        ctx.settings["metrics_window_days"] = junk
+        assert config.resolve().metrics_window_days == config.DEFAULT_METRICS_WINDOW_DAYS
+
+    def test_a_non_positive_window_falls_back_to_the_default(self, ctx) -> None:  # noqa: ANN001
+        ctx.settings["metrics_window_days"] = 0
+        assert config.resolve().metrics_window_days == config.DEFAULT_METRICS_WINDOW_DAYS
+
+    def test_a_blank_tab_falls_back_to_the_default(self, ctx) -> None:  # noqa: ANN001
+        ctx.settings["metrics_tab"] = "   "
+        assert config.resolve().metrics_tab == "Metrics"
+
+    def test_public_summary_carries_both(self, ctx) -> None:  # noqa: ANN001
+        summary = config.resolve().public_summary()
+        assert summary["metrics_tab"] == "Metrics"
+        assert summary["metrics_window_days"] == 30

@@ -27,7 +27,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .config import Settings, column_index, experience_mode
+from .config import Settings, column_index, column_letter, experience_mode
 
 logger = logging.getLogger(__name__)
 
@@ -289,6 +289,20 @@ class SheetClient:
             return None
         return min(eligible, key=_sort_key)
 
+    def read_range(self, a1: str) -> list[list[str]]:
+        """Read an explicit A1 range (tab included) as strings. Empty → ``[]``.
+
+        Unlike ``read_rows`` this maps nothing — it is how the plugin-owned
+        Metrics tab is read, by this client and by ``doctor.py``.
+        """
+        data = self._run_json("sheets", "get", self.spreadsheet_id, a1, stage="sheets_read")
+        values = _extract_values(data)
+        return [
+            [str(cell) for cell in row]
+            for row in values
+            if isinstance(row, (list, tuple))
+        ]
+
     # ------------------------------------------------------------------ #
     # writes
     # ------------------------------------------------------------------ #
@@ -352,6 +366,62 @@ class SheetClient:
                 ),
             )
         self.write_fields(row_number, {"used": used, "testimonial": testimonial})
+
+    # ------------------------------------------------------------------ #
+    # the plugin-owned Metrics tab
+    # ------------------------------------------------------------------ #
+
+    def append_rows(
+        self,
+        tab: str,
+        rows: Sequence[Sequence[str]],
+        *,
+        header: Sequence[str] = (),
+    ) -> int:
+        """Append rows below the last filled row of ``tab``; return the first row written.
+
+        The Metrics tab is plugin-owned and this is its only writer — one weekly
+        run, no concurrency — so a read-then-write is safe. The header goes in
+        when the tab is empty; the whole block (header included) is one
+        contiguous ``sheets update``, so nothing outside the written range is
+        ever touched.
+        """
+        if not rows:
+            return 0
+
+        try:
+            existing = self.read_range(f"{tab}!A1:A")
+        except SheetError as exc:
+            raise SheetError(
+                f"could not read the {tab!r} tab: {exc.message}",
+                stage=exc.stage,
+                hint=exc.hint
+                or (
+                    f"Check that a tab named {tab!r} exists in the spreadsheet — create it "
+                    "if not; see docs/google-sheets-setup.md."
+                ),
+            ) from exc
+
+        filled = sum(1 for row in existing if any(str(cell).strip() for cell in row))
+        block: list[list[str]] = []
+        if filled == 0 and header:
+            block.append([str(cell) for cell in header])
+        block.extend([str(cell) for cell in row] for row in rows)
+
+        first_row = filled + 1
+        last_row = first_row + len(block) - 1
+        width = max(len(row) for row in block)
+        padded = [row + [""] * (width - len(row)) for row in block]
+        self._run_json(
+            "sheets",
+            "update",
+            self.spreadsheet_id,
+            f"{tab}!A{first_row}:{column_letter(width)}{last_row}",
+            "--values",
+            json.dumps(padded, ensure_ascii=False),
+            stage="sheets_write",
+        )
+        return first_row
 
 
 def _sort_key(row: Row) -> tuple[int, float | str, int]:

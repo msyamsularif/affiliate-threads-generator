@@ -287,3 +287,104 @@ class TestClientSetup:
         client = make_client(transport, user_id="")
         client.publish_thread([{"text": "one"}], container_wait_seconds=0)
         assert "/resolved-user/threads" in transport.calls[1][1]
+
+
+class TestMediaInsights:
+    def test_parses_lifetime_values(self) -> None:
+        transport = scripted_transport(
+            [
+                (
+                    200,
+                    {
+                        "data": [
+                            {"name": "views", "values": [{"value": 120}]},
+                            {"name": "likes", "values": [{"value": 7}]},
+                        ]
+                    },
+                )
+            ]
+        )
+
+        values = make_client(transport).get_media_insights("media-1")
+
+        assert values == {"views": 120, "likes": 7}
+        method, url, _data = transport.calls[0]
+        assert method == "GET"
+        assert "/media-1/insights" in url
+        assert "metric=views%2Clikes%2Creplies%2Creposts%2Cquotes%2Cshares" in url
+
+    def test_a_missing_metric_is_simply_absent(self) -> None:
+        transport = scripted_transport(
+            [(200, {"data": [{"name": "likes", "values": [{"value": 3}]}]})]
+        )
+
+        assert make_client(transport).get_media_insights("m") == {"likes": 3}
+
+    def test_an_empty_payload_is_an_empty_map(self) -> None:
+        transport = scripted_transport([(200, {})])
+
+        assert make_client(transport).get_media_insights("m") == {}
+
+    def test_a_non_numeric_point_is_skipped(self) -> None:
+        transport = scripted_transport(
+            [(200, {"data": [{"name": "views", "values": [{"value": "lots"}]}]})]
+        )
+
+        assert make_client(transport).get_media_insights("m") == {}
+
+    def test_a_custom_metric_set_is_requested(self) -> None:
+        transport = scripted_transport([(200, {"data": []})])
+
+        make_client(transport).get_media_insights("m", metrics=("likes", "replies"))
+
+        assert "metric=likes%2Creplies" in transport.calls[0][1]
+
+    def test_an_api_error_raises(self) -> None:
+        transport = scripted_transport(
+            [(400, {"error": {"message": "bad metric", "code": 100}})]
+        )
+
+        with pytest.raises(threads_client.ThreadsAPIError) as excinfo:
+            make_client(transport).get_media_insights("m")
+
+        assert excinfo.value.status == 400
+
+
+class TestUserInsights:
+    def test_clicks_carries_the_window_and_the_user(self) -> None:
+        transport = scripted_transport(
+            [
+                (
+                    200,
+                    {
+                        "data": [
+                            {
+                                "name": "clicks",
+                                "link_total_values": [
+                                    {"value": 11, "link_url": "https://shope.ee/abc"}
+                                ],
+                            }
+                        ]
+                    },
+                )
+            ]
+        )
+
+        body = make_client(transport).get_user_insights("clicks", since=100, until=200)
+
+        assert body["data"][0]["name"] == "clicks"
+        method, url, _data = transport.calls[0]
+        assert method == "GET"
+        assert "/user-1/threads_insights" in url
+        assert "metric=clicks" in url
+        assert "since=100" in url
+        assert "until=200" in url
+
+    def test_the_window_is_omitted_when_unset(self) -> None:
+        transport = scripted_transport([(200, {"data": []})])
+
+        make_client(transport).get_user_insights("clicks")
+
+        url = transport.calls[0][1]
+        assert "since=" not in url
+        assert "until=" not in url

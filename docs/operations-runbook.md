@@ -46,19 +46,22 @@ python3 "$SKILL_DIR/scripts/doctor.py"
 From any session, `/affiliate-threads status` runs the same read-only preflight
 without spending a model turn.
 
-Eight checks plus one that reports where the settings came from, and one that
-watches the token. Any `✗` comes with a `→` hint.
+Twelve checks plus one that reports where the settings came from. Any `✗` comes
+with a `→` hint.
 
 ```
   ✓ plugin: found at .../plugins/affiliate-threads-generator (v1.2.2)
   ✓ settings: spreadsheet=... tab=Sheet1 eligible='Ready To Generate' topic_tag=required
   ✓ plugin_settings: 3 setting(s) read from ~/.hermes/config.yaml
   ✓ threads_api: @yourhandle (id ...); token valid=True, expires in 58.4 days
+  ✓ metrics_scope: threads_manage_insights granted
   ✓ sheets: 12 data row(s) in Sheet1; google_api=...
   ✓ next_candidate: ID 3 — Wireless Earbuds X (row 5)
+  ✓ metrics_tab: Metrics tab — 5 snapshot row(s)
   ✓ bundled_skill: .../plugins/affiliate-threads-generator/skills/affiliate-threads-generator/SKILL.md
   ✓ cron_job: affiliate-threads-generator [0 8 * * 0,1,3,5] next=... enabled=True
   ✓ token_refresh_job: threads-token-refresh [0 9 1 * *] next=... enabled=True
+  ✓ metrics_job: threads-metrics [0 10 * * 1] next=... enabled=True
   ✓ unsynced_publishes: none
 ```
 

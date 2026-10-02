@@ -103,6 +103,11 @@ Three hooks:
 | `pre_tool_call`  | Escalates every `threads_publish` call to Hermes' own human-approval gate.                                                                              |
 | `post_tool_call` | Writes an audit line for every publish attempt to `~/.hermes/logs/agent.log`.                                                                           |
 
+A third scheduled job sits outside the agent loop: every Monday at 10:00 a
+script fetches Threads insights for recently published posts into a `Metrics`
+tab in the same spreadsheet — engagement data the operator reads, never a
+publish path. It is the same `--no-agent --script` shape as the token refresh.
+
 ---
 
 ## Quick start
@@ -157,7 +162,7 @@ Full instructions: [`docs/installation.md`](docs/installation.md).
 
 - Hermes Agent with the gateway configured for Telegram
 - A Meta app with the Threads use case, and a long-lived Threads user token
-  with `threads_basic` + `threads_content_publish`
+  with `threads_basic` + `threads_content_publish` + `threads_manage_insights`
 - The bundled `google-workspace` skill authorized for Sheets
 - A Google Sheet with the columns described in
   [`docs/google-sheets-setup.md`](docs/google-sheets-setup.md)

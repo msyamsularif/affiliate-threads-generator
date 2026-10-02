@@ -98,6 +98,20 @@ Poor — no information:
 The second one leaves the research step with nothing to look up, which pushes the
 whole thread down to generic category talk.
 
+### The Metrics tab (plugin-owned)
+
+Create a second tab named `Metrics` (any name works if the `metrics_tab` setting
+matches). The weekly insights job appends one row per published post per check:
+
+| Product ID | Media ID | Checked At | Views | Likes | Replies | Reposts | Quotes | Shares | Link Clicks |
+| ---------- | -------- | ---------- | ----- | ----- | ------- | ------- | ------ | ------ | ----------- |
+
+The first run writes the header row. It is a time series, not business state:
+nothing in it is ever edited, the agent may read it but never write it, and the
+candidate table is never touched by the job. `doctor.py`'s `metrics_tab` check
+reports whether it exists. See
+[cron-setup.md](cron-setup.md#the-third-job-the-weekly-metrics-fetch).
+
 ## 2. Statuses
 
 | Status              | Set by                 | Meaning                         |
@@ -196,7 +210,8 @@ set `Done` — that state belongs to `threads_publish`.
 **Never let the agent edit:**
 
 - `ID`, `Product`, `Description`, `Affiliate URL`, `Category` — those are yours
-- Any other tab or spreadsheet
+- Any other tab or spreadsheet (the agent may **read** the plugin-owned
+  `Metrics` tab, never write it)
 
 **What the agent may change:** `Status`, via `set_status.py`, for
 hold / cancel / resume only.

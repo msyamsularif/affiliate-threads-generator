@@ -33,8 +33,9 @@ required_environment_variables:
     prompt: "Meta Threads long-lived user access token"
     help: >-
       Create a Meta app with the Threads use case, authorize with
-      threads_basic + threads_content_publish, then exchange the short-lived
-      token for a long-lived one. See docs/threads-app-setup.md.
+      threads_basic + threads_content_publish + threads_manage_insights, then
+      exchange the short-lived token for a long-lived one. See
+      docs/threads-app-setup.md.
     required_for: "publishing an approved thread (threads_publish)"
   - name: AFFILIATE_SHEET_ID
     prompt: "Google Sheets spreadsheet id"
@@ -161,10 +162,30 @@ Load it for anything in this family:
 | "Saya approve." / "Post aja."                    | Call `threads_publish` for the Product ID on screen   |
 | "Regenerate tapi angle-nya lebih ke X."          | Re-run from Step 3 with the new constraint            |
 | "Kenapa belum ada yang jalan?"                   | Run the doctor script, report what is actually broken |
+| "Gimana performa minggu ini?"                    | Run `show_metrics.py`, summarise — read-only          |
 
 **Review context is always the Product ID most recently shown in this
 conversation.** Never infer it from free text, and never guess when a session was
 reset — ask.
+
+---
+
+## Reading performance data (read-only)
+
+The weekly metrics job (Monday 10:00) appends Threads insights to the
+plugin-owned `Metrics` tab: lifetime views/likes/replies/reposts/quotes/shares
+per published post, plus that week's link clicks. When the human asks how the
+posts are doing:
+
+```bash
+python3 ${HERMES_SKILL_DIR}/scripts/show_metrics.py
+```
+
+It prints the latest snapshot per product. You may also read the tab directly
+with the google-workspace skill. **You never write it** — only
+`fetch_metrics.py` does, from cron. Metrics are advisory: never let a
+high-engagement shape override the editorial rules, the guardrails, or the
+evidence standard. Column semantics: `references/sheets-contract.md`.
 
 ---
 
@@ -181,6 +202,7 @@ for you when the skill loads.
 | Lint a draft before showing it    | `python3 ${HERMES_SKILL_DIR}/scripts/validate_thread.py --file draft.json --topic-tag "<topic>"` (add `--recent notes.json` when recent content notes exist) |
 | Health check                      | `python3 ${HERMES_SKILL_DIR}/scripts/doctor.py`                                                                                                              |
 | Threads token status / refresh    | `python3 ${HERMES_SKILL_DIR}/scripts/threads_token.py status`                                                                                                |
+| Latest performance per product    | `python3 ${HERMES_SKILL_DIR}/scripts/show_metrics.py`                                                                                                        |
 
 | Tool                                                            | Use                                                              |
 | --------------------------------------------------------------- | ---------------------------------------------------------------- |

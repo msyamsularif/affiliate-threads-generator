@@ -250,9 +250,66 @@ python3 "$SKILL_DIR/scripts/threads_token.py" status
 `days_remaining` back near 60 is what a healthy run looks like. The manual path
 and the rotation reasoning are in [credentials.md](credentials.md#rotation).
 
-`doctor.py` reports both jobs: `cron_job` for the generation schedule and
-`token_refresh_job` for this one, so a refresh job that was never created shows up
-red with the command that fixes it.
+`doctor.py` reports all three jobs: `cron_job` for the generation schedule,
+`token_refresh_job` for this one, and `metrics_job` for the weekly fetch below —
+so a job that was never created shows up red with the command that fixes it.
+
+---
+
+## The third job: the weekly metrics fetch
+
+A second script-only job, this one weekly. Every Monday at 10:00 Asia/Jakarta it
+pulls Threads insights for posts published in the last 30 days — lifetime
+views, likes, replies, reposts, quotes and shares for each thread's root post,
+plus the account's link-click totals for the week — and appends them to the
+plugin-owned `Metrics` tab in the same spreadsheet. It never publishes and never
+touches the candidate table.
+
+```bash
+hermes cron create "0 10 * * 1" \
+  "Fetch Threads insights for recently published posts" \
+  --no-agent \
+  --script fetch-threads-metrics.sh \
+  --deliver telegram \
+  --name "threads-metrics"
+```
+
+`$HERMES_HOME/scripts/fetch-threads-metrics.sh`:
+
+```bash
+#!/bin/bash
+# Weekly Threads insights → the Metrics tab. Prints the summary the job delivers.
+set -euo pipefail
+SKILL_DIR="$HERMES_HOME/plugins/affiliate-threads-generator/skills/affiliate-threads-generator"
+exec python3 "$SKILL_DIR/scripts/fetch_metrics.py"
+```
+
+What it needs, and the quiet ways it breaks:
+
+- **A `Metrics` tab in the spreadsheet.** Create it once by hand; the first run
+  writes the header row. A different name works if the `metrics_tab` setting is
+  changed to match. `doctor.py`'s `metrics_tab` check reports it.
+- **A token with `threads_manage_insights`.** A scope cannot be added to an
+  existing token — re-authorize if this install predates it
+  ([threads-app-setup.md](threads-app-setup.md#scopes-what-a-missing-one-looks-like)).
+  `doctor.py`'s `metrics_scope` check reports it.
+- **`THREADS_ACCESS_TOKEN` in `terminal.env_passthrough`.** The same rule as the
+  token job: a `no_agent` script runs with a sanitized environment, and without
+  the line the job fails on every tick.
+- **A gateway restart after re-authorizing.** The running process keeps the old
+  token until it restarts.
+
+Unlike the token job, silence is not success here: the delivered message **is**
+the report — posts fetched, the top post, and the week's link clicks. To try it
+without waiting for Monday:
+
+```bash
+SKILL_DIR="$HERMES_HOME/plugins/affiliate-threads-generator/skills/affiliate-threads-generator"
+python3 "$SKILL_DIR/scripts/fetch_metrics.py" --dry-run
+```
+
+`--dry-run` fetches and prints without writing. The tab fills from the first
+real Monday; each run appends one snapshot per post.
 
 ---
 

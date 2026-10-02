@@ -47,6 +47,21 @@ CONTAINER_TIMEOUT_SECONDS = 60.0
 #: Threads caps a video at 5 minutes; the client is willing to wait that long.
 VIDEO_CONTAINER_TIMEOUT_SECONDS = 300.0
 
+#: Insights metrics the weekly fetch asks for. ``views`` and ``shares`` are
+#: labelled "in development" upstream, so a response that omits them is normal.
+MEDIA_INSIGHT_METRICS: tuple[str, ...] = (
+    "views",
+    "likes",
+    "replies",
+    "reposts",
+    "quotes",
+    "shares",
+)
+
+#: The subset that has been stable since launch. The fetch falls back to this
+#: when the platform rejects the full set as an invalid parameter.
+STABLE_MEDIA_INSIGHT_METRICS: tuple[str, ...] = ("likes", "replies", "reposts", "quotes")
+
 Transport = Callable[..., "tuple[int, dict[str, Any]]"]
 """``(method, url, form_data) -> (status, parsed_json)``.
 
@@ -142,6 +157,33 @@ def _loads(raw: str) -> dict[str, Any]:
     except json.JSONDecodeError:
         return {"error": {"message": raw[:500]}}
     return parsed if isinstance(parsed, dict) else {"data": parsed}
+
+
+def _insight_values(body: dict[str, Any]) -> dict[str, int]:
+    """Flatten an insights payload to ``{name: value}``.
+
+    The payload is ``{"data": [{"name": ..., "values": [{"value": ...}]}]}``;
+    lifetime metrics carry exactly one point. A non-numeric point is skipped
+    rather than guessed.
+    """
+    values: dict[str, int] = {}
+    data = body.get("data") if isinstance(body, dict) else None
+    if not isinstance(data, list):
+        return values
+    for entry in data:
+        if not isinstance(entry, dict):
+            continue
+        name = str(entry.get("name") or "").strip()
+        points = entry.get("values")
+        if not name or not isinstance(points, list) or not points:
+            continue
+        point = points[-1]
+        raw = point.get("value") if isinstance(point, dict) else None
+        if isinstance(raw, bool):
+            continue
+        if isinstance(raw, (int, float)):
+            values[name] = int(raw)
+    return values
 
 
 def _media_type_for(image_url: str, video_url: str) -> str:
@@ -282,6 +324,55 @@ class ThreadsClient:
             stage="token",
         )
         return data.get("data") if isinstance(data.get("data"), dict) else data
+
+    # ------------------------------------------------------------------ #
+    # insights (read-only; needs the threads_manage_insights scope)
+    # ------------------------------------------------------------------ #
+
+    def get_media_insights(
+        self,
+        media_id: str,
+        metrics: Sequence[str] = MEDIA_INSIGHT_METRICS,
+    ) -> dict[str, int]:
+        """Lifetime insights for one published post.
+
+        Returns a ``{metric: value}`` map. A metric the platform does not
+        return — ``views`` and ``shares`` are still marked "in development" —
+        is simply absent; the caller decides what that means.
+        """
+        body = self._call(
+            "GET",
+            f"/{media_id}/insights",
+            params={"metric": ",".join(metrics)},
+            stage="media_insights",
+        )
+        return _insight_values(body)
+
+    def get_user_insights(
+        self,
+        metric: str,
+        *,
+        since: int = 0,
+        until: int = 0,
+    ) -> dict[str, Any]:
+        """Account-level insights for a window (``threads_manage_insights``).
+
+        ``clicks`` is the one the weekly fetch uses: its payload carries
+        ``link_total_values``, a per-URL total for the range. Without
+        ``since``/``until`` the platform defaults to a two-day range, so the
+        fetch always passes both.
+        """
+        params: dict[str, Any] = {"metric": metric}
+        if since:
+            params["since"] = since
+        if until:
+            params["until"] = until
+        return self._call(
+            "GET",
+            self._user_path("/threads_insights"),
+            params=params,
+            stage="user_insights",
+        )
 
     # ------------------------------------------------------------------ #
     # containers

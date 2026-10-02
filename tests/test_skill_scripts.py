@@ -15,6 +15,7 @@ from types import ModuleType
 
 import pytest
 
+from atg_plugin import config, sheets_client
 from conftest import PLUGIN_DIR
 
 DOCTOR_PATH = (
@@ -219,3 +220,101 @@ class TestDoctorCronJobs:
         assert jobs is None
         assert error == "unexpected jobs.json shape"
         assert doctor._token_refresh_check(jobs, error)["ok"] is False
+
+
+class TestDoctorMetricsChecks:
+    """The three setup gaps the weekly metrics fetch introduces: the scope, the
+    tab and the job. Each fails silently without the doctor looking for it."""
+
+    def test_a_missing_metrics_job_fails_with_the_command_to_fix_it(
+        self, doctor: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
+
+        jobs, error = doctor._read_cron_jobs()
+
+        metrics = doctor._metrics_job_check(jobs, error)
+        assert metrics["ok"] is False
+        assert 'hermes cron create "0 10 * * 1"' in metrics["hint"]
+
+    def test_the_generation_and_refresh_jobs_are_not_metrics_jobs(
+        self, doctor: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        home = tmp_path / "hermes"
+        _write_jobs(
+            home,
+            [
+                {"name": "affiliate-threads-generator", "schedule": "0 8 * * 0,1,3,5"},
+                {"name": "threads-token-refresh", "schedule": "0 9 1 * *"},
+            ],
+        )
+        monkeypatch.setenv("HERMES_HOME", str(home))
+
+        jobs, error = doctor._read_cron_jobs()
+
+        assert doctor._metrics_job_check(jobs, error)["ok"] is False
+
+    @pytest.mark.parametrize(
+        "job",
+        [
+            {"name": "threads-metrics", "schedule": "0 10 * * 1"},
+            {"name": "weekly", "script": "fetch-threads-metrics.sh"},
+            {"prompt": "Fetch Threads insights for recently published posts."},
+        ],
+    )
+    def test_every_wording_of_the_metrics_job_counts(
+        self, doctor: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, job: dict
+    ) -> None:
+        home = tmp_path / "hermes"
+        _write_jobs(home, [job])
+        monkeypatch.setenv("HERMES_HOME", str(home))
+
+        jobs, error = doctor._read_cron_jobs()
+
+        assert doctor._metrics_job_check(jobs, error)["ok"] is True
+
+    def test_a_granted_insights_scope_passes(self, doctor: ModuleType) -> None:
+        check = doctor._metrics_scope_check(["threads_basic", "threads_manage_insights"])
+        assert check["ok"] is True
+        assert "granted" in check["detail"]
+
+    def test_a_missing_insights_scope_fails_with_the_reauthorize_hint(
+        self, doctor: ModuleType
+    ) -> None:
+        check = doctor._metrics_scope_check(["threads_basic", "threads_content_publish"])
+        assert check["ok"] is False
+        assert "re-authorize" in check["hint"].lower()
+
+    def test_an_unavailable_scope_list_is_not_a_failure(self, doctor: ModuleType) -> None:
+        check = doctor._metrics_scope_check(None)
+        assert check["ok"] is True
+        assert "not checked" in check["detail"]
+
+    class FakeSheet:
+        def __init__(self, values: list | None = None, error: Exception | None = None) -> None:
+            self.values = values or []
+            self.error = error
+
+        def read_range(self, a1_range: str) -> list[list[str]]:
+            if self.error is not None:
+                raise self.error
+            return self.values
+
+    def test_a_present_tab_reports_the_snapshot_count(self, doctor: ModuleType) -> None:
+        sheet = self.FakeSheet([["Product ID"], ["12"], ["13"]])
+
+        check = doctor._metrics_tab_check(config.Settings(), sheet, sheets_client)
+
+        assert check["ok"] is True
+        assert check["detail"] == "Metrics tab — 2 snapshot row(s)"
+
+    def test_a_missing_tab_fails_with_the_create_hint(self, doctor: ModuleType) -> None:
+        error = sheets_client.SheetError(
+            "google_api.py exited 1: Unable to parse range", stage="sheets_read"
+        )
+        sheet = self.FakeSheet(error=error)
+
+        check = doctor._metrics_tab_check(config.Settings(), sheet, sheets_client)
+
+        assert check["ok"] is False
+        assert "Create a tab named 'Metrics'" in check["hint"]

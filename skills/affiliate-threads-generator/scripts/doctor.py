@@ -10,13 +10,16 @@ Checks
 2. the effective settings resolve (spreadsheet, tab, guardrail knobs)
 3. where those settings came from — the host, ``config.yaml``, or the defaults
 4. the Threads token works, and when it expires
-5. the Google Sheet is reachable through the bundled google-workspace skill
-6. the next eligible candidate, if any
-7. the bundled skill is present where Hermes loads it
-8. a cron job exists for this skill
-9. a cron job keeps the Threads token alive (it lasts 60 days, and nothing here
-   renews it on its own)
-10. any publish that went live without its Sheet write landing
+5. the token carries the scope the weekly metrics fetch needs
+6. the Google Sheet is reachable through the bundled google-workspace skill
+7. the next eligible candidate, if any
+8. the plugin-owned Metrics tab exists
+9. the bundled skill is present where Hermes loads it
+10. a cron job exists for this skill
+11. a cron job keeps the Threads token alive (it lasts 60 days, and nothing
+    here renews it on its own)
+12. a cron job fetches the weekly insights
+13. any publish that went live without its Sheet write landing
 
 Exit codes
 ----------
@@ -154,6 +157,7 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     # ---- 4. Threads token ------------------------------------------------
+    scopes = None
     if not settings.credentials_configured:
         checks.append(
             {
@@ -179,6 +183,9 @@ def main(argv: list[str] | None = None) -> int:
             try:
                 debug = client.debug_token()
                 days = _days(debug.get("expires_at"))
+                raw_scopes = debug.get("scopes")
+                if isinstance(raw_scopes, list):
+                    scopes = [str(scope) for scope in raw_scopes]
                 detail += f"; token valid={debug.get('is_valid')}, expires in {days} days"
                 if days is not None and days < 7:
                     hint = "Refresh the token: scripts/threads_token.py refresh --write-env"
@@ -196,6 +203,9 @@ def main(argv: list[str] | None = None) -> int:
             )
         except Exception as exc:  # noqa: BLE001
             checks.append({"check": "threads_api", "ok": False, "detail": f"{type(exc).__name__}: {exc}"})
+
+    if settings.credentials_configured and not args.no_network:
+        checks.append(_metrics_scope_check(scopes))
 
     # ---- 5 + 6. Sheets and the next candidate ----------------------------
     sheet = None
@@ -237,7 +247,10 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as exc:  # noqa: BLE001
             checks.append({"check": "next_candidate", "ok": False, "detail": f"{type(exc).__name__}: {exc}"})
 
-    # ---- 7. the bundled skill --------------------------------------------
+    if sheet is not None:
+        checks.append(_metrics_tab_check(settings, sheet, sheets_client))
+
+    # ---- 8. the bundled skill --------------------------------------------
     # The skill ships inside the plugin and the plugin registers it, so this
     # checks the copy Hermes actually loads. Nothing is installed into
     # ~/.hermes/skills/ and nothing needs to be.
@@ -258,12 +271,13 @@ def main(argv: list[str] | None = None) -> int:
         }
     )
 
-    # ---- 8. cron jobs -----------------------------------------------------
+    # ---- 9. cron jobs -----------------------------------------------------
     jobs, jobs_error = _read_cron_jobs()
     checks.append(_cron_check(jobs, jobs_error))
     checks.append(_token_refresh_check(jobs, jobs_error))
+    checks.append(_metrics_job_check(jobs, jobs_error))
 
-    # ---- 9. unsynced publishes -------------------------------------------
+    # ---- 10. unsynced publishes ------------------------------------------
     unsynced = _unsynced_publishes()
     checks.append(
         {
@@ -436,6 +450,105 @@ def _looks_like_token_refresh(job: dict) -> bool:
         return True
     words = set(re.findall(r"[a-z0-9]+", haystack))
     return "token" in words and "refresh" in words
+
+
+#: What to do when nothing fetches insights. Like the token refresh, this is a
+#: setup step nothing else notices is missing — the Metrics tab just stays empty.
+METRICS_JOB_HINT = (
+    "Nothing fetches Threads insights, so the Metrics tab stays empty. Create the job: "
+    'hermes cron create "0 10 * * 1" "Fetch Threads insights for recently published posts" '
+    "--no-agent --script fetch-threads-metrics.sh --deliver telegram "
+    '--name "threads-metrics" — the script it runs is in '
+    "docs/cron-setup.md#the-third-job-the-weekly-metrics-fetch."
+)
+
+
+METRICS_SCOPE_HINT = (
+    "The weekly metrics fetch needs threads_manage_insights, and a scope cannot be added "
+    "to an existing token. Re-authorize the Meta app with threads_basic, "
+    "threads_content_publish and threads_manage_insights, exchange the code for a long-lived "
+    "token (threads_token.py exchange --short-token ... --write-env), then restart the "
+    "gateway. See docs/threads-app-setup.md."
+)
+
+
+def _metrics_job_check(jobs: list[dict] | None, error: str) -> dict:
+    """Whether something fetches the weekly insights — the third silent setup gap."""
+    if jobs is None:
+        return {
+            "check": "metrics_job",
+            "ok": False,
+            "detail": error,
+            "hint": METRICS_JOB_HINT,
+        }
+
+    matches = [job for job in jobs if _looks_like_metrics_job(job)]
+    if not matches:
+        return {
+            "check": "metrics_job",
+            "ok": False,
+            "detail": "no cron job fetches Threads insights",
+            "hint": METRICS_JOB_HINT,
+        }
+
+    return {
+        "check": "metrics_job",
+        "ok": True,
+        "detail": "; ".join(_job_summary(job) for job in matches),
+    }
+
+
+def _looks_like_metrics_job(job: dict) -> bool:
+    """Same generous contract as the token job: a false positive costs one green line."""
+    haystack = " ".join(str(job.get(key) or "") for key in ("script", "name", "prompt")).lower()
+    if "fetch_metrics" in haystack or "fetch-threads-metrics" in haystack:
+        return True
+    words = set(re.findall(r"[a-z0-9]+", haystack))
+    return "insights" in words or ("metrics" in words and "threads" in words)
+
+
+def _metrics_scope_check(scopes: list | None) -> dict:
+    """Whether the token carries the scope the weekly metrics fetch needs."""
+    if scopes is None:
+        return {
+            "check": "metrics_scope",
+            "ok": True,
+            "detail": "not checked (token debug unavailable)",
+        }
+    if "threads_manage_insights" in scopes:
+        return {"check": "metrics_scope", "ok": True, "detail": "threads_manage_insights granted"}
+    return {
+        "check": "metrics_scope",
+        "ok": False,
+        "detail": "token lacks the threads_manage_insights scope",
+        "hint": METRICS_SCOPE_HINT,
+    }
+
+
+def _metrics_tab_check(settings, sheet, sheets_client) -> dict:  # noqa: ANN001
+    """Whether the plugin-owned Metrics tab exists — the weekly job's only target."""
+    try:
+        values = sheet.read_range(f"{settings.metrics_tab}!A1:A")
+    except sheets_client.SheetError as exc:
+        return {
+            "check": "metrics_tab",
+            "ok": False,
+            "detail": exc.message,
+            "hint": (
+                f"Create a tab named {settings.metrics_tab!r} in the spreadsheet — the weekly "
+                "metrics job appends to it. See docs/google-sheets-setup.md."
+            ),
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {"check": "metrics_tab", "ok": False, "detail": f"{type(exc).__name__}: {exc}"}
+
+    filled = sum(1 for row in values if any(str(cell).strip() for cell in row))
+    snapshots = max(0, filled - 1)  # the first run writes a header row
+    return {
+        "check": "metrics_tab",
+        "ok": True,
+        "detail": f"{settings.metrics_tab} tab — {snapshots} snapshot row(s)",
+    }
 
 
 def _unsynced_publishes() -> list[dict]:

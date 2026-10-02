@@ -178,14 +178,17 @@ A healthy setup looks like:
   ✓ settings: spreadsheet=... tab=Sheet1 eligible='Ready To Generate' topic_tag=required
   ✓ plugin_settings: 3 setting(s) read from ~/.hermes/config.yaml
   ✓ threads_api: @yourhandle (id 1234567890); token valid=True, expires in 58.4 days
+  ✓ metrics_scope: threads_manage_insights granted
   ✓ sheets: 12 data row(s) in Sheet1; google_api=/.../google_api.py
   ✓ next_candidate: ID 3 — Wireless Earbuds X (row 5)
+  ✓ metrics_tab: Metrics tab — 5 snapshot row(s)
   ✓ bundled_skill: .../plugins/affiliate-threads-generator/skills/affiliate-threads-generator/SKILL.md
   ✓ cron_job: affiliate-threads-generator [0 8 * * 0,1,3,5] next=... enabled=True
   ✓ token_refresh_job: threads-token-refresh [0 9 1 * *] next=... enabled=True
+  ✓ metrics_job: threads-metrics [0 10 * * 1] next=... enabled=True
   ✓ unsynced_publishes: none
 
-10/10 checks passed.
+13/13 checks passed.
 ```
 
 Any `✗` line comes with a `→` hint telling you exactly what to fix.
@@ -194,8 +197,8 @@ Any `✗` line comes with a `→` hint telling you exactly what to fix.
 
 See [cron-setup.md](cron-setup.md). A fresh `hermes plugins install` shows the
 plugin's [after-install.md](../after-install.md), which the agent reads as
-instructions and can act on with you — both jobs, the monthly token refresh
-included. By hand, the generation job is:
+instructions and can act on with you — all three jobs, the monthly token refresh
+and the weekly metrics fetch included. By hand, the generation job is:
 
 ```bash
 hermes cron create "0 8 * * 0,1,3,5" \
@@ -224,6 +227,14 @@ It needs a `terminal.env_passthrough` line that the generation job does not, plu
 the script body to go beside it. Both are in
 [cron-setup.md](cron-setup.md#the-second-job-the-monthly-token-refresh).
 
+### The metrics job: fetch insights weekly
+
+A third script job, every Monday at 10:00 Asia/Jakarta: it appends Threads
+insights for recently published posts — lifetime metrics per thread plus the
+week's link clicks — to a `Metrics` tab in the same spreadsheet. It needs the
+tab created once and a token with `threads_manage_insights`. See
+[cron-setup.md](cron-setup.md#the-third-job-the-weekly-metrics-fetch).
+
 ## 7. First run
 
 From Telegram:
@@ -248,6 +259,22 @@ all move together with the plugin. `$HERMES_HOME/plugins/` survives `hermes
 update` — the updater only rebuilds the venv and the checkout. Plugin state under
 `$HERMES_HOME/plugin-data/` survives too, which matters: it holds the publish
 ledger.
+
+### Upgrading to 1.3: the metrics fetch
+
+The weekly metrics fetch needs two one-time steps an upgrade cannot do for you:
+
+1. **Re-authorize the Meta app with `threads_manage_insights`** — a scope cannot
+   be added to an existing token; a refresh renews the same permissions. Steps
+   and the exact failure it fixes:
+   [threads-app-setup.md](threads-app-setup.md#scopes-what-a-missing-one-looks-like),
+   then `hermes gateway restart`.
+2. **Create the `Metrics` tab** in the spreadsheet:
+   [google-sheets-setup.md](google-sheets-setup.md#the-metrics-tab-plugin-owned).
+
+Then create the job ([step 6](#6-schedule-generation)) — or let the doctor's
+`metrics_job` hint hand you the command. `doctor.py` reports `metrics_scope`,
+`metrics_tab` and `metrics_job` until all three are done.
 
 ## Troubleshooting
 

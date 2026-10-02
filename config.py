@@ -43,6 +43,15 @@ _COLUMN_LETTER_RE = re.compile(r"[A-Z]{1,3}")
 
 DEFAULT_TAB = "Sheet1"
 
+#: The plugin-owned tab the weekly insights fetch appends to. It lives in the
+#: same spreadsheet as the candidate table but is never mixed with it: the
+#: table is one row per product, this one is a time series.
+DEFAULT_METRICS_TAB = "Metrics"
+
+#: How long a published post stays in the weekly fetch window. Older posts keep
+#: the snapshots already recorded and are no longer queried.
+DEFAULT_METRICS_WINDOW_DAYS = 30
+
 #: Env var names consulted before falling back to a hard-coded default.
 ENV_FALLBACKS: dict[str, str] = {
     "spreadsheet_id": "AFFILIATE_SHEET_ID",
@@ -292,6 +301,10 @@ class Settings:
 
     spreadsheet_id: str = ""
     sheet_tab: str = DEFAULT_TAB
+    #: The plugin-owned tab the weekly insights fetch appends to.
+    metrics_tab: str = DEFAULT_METRICS_TAB
+    #: Published posts older than this many days leave the weekly fetch window.
+    metrics_window_days: int = DEFAULT_METRICS_WINDOW_DAYS
 
     #: field name -> column letter. Defaults to the documented contract.
     columns: Mapping[str, str] = field(default_factory=lambda: dict(COLUMNS))
@@ -426,6 +439,8 @@ class Settings:
         return {
             "spreadsheet_id": self.spreadsheet_id or None,
             "sheet_tab": self.sheet_tab,
+            "metrics_tab": self.metrics_tab,
+            "metrics_window_days": self.metrics_window_days,
             "columns": dict(self.columns),
             "eligible_status": self.eligible_status,
             "done_status": self.done_status,
@@ -475,6 +490,12 @@ def resolve(overrides: dict[str, Any] | None = None) -> Settings:
     base = Settings(
         spreadsheet_id=str(_lookup("spreadsheet_id", "") or "").strip(),
         sheet_tab=str(_lookup("sheet_tab", DEFAULT_TAB) or DEFAULT_TAB).strip() or DEFAULT_TAB,
+        metrics_tab=str(_lookup("metrics_tab", DEFAULT_METRICS_TAB) or DEFAULT_METRICS_TAB).strip()
+        or DEFAULT_METRICS_TAB,
+        metrics_window_days=_as_int(
+            _lookup("metrics_window_days", DEFAULT_METRICS_WINDOW_DAYS),
+            DEFAULT_METRICS_WINDOW_DAYS,
+        ),
         columns=_as_columns(_lookup("columns", None)),
         eligible_status=str(_lookup("eligible_status", "Ready To Generate")).strip(),
         done_status=str(_lookup("done_status", "Done")).strip(),
@@ -541,5 +562,7 @@ def resolve(overrides: dict[str, Any] | None = None) -> Settings:
         base = replace(base, min_posts=1)
     if base.min_posts > base.max_posts:
         base = replace(base, min_posts=base.max_posts)
+    if base.metrics_window_days < 1:
+        base = replace(base, metrics_window_days=DEFAULT_METRICS_WINDOW_DAYS)
     base = replace(base, link_pending_status=_link_pending_status(base))
     return base

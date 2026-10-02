@@ -265,6 +265,18 @@ explicit human approval and its own pass through the approval gate, and each
 re-validates the Sheet's own state before doing anything. Nothing about this
 mode relaxes Section 14.
 
+### 5.2 The weekly metrics fetch (read-only)
+
+A third scheduled job, independent of generation and publishing: every Monday
+at 10:00 Asia/Jakarta a script-only job (`--no-agent`) pulls Threads
+insights — lifetime views/likes/replies/reposts/quotes/shares for each
+recently published thread's root post, plus the account's link-click totals
+for the week — and appends them to the plugin-owned `Metrics` tab (Section
+7.1). It reads only: it cannot publish, cannot write the candidate table, and
+runs with no model in the loop. It exists so the operator — and, in a later
+revision, the writer's choices — can see what performed; the data never
+overrides the rules in Section 14.
+
 ---
 
 ## 6. User Interaction Model
@@ -336,6 +348,17 @@ experience answer (`set_experience.py`). It never touches another cell:
 each write is scoped to the cells of its own operation, so a publish writes
 `Threads URL` and `Status` without clearing the `Used`/`Testimonial` answer
 on the same row — and it never rewrites a testimony the human wrote.
+
+### 7.1 The Metrics tab (plugin-owned)
+
+The same spreadsheet carries one more tab, `Metrics` by default
+(`metrics_tab` setting). It is a time series, not business state: the weekly
+insights fetch (Section 5.2) appends one row per published post per check —
+`Product ID | Media ID | Checked At | Views | Likes | Replies | Reposts |
+Quotes | Shares | Link Clicks`. `Link Clicks` counts clicks on that product's
+affiliate URL during the job's seven-day window (exact-URL match); `Checked
+At` is ISO-8601 UTC. The job is its only writer; the agent may read the tab
+but never write it, and the candidate table is never touched by it.
 
 Access is via Hermes' bundled `google-workspace` skill (`google_api.py
 sheets get/update/append`), not a custom adapter.
@@ -911,6 +934,11 @@ Meta Threads (official Graph API)
 21. When a candidate's experience answer is blank, the pipeline asks
     before research and stops until it is answered — scheduled and
     manual runs alike. It never assumes a mode to keep a run moving.
+22. Engagement metrics are advisory. The weekly metrics fetch (Section
+    5.2) and the Metrics tab inform the operator — and, in a later
+    revision, the writer's choices — but they never relax the editorial
+    rules or the guardrail set, and a high-performing shape never
+    licenses a blocked one.
 
 ---
 

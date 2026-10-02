@@ -115,6 +115,14 @@ class TestManifest:
             if "choices" in spec:
                 assert spec.get("default") in spec["choices"], key
 
+    def test_the_metrics_settings_match_the_plugin_defaults(self, manifest: dict) -> None:
+        """The manifest mirrors ``config.py`` — the two must not drift apart."""
+        from atg_plugin import config
+
+        schema = manifest["config_schema"]
+        assert schema["metrics_tab"]["default"] == config.DEFAULT_METRICS_TAB
+        assert schema["metrics_window_days"]["default"] == config.DEFAULT_METRICS_WINDOW_DAYS
+
 
 class TestRegistration:
     def test_declared_tools_match_registered_tools(self, manifest: dict, registered) -> None:  # noqa: ANN001
@@ -278,9 +286,11 @@ class TestBundledSkill:
         [
             "_bridge.py",
             "doctor.py",
+            "fetch_metrics.py",
             "select_candidate.py",
             "set_experience.py",
             "set_status.py",
+            "show_metrics.py",
             "threads_token.py",
             "validate_thread.py",
         ],

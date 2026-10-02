@@ -47,6 +47,16 @@ def get(product_id: str) -> dict[str, Any] | None:
     return _load().get(str(product_id))
 
 
+def records() -> list[dict[str, Any]]:
+    """Every recorded publish, newest first.
+
+    The weekly metrics fetch reads this to find the media ids to query — the
+    ledger is the only place that knows them without re-reading the Sheet.
+    """
+    entries = list(_load().values())
+    return sorted(entries, key=lambda item: str(item.get("published_at") or ""), reverse=True)
+
+
 def record_published(
     product_id: str,
     *,

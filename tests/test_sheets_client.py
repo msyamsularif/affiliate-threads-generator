@@ -15,6 +15,8 @@ from __future__ import annotations
 import json
 from collections.abc import Sequence
 
+import pytest
+
 from atg_plugin import config, sheets_client
 
 #: One full data row: F and I are what a publish writes; G and H hold the
@@ -147,3 +149,115 @@ class TestWriteFields:
 
         assert sim.calls == []
         assert sim.row == list(ROW)
+
+
+class MetricsSim:
+    """A runner that simulates a whole plugin-owned tab.
+
+    ``append_rows`` first reads the tab's column A to find the last filled row,
+    then writes the block as one update. This fake implements both halves so the
+    read-then-write behaves like the real Sheets API, and records every call as
+    ``(a1_range, payload_or_None)``.
+    """
+
+    def __init__(self, rows: Sequence[Sequence[str]] | None = None) -> None:
+        self.rows: list[list[str]] = [list(row) for row in (rows or [])]
+        self.calls: list[tuple[str, list[list[str]] | None]] = []
+
+    def _slice(self, a1_range: str) -> list[list[str]]:
+        cells = a1_range.split("!", 1)[1]
+        first, _, last = cells.partition(":")
+        first_col = "".join(char for char in first if char.isalpha())
+        last_col = "".join(char for char in (last or first) if char.isalpha())
+        start = config.column_index(first_col) - 1
+        end = config.column_index(last_col)
+        return [list(row[start:end]) for row in self.rows]
+
+    def __call__(self, argv: Sequence[str]) -> tuple[int, str, str]:
+        action, a1_range = argv[3], argv[5]
+        if action == "get":
+            self.calls.append((a1_range, None))
+            return 0, json.dumps(self._slice(a1_range)), ""
+        payload = json.loads(argv[7])
+        self.calls.append((a1_range, payload))
+        cells = a1_range.split("!", 1)[1]
+        first = cells.split(":", 1)[0]
+        start_row = int("".join(char for char in first if char.isdigit()))
+        start_col = config.column_index("".join(char for char in first if char.isalpha()))
+        for offset, row in enumerate(payload):
+            index = start_row - 1 + offset
+            while len(self.rows) <= index:
+                self.rows.append([])
+            target = self.rows[index]
+            while len(target) < start_col - 1 + len(row):
+                target.append("")
+            for col_offset, value in enumerate(row):
+                target[start_col - 1 + col_offset] = value
+        return 0, "{}", ""
+
+
+HEADER = (
+    "Product ID",
+    "Media ID",
+    "Checked At",
+    "Views",
+    "Likes",
+    "Replies",
+    "Reposts",
+    "Quotes",
+    "Shares",
+    "Link Clicks",
+)
+
+
+def metrics_row(product_id: str = "12") -> list[str]:
+    return [product_id, "media-1", "2026-10-06T03:00:00+00:00", "10", "1", "", "", "", "", "3"]
+
+
+class TestMetricsRead:
+    def test_read_range_returns_the_slice_as_strings(self, settings) -> None:
+        sim = MetricsSim([["a", 1], ["b", 2]])
+        assert build_client(settings, sim).read_range("Metrics!A1:B2") == [["a", "1"], ["b", "2"]]
+
+
+class TestMetricsAppend:
+    def test_the_first_write_creates_the_header_and_the_row(self, settings) -> None:
+        sim = MetricsSim()
+
+        first = build_client(settings, sim).append_rows("Metrics", [metrics_row()], header=HEADER)
+
+        assert first == 1
+        assert sim.calls[0] == ("Metrics!A1:A", None)
+        assert sim.calls[1][0] == "Metrics!A1:J2"
+        payload = sim.calls[1][1]
+        assert payload is not None
+        assert payload[0] == list(HEADER)
+        assert payload[1][0] == "12"
+        assert sim.rows[0] == list(HEADER)
+        assert sim.rows[1][9] == "3"
+
+    def test_a_later_write_lands_below_the_last_filled_row(self, settings) -> None:
+        sim = MetricsSim([HEADER, metrics_row("11")])
+
+        first = build_client(settings, sim).append_rows("Metrics", [metrics_row("12")], header=HEADER)
+
+        assert first == 3
+        assert sim.calls[1][0] == "Metrics!A3:J3"
+        assert sim.rows[2][0] == "12"
+
+    def test_no_rows_writes_nothing(self, settings) -> None:
+        sim = MetricsSim()
+
+        assert build_client(settings, sim).append_rows("Metrics", []) == 0
+        assert sim.calls == []
+
+    def test_a_missing_tab_fails_with_the_create_hint(self, settings) -> None:
+        def failing_runner(argv: Sequence[str]) -> tuple[int, str, str]:
+            return 1, "", "Unable to parse range: Metrics!A1:A"
+
+        client = build_client(settings, failing_runner)
+
+        with pytest.raises(sheets_client.SheetError) as excinfo:
+            client.append_rows("Metrics", [metrics_row()])
+        assert "Metrics" in str(excinfo.value)
+        assert "create" in (excinfo.value.hint or "").lower()
