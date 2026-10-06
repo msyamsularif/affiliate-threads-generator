@@ -75,8 +75,11 @@ That is Hermes' design, not drift on this plugin's side:
 
 Both hold the same keys, so **read the payload, not the path**. `doctor.py` walks
 `plugin-data/*/state.json` and treats any file carrying a `publish_ledger` as this
-plugin's. Inside Hermes, prefer `threads_check` or `/affiliate-threads status` —
-they read the live record through the tool rather than guessing at a directory.
+plugin's, and `runtime.py` resolves the same way for out-of-process reads: the
+path-derived file wins when it carries state, otherwise the newest `state.json`
+carrying this plugin's keys. Inside Hermes, prefer `threads_check` or
+`/affiliate-threads status` — they read the live record through the tool rather
+than guessing at a directory.
 
 **Secrets do not go there**, and that is a platform rule rather than a style
 preference. Hermes' own developer guide states it directly:

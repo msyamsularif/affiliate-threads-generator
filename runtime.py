@@ -166,6 +166,11 @@ def set_setting(key: str, value: Any) -> bool:  # noqa: ANN401
 # Durable state
 # --------------------------------------------------------------------------- #
 
+#: Payload keys that mark a ``state.json`` as this plugin's. Either one is
+#: enough: the ledger may be written before the audit trail ever is.
+_STATE_KEYS = ("publish_ledger", "publish_audit")
+
+
 def state_get(key: str, default: Any = None) -> Any:  # noqa: ANN401
     """Read plugin-owned runtime state (profile-scoped, atomic on the host)."""
     ctx = _ctx
@@ -193,20 +198,49 @@ def state_set(key: str, value: Any) -> None:  # noqa: ANN401
 
 
 def _fallback_state_file() -> Path:
-    """Where this plugin's state lives when there is no host context.
+    """Resolve this plugin's state file when there is no host context.
 
     Inside Hermes, ``ctx.state`` is the writer and Hermes namespaces a native
     plugin's state as ``plugin-data/agent-plugin-<slug>-<hash>/`` — a deliberate
     choice on its side, Windows-safe and collision-proof, but not derivable from
-    the plugin id. This fallback therefore lands in a *sibling* directory, and
-    the two can legitimately disagree. Anything reading state from disk has to
-    key on the payload rather than the path; ``scripts/doctor.py`` scans the
-    whole ``plugin-data`` tree for exactly that reason.
+    the plugin id. So the path-derived default is only the first candidate:
+    when it is absent or carries none of this plugin's keys, the sibling
+    ``plugin-data/*/state.json`` files are walked and the newest one carrying
+    them wins. That is the payload-keyed rule ``scripts/doctor.py`` uses, and it
+    is what lets an out-of-process script read a ledger Hermes wrote.
+
+    Never returns another plugin's file: a candidate must carry
+    ``publish_ledger`` or ``publish_audit``, unreadable files are skipped, and
+    when nothing matches the default is returned — which also keeps it the
+    write target for a fresh install.
+    """
+    default = _default_state_file()
+    if _carries_plugin_state(_load_state_file(default)):
+        return default
+
+    candidates: list[tuple[int, str, Path]] = []
+    for path in default.parent.parent.glob("*/state.json"):
+        if path == default:
+            continue
+        if not _carries_plugin_state(_load_state_file(path)):
+            continue
+        try:
+            mtime = path.stat().st_mtime_ns
+        except OSError:
+            continue
+        candidates.append((mtime, str(path), path))
+    if candidates:
+        return max(candidates)[2]
+    return default
+
+
+def _default_state_file() -> Path:
+    """The path-derived location: the fresh-install write target.
 
     ``plugins.plugin_storage.plugin_data_dir`` is the sanctioned helper and
-    resolves this same ``plugin-data/<plugin>/`` path, so it is preferred when
-    Hermes is importable. It is imported lazily because this module is also
-    loaded by the skill's scripts, which may run outside Hermes' venv.
+    resolves the documented ``plugin-data/<plugin>/`` path, so it is preferred
+    when Hermes is importable. It is imported lazily because this module is
+    also loaded by the skill's scripts, which may run outside Hermes' venv.
     """
     global _fallback_state_path
     if _fallback_state_path is None:
@@ -219,6 +253,25 @@ def _fallback_state_file() -> Path:
             base = Path(root) if root else Path.home() / ".hermes"
             _fallback_state_path = base / "plugin-data" / PLUGIN_ID / "state.json"
     return _fallback_state_path
+
+
+def _load_state_file(path: Path) -> dict | None:
+    """A ``state.json`` payload, or ``None`` when it is missing or unreadable.
+
+    A skipped file is not fatal: the walk sees other plugins' state, and a
+    half-written one must not stop the search.
+    """
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            data = json.load(handle)
+    except (OSError, json.JSONDecodeError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _carries_plugin_state(store: dict | None) -> bool:
+    """Whether a state payload carries one of this plugin's keys."""
+    return isinstance(store, dict) and any(key in store for key in _STATE_KEYS)
 
 
 def _read_fallback_state() -> dict:

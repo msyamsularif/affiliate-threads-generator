@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import ModuleType
@@ -148,6 +149,26 @@ def clicks_payload(*pairs):  # noqa: ANN001, ANN201
             }
         ]
     }
+
+
+#: Hermes files the state written through ``ctx.state`` under this namespace —
+#: a digest of Hermes' own, so the metrics job has to find the file by its
+#: payload, exactly like every other out-of-process reader.
+HOST_NAMESPACE = "agent-plugin-affiliate-threads-generator-a1b2c3d4"
+
+
+def _write_host_ledger(records: list[dict]) -> Path:
+    """Write a host-namespaced ``state.json`` carrying ``publish_ledger``."""
+    directory = Path(os.environ["HERMES_HOME"]) / "plugin-data" / HOST_NAMESPACE
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / "state.json"
+    path.write_text(
+        json.dumps(
+            {"publish_ledger": {str(record["product_id"]): record for record in records}}
+        ),
+        encoding="utf-8",
+    )
+    return path
 
 
 class TestFetchMetrics:
@@ -334,6 +355,44 @@ class TestFetchMetrics:
         out = capsys.readouterr().out
         assert "could not append" in out
         assert "Create it." in out
+
+
+class TestFetchMetricsFromDisk:
+    """Every other test here monkeypatches ``ledger.records``, so the on-disk
+    resolution the real job depends on is never exercised. These two do: the
+    ledger is written where Hermes writes it, and read back through
+    ``runtime.state_get`` with no fakes in between."""
+
+    def test_the_ledger_is_read_through_a_host_namespaced_state_file(self) -> None:
+        record = make_record()
+        _write_host_ledger([record])
+
+        assert [entry["product_id"] for entry in ledger.records()] == ["12"]
+
+    def test_the_metrics_job_fetches_from_the_on_disk_ledger(
+        self, fetch_metrics, monkeypatch: pytest.MonkeyPatch, capsys
+    ) -> None:
+        record = make_record()
+        _write_host_ledger([record])
+        client = FakeThreadsClient(
+            media={"media-1": {"views": 923, "likes": 4}},
+            clicks=clicks_payload((AFFILIATE_URL, 10)),
+        )
+        sheet = FakeSheet([sheet_row()])
+        monkeypatch.setenv("THREADS_ACCESS_TOKEN", "test-token")
+        monkeypatch.setattr(
+            threads_client, "ThreadsClient", lambda token, user_id="", **kw: client
+        )
+        monkeypatch.setattr(sheets_client, "SheetClient", lambda settings, **kw: sheet)
+
+        code = fetch_metrics.main(["--dry-run", "--format", "json"])
+
+        assert code == 0
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["fetched"] == 1
+        assert payload["rows"][0][0] == record["product_id"]
+        assert payload["rows"][0][3] == "923"
+        assert payload["clicks"] == {record["product_id"]: 10}
 
 
 class FakeShowSheet:

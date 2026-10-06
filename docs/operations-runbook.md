@@ -309,9 +309,11 @@ $HERMES_HOME/plugin-data/
 
 Which of the two holds the current ledger depends on which writer ran last, and
 the directory is not derivable from the plugin name — Hermes namespaces
-`ctx.state` for native plugins. Read the payload, not the path (that is what
-`doctor.py` does), or ask `threads_check` / `/affiliate-threads status` for the
-live answer.
+`ctx.state` for native plugins. Read the payload, not the path: `doctor.py` walks
+every `state.json`, and `runtime.py` — which the skill's scripts and the weekly
+metrics fetch read through — resolves the newest file carrying this plugin's
+keys, falling back to the path-derived default. Or ask `threads_check` /
+`/affiliate-threads status` for the live answer.
 
 ```json
 {
