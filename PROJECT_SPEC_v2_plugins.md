@@ -355,10 +355,20 @@ The same spreadsheet carries one more tab, `Metrics` by default
 (`metrics_tab` setting). It is a time series, not business state: the weekly
 insights fetch (Section 5.2) appends one row per published post per check —
 `Product ID | Media ID | Checked At | Views | Likes | Replies | Reposts |
-Quotes | Shares | Link Clicks`. `Link Clicks` counts clicks on that product's
-affiliate URL during the job's seven-day window (exact-URL match); `Checked
-At` is ISO-8601 UTC. The job is its only writer; the agent may read the tab
-but never write it, and the candidate table is never touched by it.
+Quotes | Shares | Link Clicks | Angle Type | Hook Pattern | CTA Shape |
+Topic`. `Link Clicks` counts clicks on that product's affiliate URL during
+the job's seven-day window (exact-URL match); `Checked At` is ISO-8601 UTC.
+
+The four attribution columns are the content shape the publish recorded on
+the plugin's publish ledger (`angle_type`, `hook_pattern`, `cta_shape`, and
+`topic` — the conversational topic, distinct from the platform `topic_tag`).
+The job copies them from the ledger record; it never parses Hermes memory,
+and rows written before attribution existed stay blank there and are never
+reconstructed. The job also rewrites row 1 when the tab still carries the
+older 10-column header, so new rows never land under stale labels (an empty
+tab gets the header with its first append), reporting the upgrade in its run
+summary. The job is its only writer; the agent may read the tab but never
+write it, and the candidate table is never touched by it.
 
 Access is via Hermes' bundled `google-workspace` skill (`google_api.py
 sheets get/update/append`), not a custom adapter.

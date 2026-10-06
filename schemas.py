@@ -128,6 +128,44 @@ THREADS_PUBLISH: dict = {
                     "require_topic_tag is off. Only the root post takes one."
                 ),
             },
+            "angle_type": {
+                "type": "string",
+                "description": (
+                    "Optional attribution metadata — the angle family this thread was built on "
+                    "(e.g. 'trade_off', 'firsthand_story'), the same value the content note "
+                    "records. It never appears in the copy. Stored on the publish record and "
+                    "copied into the Metrics tab so the operator can see which angle performed; "
+                    "a bad value is dropped rather than failing the publish."
+                ),
+            },
+            "topic": {
+                "type": "string",
+                "description": (
+                    "Optional attribution metadata — the conversational topic this thread is "
+                    "about, as the content note records it (e.g. 'power bank capacity vs "
+                    "weight'). This is NOT topic_tag: topic_tag is the platform tag the root "
+                    "post publishes under, topic is the subject of the conversation. Stored on "
+                    "the publish record and copied into the Metrics tab."
+                ),
+            },
+            "hook_pattern": {
+                "type": "string",
+                "description": (
+                    "Optional attribution metadata — the hook pattern's name from "
+                    "references/hook-patterns.md, the same value the content note records "
+                    "(e.g. 'cost_statement'). It never appears in the copy. Stored on the "
+                    "publish record and copied into the Metrics tab."
+                ),
+            },
+            "cta_shape": {
+                "type": "string",
+                "description": (
+                    "Optional attribution metadata — the phrase shape that opens the closing "
+                    "post's CTA, as the content note records it (e.g. 'kalau penasaran'). It "
+                    "never appears in the copy. Stored on the publish record and copied into "
+                    "the Metrics tab."
+                ),
+            },
             "spreadsheet_id": {
                 "type": "string",
                 "description": "Optional override of the configured spreadsheet id.",

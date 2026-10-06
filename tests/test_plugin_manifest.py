@@ -168,6 +168,17 @@ class TestRegistration:
         names = {tool["name"] for tool in registered.tools}
         assert "threads_publish" in names
 
+    def test_attribution_fields_are_optional_strings(self, registered) -> None:  # noqa: ANN001
+        """The four content-shape fields are attribution metadata: optional, and
+        a bad value must never be able to fail a publish."""
+        schema = next(
+            tool["schema"] for tool in registered.tools if tool["name"] == "threads_publish"
+        )
+        properties = schema["parameters"]["properties"]
+        for name in ("angle_type", "topic", "hook_pattern", "cta_shape"):
+            assert properties[name]["type"] == "string", name
+            assert name not in schema["parameters"]["required"], name
+
     def test_a_slash_command_is_registered(self, registered) -> None:  # noqa: ANN001
         """The bundle carries its own entry point, so a user never needs the
         skills hub to get one."""

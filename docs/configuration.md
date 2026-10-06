@@ -119,9 +119,14 @@ what a good `Description` looks like.
 | `metrics_window_days` | `30`      | Published posts older than this leave the weekly fetch window |
 
 The weekly job (Monday 10:00) appends one row per published post per check to
-`metrics_tab` — lifetime views/likes/replies/reposts/quotes/shares plus the
-week's link clicks. It is the only writer of that tab; the agent may read it,
-never write it. A window below `1` falls back to the default. See
+`metrics_tab` — lifetime views/likes/replies/reposts/quotes/shares, the week's
+link clicks, and the content shape the publish recorded (angle type, hook
+pattern, CTA shape, and the conversational topic — not the platform tag). The
+attribution comes from the publish ledger; rows written before it existed stay
+blank there. If the tab still carries the older 10-column header, the job
+rewrites row 1 to the 14-column header before appending and reports it in its
+run summary. It is the only writer of that tab; the agent may read it, never
+write it. A window below `1` falls back to the default. See
 [cron-setup.md](cron-setup.md#the-third-job-the-weekly-metrics-fetch).
 
 ## Status vocabulary

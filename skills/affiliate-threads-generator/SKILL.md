@@ -694,14 +694,14 @@ approval the default. Wait.
 
 Full semantics, including edge cases and exact wording: `references/telegram-actions.md`.
 
-| Reply                             | Action                                                                                                                                                         |
-| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| approve / setuju / post aja / gas | Call `threads_publish` with the Product ID from the preview, the exact copy, and the preview's topic tag. Then report the URL.                                 |
-| ganti tag-nya jadi <X>            | Change only the topic tag, checked against the platform's limits, and re-show the topic line. The copy does not move — the tag is metadata.                    |
-| pasang linknya / tambahkan link   | Two-stage mode only. Preview the one-post link reply, wait for approval, then call `threads_publish` with the same Product ID, `stage: "link"`, and that post. |
-| hold                              | `set_status.py <ID> Hold`. No publish.                                                                                                                         |
-| cancel / jangan dipublish         | `set_status.py <ID> Cancel`. No publish.                                                                                                                       |
-| regenerate <constraint>           | Step 3 again, same Product ID, same research unless new info is needed.                                                                                        |
+| Reply                             | Action                                                                                                                                                                                                                 |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| approve / setuju / post aja / gas | Call `threads_publish` with the Product ID from the preview, the exact copy, the preview's topic tag, and the run's four attribution values (`angle_type`, `topic`, `hook_pattern`, `cta_shape`). Then report the URL. |
+| ganti tag-nya jadi <X>            | Change only the topic tag, checked against the platform's limits, and re-show the topic line. The copy does not move — the tag is metadata.                                                                            |
+| pasang linknya / tambahkan link   | Two-stage mode only. Preview the one-post link reply, wait for approval, then call `threads_publish` with the same Product ID, `stage: "link"`, and that post.                                                         |
+| hold                              | `set_status.py <ID> Hold`. No publish.                                                                                                                                                                                 |
+| cancel / jangan dipublish         | `set_status.py <ID> Cancel`. No publish.                                                                                                                                                                               |
+| regenerate <constraint>           | Step 3 again, same Product ID, same research unless new info is needed.                                                                                                                                                |
 
 | belum / belum pernah pakai | `set_experience.py <ID> --used no`, confirm briefly, then continue from Step 2 in `none` mode. |
 | pernah, ini testimoni: <text> | `set_experience.py <ID> --used yes --testimonial "<their words>"`, confirm briefly, then continue from Step 2 in `firsthand` mode. |
@@ -718,9 +718,10 @@ Silence is not approval. An earlier "approve" for a different product is not
 approval. Your own judgement that the copy is good is not approval.
 
 After a successful publish, save a content-memory note:
-`{content_id: <ID>, angle_type, topic, hook_pattern, topic_tag}` — see
+`{content_id: <ID>, angle_type, topic, hook_pattern, cta_shape, topic_tag}` — see
 `references/content-rules.md` for the format. This is what makes the next
-thread's novelty check possible.
+thread's novelty check possible. The same four values travel to `threads_publish`
+as attribution; the note remains the cross-run novelty store.
 
 ---
 

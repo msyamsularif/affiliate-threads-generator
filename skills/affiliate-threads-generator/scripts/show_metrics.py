@@ -2,7 +2,8 @@
 """Latest Threads metrics per product — read-only.
 
 Prints one line per product from the plugin-owned Metrics tab (its most recent
-snapshot), plus the click totals that snapshot recorded. Answers "how is it
+snapshot), plus the click totals that snapshot recorded and the content shape
+the row carries (angle, hook, CTA, topic) when it has one. Answers "how is it
 going?" without touching the Threads API or spending a model turn.
 
 Usage
@@ -49,7 +50,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         sheet = sheets_client.SheetClient(settings)
-        values = sheet.read_range(f"{settings.metrics_tab}!A1:J")
+        values = sheet.read_range(f"{settings.metrics_tab}!A1:N")
     except sheets_client.SheetError as exc:
         _fail(
             f"could not read the {settings.metrics_tab!r} tab: {exc.message}",
@@ -126,7 +127,25 @@ def _line(row: list[str]) -> str:
         parts.append(f"{clicks} clicks (7d)")
     checked = _cell(row, 2)
     when = checked[:10] if checked else "unknown date"
-    return f"Product {product_id} — {' · '.join(parts) or 'no data'} · checked {when}"
+    line = f"Product {product_id} — {' · '.join(parts) or 'no data'} · checked {when}"
+    attribution = _attribution(row)
+    if attribution:
+        line += f" · {attribution}"
+    return line
+
+
+def _attribution(row: list[str]) -> str:
+    """The content shape the row carries; ``""`` for pre-attribution rows."""
+    return " · ".join(
+        f"{label} {value}"
+        for label, value in (
+            ("angle", _cell(row, 10)),
+            ("hook", _cell(row, 11)),
+            ("cta", _cell(row, 12)),
+            ("topic", _cell(row, 13)),
+        )
+        if value
+    )
 
 
 def _payload(row: list[str]) -> dict:
@@ -150,6 +169,10 @@ def _payload(row: list[str]) -> dict:
         "quotes": number(7),
         "shares": number(8),
         "link_clicks": number(9),
+        "angle_type": _cell(row, 10),
+        "hook_pattern": _cell(row, 11),
+        "cta_shape": _cell(row, 12),
+        "topic": _cell(row, 13),
     }
 
 

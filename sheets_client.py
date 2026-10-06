@@ -423,6 +423,27 @@ class SheetClient:
         )
         return first_row
 
+    def write_row(self, tab: str, row_number: int, values: Sequence[str]) -> None:
+        """Write one row of a plugin-owned tab, and only that row.
+
+        Used to rewrite the Metrics tab's header when it predates the current
+        column set — ``append_rows`` writes a header only into an empty tab, so
+        an existing header would otherwise stay stale and new rows would land
+        under the wrong labels. The range is derived from the values' own
+        width, so nothing outside the written cells is touched.
+        """
+        if not values:
+            return
+        self._run_json(
+            "sheets",
+            "update",
+            self.spreadsheet_id,
+            f"{tab}!A{row_number}:{column_letter(len(values))}{row_number}",
+            "--values",
+            json.dumps([[str(value) for value in values]], ensure_ascii=False),
+            stage="sheets_write",
+        )
+
 
 def _sort_key(row: Row) -> tuple[int, float | str, int]:
     """Stable ordering: numeric IDs first (ascending), then everything else."""

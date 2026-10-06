@@ -292,6 +292,81 @@ class TestTopicTag:
         assert sheet.writes == []
 
 
+class TestAttribution:
+    """Attribution metadata is stored on the publish record for the Metrics tab.
+
+    It is optional, and a bad value is dropped or trimmed — never a reason to
+    fail a publish.
+    """
+
+    POSTS = [
+        {"text": "a"},
+        {"text": "b"},
+        {"text": f"Link afiliasi. {AFFILIATE_URL}"},
+    ]
+
+    def publish(self, publish_env, **extra):  # noqa: ANN001, ANN202
+        transport = scripted_transport(happy_path_responses(posts=3))
+        publish_env(FakeSheet([make_row()]), transport)
+        return call({"product_id": "12", "posts": self.POSTS, "confirm_publish": True, **extra})
+
+    def test_the_four_values_reach_the_ledger_record(self, publish_env) -> None:  # noqa: ANN001
+        result = self.publish(
+            publish_env,
+            angle_type="trade_off",
+            topic="power bank capacity vs weight",
+            hook_pattern="cost_statement",
+            cta_shape="kalau penasaran",
+        )
+
+        assert result["ok"] is True, result
+        record = ledger.get("12")
+        assert record is not None
+        assert record["angle_type"] == "trade_off"
+        assert record["topic"] == "power bank capacity vs weight"
+        assert record["hook_pattern"] == "cost_statement"
+        assert record["cta_shape"] == "kalau penasaran"
+        assert record["topic_tag"] == DEFAULT_TOPIC_TAG
+
+    def test_they_are_optional_and_default_to_empty(self, publish_env) -> None:  # noqa: ANN001
+        result = self.publish(publish_env)
+
+        assert result["ok"] is True, result
+        assert "metadata_notes" not in result
+        record = ledger.get("12")
+        assert record is not None
+        assert record["angle_type"] == ""
+        assert record["topic"] == ""
+        assert record["hook_pattern"] == ""
+        assert record["cta_shape"] == ""
+
+    def test_a_newline_value_is_dropped_not_fatal(self, publish_env) -> None:  # noqa: ANN001
+        result = self.publish(publish_env, cta_shape="kalau\npenasaran")
+
+        assert result["ok"] is True, result
+        assert result["metadata_notes"] == ["cta_shape: dropped — contains a newline"]
+        assert ledger.get("12")["cta_shape"] == ""
+
+    def test_a_non_string_value_is_dropped_not_fatal(self, publish_env) -> None:  # noqa: ANN001
+        result = self.publish(publish_env, angle_type=7)
+
+        assert result["ok"] is True, result
+        assert result["metadata_notes"] == ["angle_type: dropped — not a string"]
+        assert ledger.get("12")["angle_type"] == ""
+
+    def test_an_overlong_value_is_truncated_not_fatal(self, publish_env) -> None:  # noqa: ANN001
+        result = self.publish(publish_env, topic="x" * 150)
+
+        assert result["ok"] is True, result
+        assert result["metadata_notes"] == ["topic: truncated to 120 characters"]
+        assert ledger.get("12")["topic"] == "x" * 120
+
+    def test_values_are_stripped(self, publish_env) -> None:  # noqa: ANN001
+        self.publish(publish_env, angle_type="  trade_off  ")
+
+        assert ledger.get("12")["angle_type"] == "trade_off"
+
+
 class TestCredentials:
     def test_missing_token_refuses_without_touching_anything(self, publish_env, monkeypatch) -> None:  # noqa: ANN001
         monkeypatch.delenv("THREADS_ACCESS_TOKEN", raising=False)

@@ -17,7 +17,11 @@ than trusting anything the model reported.
   ],
   "confirm_publish": true,
   "approval_note": "saya approve",
-  "topic_tag": "powerbank"
+  "topic_tag": "powerbank",
+  "angle_type": "trade_off",
+  "topic": "power bank capacity vs weight",
+  "hook_pattern": "cost_statement",
+  "cta_shape": "kalau penasaran"
 }
 ```
 
@@ -31,6 +35,13 @@ than trusting anything the model reported.
   the copy. Pass the bare topic — 1-50 characters, no `.` or `&`, no leading `#`,
   one line — the topic a reader would search for, not the product name. When the
   topic has a Threads community, the post is surfaced inside that community too.
+- `angle_type`, `topic`, `hook_pattern`, `cta_shape` — optional attribution
+  metadata: the content shape the pipeline fixed in Steps 3-5, stored on the
+  publish record and copied into the Metrics tab by the weekly job. `topic` is
+  the conversational subject, never the platform tag. Values are sanitized at
+  publish time (whitespace stripped, one line, at most 120 characters); a bad
+  value is dropped and reported back in `metadata_notes` — attribution can never
+  fail a publish.
 - `stage` — `auto` (default), `thread` or `link`. Only meaningful under
   `publish_mode: two_stage`; see below.
 

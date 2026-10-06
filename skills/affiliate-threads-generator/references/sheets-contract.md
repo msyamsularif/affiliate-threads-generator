@@ -160,14 +160,25 @@ A second tab in the same spreadsheet, named `Metrics` by default
 job (`fetch_metrics.py`, run from cron every Monday). It is a time series — one
 row per published post per check:
 
-`Product ID | Media ID | Checked At | Views | Likes | Replies | Reposts | Quotes | Shares | Link Clicks`
+`Product ID | Media ID | Checked At | Views | Likes | Replies | Reposts | Quotes | Shares | Link Clicks | Angle Type | Hook Pattern | CTA Shape | Topic`
 
 `Link Clicks` is the number of clicks on that product's affiliate URL during
 the job's seven-day window, matched by exact URL. `Checked At` is an ISO-8601
-UTC timestamp.
+UTC timestamp. The last four columns are attribution: the content shape the
+publish recorded on the plugin's publish ledger, copied from the ledger record
+by the job — `Topic` is the conversational topic, not the platform `topic_tag`.
+Rows written before attribution existed stay blank there and are never
+reconstructed.
 
-You may read this tab — `show_metrics.py` summarises it, and a direct read is
-fine when the human asks how a post is doing. You never write it: not with
-`terminal`, not with `execute_code`, not by hand. A missing tab means the
-weekly job has nowhere to land; tell the human to create it (or run
-`doctor.py`, whose `metrics_tab` check says exactly that).
+The job also keeps the header current: it compares row 1 with its own
+14-column header and rewrites row 1 when it differs (a tab created earlier
+carries the old 10-column header), reporting the upgrade in its run summary.
+That is still the only write it makes — an empty tab gets the header with its
+first append, and nothing outside the Metrics tab is ever touched.
+
+You may read this tab — `show_metrics.py` summarises it (attribution included
+when a row carries it), and a direct read is fine when the human asks how a
+post is doing. You never write it: not with `terminal`, not with
+`execute_code`, not by hand. A missing tab means the weekly job has nowhere to
+land; tell the human to create it (or run `doctor.py`, whose `metrics_tab`
+check says exactly that).

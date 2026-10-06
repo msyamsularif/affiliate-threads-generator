@@ -61,6 +61,44 @@ def _truthy(value: Any) -> bool:  # noqa: ANN401
     return False
 
 
+#: Attribution metadata is a nice-to-have: it is stored on the publish record
+#: for the weekly metrics fetch, and a bad value is dropped rather than failing
+#: a publish. ``topic_tag`` keeps its own hard rules — the platform has to
+#: accept it, so the guardrails check it like the rest of the copy.
+_ATTRIBUTION_FIELDS = ("angle_type", "topic", "hook_pattern", "cta_shape")
+_ATTRIBUTION_MAX_CHARS = 120
+
+
+def _attribution_metadata(args: dict[str, Any]) -> tuple[dict[str, str], list[str]]:
+    """Sanitize the optional attribution arguments.
+
+    Strip whitespace; drop a non-string or a value carrying a newline; truncate
+    anything longer than 120 characters. Nothing here can fail a publish — every
+    adjustment is reported back as a note instead.
+    """
+    values: dict[str, str] = {}
+    notes: list[str] = []
+    for name in _ATTRIBUTION_FIELDS:
+        raw = args.get(name)
+        if raw is None:
+            values[name] = ""
+            continue
+        if not isinstance(raw, str):
+            notes.append(f"{name}: dropped — not a string")
+            values[name] = ""
+            continue
+        text = raw.strip()
+        if "\n" in text or "\r" in text:
+            notes.append(f"{name}: dropped — contains a newline")
+            values[name] = ""
+            continue
+        if len(text) > _ATTRIBUTION_MAX_CHARS:
+            text = text[:_ATTRIBUTION_MAX_CHARS].rstrip()
+            notes.append(f"{name}: truncated to {_ATTRIBUTION_MAX_CHARS} characters")
+        values[name] = text
+    return values, notes
+
+
 # --------------------------------------------------------------------------- #
 # threads_publish
 # --------------------------------------------------------------------------- #
@@ -102,6 +140,9 @@ def _publish(args: dict[str, Any]) -> dict[str, Any]:
         return _fail("input", "posts is empty — there is nothing to publish.")
 
     topic_tag = str(args.get("topic_tag") or "").strip()
+    attribution, attribution_notes = _attribution_metadata(args)
+    for note in attribution_notes:
+        logger.warning("threads_publish attribution: %s", note)
 
     requested_stage = str(args.get("stage") or STAGE_AUTO).strip().lower()
     if requested_stage not in PUBLISH_STAGES:
@@ -206,6 +247,8 @@ def _publish(args: dict[str, Any]) -> dict[str, Any]:
         posts_count=len(result.media_ids),
         published_at=_now(),
         publish_mode=settings.publish_mode,
+        topic_tag=topic_tag,
+        **attribution,
     )
 
     # In two-stage mode the row is parked here, not finished: the deferred link
@@ -221,7 +264,7 @@ def _publish(args: dict[str, Any]) -> dict[str, Any]:
             status=status_after,
         )
     except SheetError as exc:
-        return {
+        failed: dict[str, Any] = {
             "ok": True,
             "status": "published_sheet_write_failed",
             "product_id": product_id,
@@ -235,6 +278,9 @@ def _publish(args: dict[str, Any]) -> dict[str, Any]:
                 "only retry the Sheet write."
             ),
         }
+        if attribution_notes:
+            failed["metadata_notes"] = attribution_notes
+        return failed
 
     ledger.mark_sheet_synced(product_id, synced_at=_now())
 
@@ -260,6 +306,8 @@ def _publish(args: dict[str, Any]) -> dict[str, Any]:
             "note (product_id, angle_type, topic, hook_pattern) for the novelty check."
         ),
     }
+    if attribution_notes:
+        payload["metadata_notes"] = attribution_notes
     if settings.two_stage:
         payload["deferred_link"] = {
             "stage": STAGE_LINK,

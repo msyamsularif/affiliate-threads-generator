@@ -103,13 +103,16 @@ whole thread down to generic category talk.
 Create a second tab named `Metrics` (any name works if the `metrics_tab` setting
 matches). The weekly insights job appends one row per published post per check:
 
-| Product ID | Media ID | Checked At | Views | Likes | Replies | Reposts | Quotes | Shares | Link Clicks |
-| ---------- | -------- | ---------- | ----- | ----- | ------- | ------- | ------ | ------ | ----------- |
+| Product ID | Media ID | Checked At | Views | Likes | Replies | Reposts | Quotes | Shares | Link Clicks | Angle Type | Hook Pattern | CTA Shape | Topic |
+| ---------- | -------- | ---------- | ----- | ----- | ------- | ------- | ------ | ------ | ----------- | ---------- | ------------ | --------- | ----- |
 
-The first run writes the header row. It is a time series, not business state:
-nothing in it is ever edited, the agent may read it but never write it, and the
-candidate table is never touched by the job. `doctor.py`'s `metrics_tab` check
-reports whether it exists. See
+The last four columns are the content shape the publish recorded (the
+conversational topic, not the platform tag); rows written before attribution
+existed stay blank there. The first run writes the header row, and a tab that
+already carries the older 10-column header gets it upgraded by the next run. It
+is a time series, not business state: its rows are never edited, the agent may
+read it but never write it, and the candidate table is never touched by the
+job. `doctor.py`'s `metrics_tab` check reports whether it exists. See
 [cron-setup.md](cron-setup.md#the-third-job-the-weekly-metrics-fetch).
 
 ## 2. Statuses

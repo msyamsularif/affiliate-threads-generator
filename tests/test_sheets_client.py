@@ -209,6 +209,9 @@ HEADER = (
     "Link Clicks",
 )
 
+#: The 14-column header the weekly job writes once attribution exists.
+NEW_HEADER = HEADER + ("Angle Type", "Hook Pattern", "CTA Shape", "Topic")
+
 
 def metrics_row(product_id: str = "12") -> list[str]:
     return [product_id, "media-1", "2026-10-06T03:00:00+00:00", "10", "1", "", "", "", "", "3"]
@@ -261,3 +264,22 @@ class TestMetricsAppend:
             client.append_rows("Metrics", [metrics_row()])
         assert "Metrics" in str(excinfo.value)
         assert "create" in (excinfo.value.hint or "").lower()
+
+
+class TestMetricsWriteRow:
+    """``write_row`` is how the weekly job upgrades an older Metrics header."""
+
+    def test_it_writes_exactly_the_row_range(self, settings) -> None:
+        sim = MetricsSim([["Product ID", "Media ID"]])
+
+        build_client(settings, sim).write_row("Metrics", 1, NEW_HEADER)
+
+        assert sim.calls == [("Metrics!A1:N1", [list(NEW_HEADER)])]
+        assert sim.rows[0] == list(NEW_HEADER)
+
+    def test_empty_values_write_nothing(self, settings) -> None:
+        sim = MetricsSim()
+
+        build_client(settings, sim).write_row("Metrics", 1, [])
+
+        assert sim.calls == []

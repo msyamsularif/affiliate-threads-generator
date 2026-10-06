@@ -289,6 +289,18 @@ hook. `product_entry_post` is the post number where the product first appears.
 `topic_tag` records the topic the post went out under, which is how you notice a
 whole category drifting onto one tag.
 
+The note is the cross-run novelty store — recall it before Step 3. The same four
+values (`angle_type`, `topic`, `hook_pattern`, `cta_shape`) also travel to
+`threads_publish` as attribution arguments, and the ledger record it writes is
+the publish's own record of the content shape: the weekly metrics job copies it
+into the Metrics tab, so the operator can see which shape performed. Keep the
+two jobs separate — the note is for recall, the record is for attribution.
+`topic` is the conversational subject ("power bank capacity vs weight");
+`topic_tag` is the platform tag the root post went out under — never conflate
+them. Attribution values are sanitized at publish time (whitespace stripped,
+one line, at most 120 characters) and a bad value is dropped without failing
+the publish.
+
 ### What to do with a repeat
 
 If the leading angle repeats a recent `angle_type`, penalise its

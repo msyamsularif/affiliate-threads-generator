@@ -4,8 +4,10 @@
 Reads the publish ledger for posts published inside the window, pulls each
 root post's lifetime insights plus the account's 7-day link-click totals from
 the Threads Insights API, and appends one row per post to the plugin-owned
-Metrics tab. The cron job delivers the summary it prints, so the summary is
-the weekly report.
+Metrics tab. Each row also carries the content shape the publish recorded —
+angle type, hook pattern, CTA shape and topic — which only the ledger knows.
+The cron job delivers the summary it prints, so the summary is the weekly
+report.
 
 Environment
 -----------
@@ -36,7 +38,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import _bridge  # noqa: E402
 
-#: Columns of the plugin-owned Metrics tab, in order.
+#: Columns of the plugin-owned Metrics tab, in order. The four attribution
+#: columns were appended at the end so rows written before them stay readable.
 METRICS_HEADER = (
     "Product ID",
     "Media ID",
@@ -48,6 +51,10 @@ METRICS_HEADER = (
     "Quotes",
     "Shares",
     "Link Clicks",
+    "Angle Type",
+    "Hook Pattern",
+    "CTA Shape",
+    "Topic",
 )
 
 #: How far back the account-level click window reaches. The job runs weekly,
@@ -156,6 +163,7 @@ def _run(
             appended=0,
             first_row=0,
             scope_error=False,
+            header_upgraded=False,
             empty=True,
         )
 
@@ -210,19 +218,25 @@ def _run(
                 _cell(values.get("quotes")),
                 _cell(values.get("shares")),
                 str(clicks.get(product_id, 0)),
+                _cell(record.get("angle_type")),
+                _cell(record.get("hook_pattern")),
+                _cell(record.get("cta_shape")),
+                _cell(record.get("topic")),
             ]
         )
         summaries.append({"product_id": product_id, **values})
 
     appended = 0
     first_row = 0
+    header_upgraded = False
     if rows and not args.dry_run:
         try:
+            header_upgraded = _upgrade_header(sheet, settings.metrics_tab, sheets_client)
             first_row = sheet.append_rows(settings.metrics_tab, rows, header=METRICS_HEADER)
             appended = len(rows)
         except sheets_client.SheetError as exc:
             _fail(
-                f"could not append to the {settings.metrics_tab!r} tab: {exc.message}",
+                f"could not update the {settings.metrics_tab!r} tab: {exc.message}",
                 args,
                 hint=exc.hint,
             )
@@ -241,8 +255,40 @@ def _run(
         appended=appended,
         first_row=first_row,
         scope_error=scope_error,
+        header_upgraded=header_upgraded,
         empty=False,
     )
+
+
+def _upgrade_header(sheet, tab: str, sheets_client) -> bool:  # noqa: ANN001
+    """Rewrite the Metrics header when it predates the current column set.
+
+    ``append_rows`` writes a header only into an empty tab, so a tab created
+    before attribution existed keeps its 10-column header and the new rows
+    would land under stale labels. Row 1 is compared with ``METRICS_HEADER``
+    and rewritten when it differs; an empty tab is left alone — ``append_rows``
+    writes the header there. Only row 1 of the plugin-owned tab is ever
+    touched.
+    """
+    try:
+        values = sheet.read_range(f"{tab}!A1:N1")
+    except sheets_client.SheetError as exc:
+        raise sheets_client.SheetError(
+            exc.message,
+            stage=exc.stage,
+            hint=exc.hint
+            or (
+                f"Check that a tab named {tab!r} exists in the spreadsheet — create it "
+                "if not; see docs/google-sheets-setup.md."
+            ),
+        ) from exc
+    row = values[0] if values else []
+    if not any(str(cell).strip() for cell in row):
+        return False
+    if [str(cell).strip() for cell in row] == list(METRICS_HEADER):
+        return False
+    sheet.write_row(tab, 1, METRICS_HEADER)
+    return True
 
 
 def _fetch_clicks(client, threads_client, now: datetime) -> tuple[dict[str, int], str]:  # noqa: ANN001
@@ -327,6 +373,7 @@ def _emit(
     appended: int,
     first_row: int,
     scope_error: bool,
+    header_upgraded: bool,
     empty: bool,
 ) -> int:
     if args.format == "json":
@@ -344,6 +391,7 @@ def _emit(
                     "errors": errors,
                     "appended": appended,
                     "first_row": first_row or None,
+                    "header_upgraded": header_upgraded,
                     "dry_run": bool(args.dry_run),
                 },
                 ensure_ascii=False,
@@ -363,8 +411,11 @@ def _emit(
             lines.append(top)
         lines.append(_clicks_line(clicks, unmatched))
         if args.dry_run:
+            lines.extend(_attribution_lines(rows))
             lines.append("→ Metrics: dry run — nothing written")
         elif appended:
+            if header_upgraded:
+                lines.append("→ Metrics header: upgraded to 14 columns")
             lines.append(f"→ Metrics: {appended} row(s) appended from row {first_row}")
 
     for error in errors:
@@ -374,6 +425,28 @@ def _emit(
 
     print("\n".join(lines))
     return 0 if rows or empty else 1
+
+
+def _attribution_lines(rows: list[list[str]]) -> list[str]:
+    """One line per fetched post showing the attribution it carries.
+
+    Dry-run only: it is how the operator checks what the next real run would
+    write, without the tab being touched.
+    """
+    lines = []
+    for row in rows:
+        parts = [
+            f"{label} {value}"
+            for label, value in (
+                ("angle", row[10]),
+                ("hook", row[11]),
+                ("cta", row[12]),
+                ("topic", row[13]),
+            )
+            if value
+        ]
+        lines.append(f"• Product {row[0]} — {' · '.join(parts) if parts else 'no attribution'}")
+    return lines
 
 
 def _top_line(summaries: list[dict]) -> str:

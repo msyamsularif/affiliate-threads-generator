@@ -78,15 +78,27 @@ class FakeThreadsClient:
 
 
 class FakeSheet:
-    def __init__(self, rows=None, *, append_error=None):  # noqa: ANN001
+    def __init__(self, rows=None, *, append_error=None, header=None):  # noqa: ANN001
         self.rows = rows or []
         self.append_error = append_error
         self.appended: list[list[str]] = []
         self.header = None
         self.tab = ""
+        #: Canned row 1 for the header check; ``None`` means an empty tab.
+        self.header_row = list(header) if header else None
+        self.header_writes: list[tuple] = []
+        self.header_reads: list[str] = []
 
     def read_rows(self):  # noqa: ANN201
         return self.rows
+
+    def read_range(self, a1):  # noqa: ANN001, ANN201
+        self.header_reads.append(a1)
+        return [list(self.header_row)] if self.header_row else []
+
+    def write_row(self, tab, row_number, values):  # noqa: ANN001, ANN201
+        self.header_writes.append((tab, row_number, list(values)))
+        self.header_row = list(values)
 
     def append_rows(self, tab, rows, header=()):  # noqa: ANN001, ANN201
         if self.append_error is not None:
@@ -113,9 +125,9 @@ def wired(monkeypatch: pytest.MonkeyPatch):
     return install
 
 
-def make_record(product_id="12", media_ids=("media-1",), days_ago=1):  # noqa: ANN001, ANN201
+def make_record(product_id="12", media_ids=("media-1",), days_ago=1, **metadata):  # noqa: ANN001, ANN201
     published = datetime.now(timezone.utc) - timedelta(days=days_ago)
-    return {
+    record = {
         "product_id": product_id,
         "media_ids": list(media_ids),
         "permalink": "https://www.threads.net/@you/post/media-1",
@@ -124,6 +136,8 @@ def make_record(product_id="12", media_ids=("media-1",), days_ago=1):  # noqa: A
         "publish_mode": "single",
         "sheet_synced": True,
     }
+    record.update(metadata)
+    return record
 
 
 def sheet_row(product_id="12", affiliate_url=AFFILIATE_URL):  # noqa: ANN001, ANN201
@@ -194,6 +208,84 @@ class TestFetchMetrics:
         assert row[1] == "media-1"
         assert row[3] == "1240"
         assert row[9] == "21"
+        assert len(row) == len(fetch_metrics.METRICS_HEADER)
+
+    def test_attribution_metadata_reaches_the_new_columns(self, fetch_metrics, wired) -> None:  # noqa: ANN001
+        client = FakeThreadsClient(media={"media-1": {"likes": 1}})
+        sheet = FakeSheet([sheet_row()])
+        wired(
+            records=[
+                make_record(
+                    angle_type="trade_off",
+                    topic="power bank capacity vs weight",
+                    hook_pattern="cost_statement",
+                    cta_shape="kalau penasaran",
+                )
+            ],
+            client=client,
+            sheet=sheet,
+        )
+
+        fetch_metrics.main(["--format", "json"])
+
+        row = sheet.appended[0]
+        assert row[10] == "trade_off"
+        assert row[11] == "cost_statement"
+        assert row[12] == "kalau penasaran"
+        assert row[13] == "power bank capacity vs weight"
+
+    def test_a_record_without_metadata_writes_blanks_not_an_exception(self, fetch_metrics, wired) -> None:  # noqa: ANN001
+        client = FakeThreadsClient(media={"media-1": {"likes": 1}})
+        sheet = FakeSheet([sheet_row()])
+        wired(records=[make_record()], client=client, sheet=sheet)
+
+        code = fetch_metrics.main(["--format", "json"])
+
+        assert code == 0
+        assert sheet.appended[0][10:14] == ["", "", "", ""]
+
+    def test_a_stale_ten_column_header_is_rewritten_before_appending(self, fetch_metrics, wired, capsys) -> None:  # noqa: ANN001
+        client = FakeThreadsClient(media={"media-1": {"likes": 1}})
+        sheet = FakeSheet([sheet_row()], header=HEADER_ROW)
+        wired(records=[make_record()], client=client, sheet=sheet)
+
+        code = fetch_metrics.main([])  # text format
+
+        assert code == 0
+        assert sheet.header_reads == ["Metrics!A1:N1"]
+        assert sheet.header_writes == [("Metrics", 1, list(fetch_metrics.METRICS_HEADER))]
+        assert "Metrics header: upgraded to 14 columns" in capsys.readouterr().out
+
+    def test_the_json_summary_reports_the_header_upgrade(self, fetch_metrics, wired, capsys) -> None:  # noqa: ANN001
+        client = FakeThreadsClient(media={"media-1": {"likes": 1}})
+        sheet = FakeSheet([sheet_row()], header=HEADER_ROW)
+        wired(records=[make_record()], client=client, sheet=sheet)
+
+        fetch_metrics.main(["--format", "json"])
+
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["header_upgraded"] is True
+
+    def test_a_current_header_is_left_alone(self, fetch_metrics, wired, capsys) -> None:  # noqa: ANN001
+        client = FakeThreadsClient(media={"media-1": {"likes": 1}})
+        sheet = FakeSheet([sheet_row()], header=list(fetch_metrics.METRICS_HEADER))
+        wired(records=[make_record()], client=client, sheet=sheet)
+
+        fetch_metrics.main(["--format", "json"])
+
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["header_upgraded"] is False
+        assert sheet.header_writes == []
+
+    def test_an_empty_tab_gets_its_header_from_the_first_append(self, fetch_metrics, wired) -> None:  # noqa: ANN001
+        client = FakeThreadsClient(media={"media-1": {"likes": 1}})
+        sheet = FakeSheet()
+        wired(records=[make_record()], client=client, sheet=sheet)
+
+        fetch_metrics.main(["--format", "json"])
+
+        assert sheet.header_writes == []
+        assert sheet.header == fetch_metrics.METRICS_HEADER
 
     def test_only_the_root_post_is_queried(self, fetch_metrics, wired) -> None:  # noqa: ANN001
         client = FakeThreadsClient(media={"media-1": {"likes": 1}})
@@ -308,6 +400,41 @@ class TestFetchMetrics:
         out = capsys.readouterr().out
         assert "dry run" in out
         assert sheet.appended == []
+        assert sheet.header_writes == []
+        assert sheet.header_reads == []
+
+    def test_a_dry_run_prints_the_attribution_for_every_post(self, fetch_metrics, wired, capsys) -> None:  # noqa: ANN001
+        client = FakeThreadsClient(media={"media-1": {"likes": 1}})
+        sheet = FakeSheet([sheet_row()])
+        wired(
+            records=[
+                make_record(
+                    angle_type="trade_off",
+                    topic="power bank capacity vs weight",
+                    hook_pattern="cost_statement",
+                    cta_shape="kalau penasaran",
+                )
+            ],
+            client=client,
+            sheet=sheet,
+        )
+
+        code = fetch_metrics.main(["--dry-run"])
+
+        assert code == 0
+        assert (
+            "• Product 12 — angle trade_off · hook cost_statement · cta kalau penasaran "
+            "· topic power bank capacity vs weight" in capsys.readouterr().out
+        )
+
+    def test_a_dry_run_says_when_a_post_has_no_attribution(self, fetch_metrics, wired, capsys) -> None:  # noqa: ANN001
+        client = FakeThreadsClient(media={"media-1": {"likes": 1}})
+        sheet = FakeSheet([sheet_row()])
+        wired(records=[make_record()], client=client, sheet=sheet)
+
+        fetch_metrics.main(["--dry-run"])
+
+        assert "• Product 12 — no attribution" in capsys.readouterr().out
 
     def test_the_text_summary_names_the_top_post_and_the_week_clicks(self, fetch_metrics, wired, capsys) -> None:  # noqa: ANN001
         client = FakeThreadsClient(
@@ -353,7 +480,7 @@ class TestFetchMetrics:
 
         assert code == 1
         out = capsys.readouterr().out
-        assert "could not append" in out
+        assert "could not update" in out
         assert "Create it." in out
 
 
@@ -459,3 +586,80 @@ class TestShowMetrics:
         payload = json.loads(capsys.readouterr().out)
         assert payload["products"][0]["views"] == 1240
         assert payload["products"][0]["link_clicks"] == 21
+
+    def test_rows_with_and_without_attribution_parse_together(self, show_metrics, monkeypatch, capsys) -> None:  # noqa: ANN001
+        values = [
+            HEADER_ROW,
+            ["11", "m0", "2026-09-29T03:00:00+00:00", "900", "30", "4", "", "", "", "10"],
+            [
+                "12",
+                "m1",
+                "2026-10-06T03:00:00+00:00",
+                "1240",
+                "45",
+                "6",
+                "",
+                "",
+                "",
+                "21",
+                "trade_off",
+                "cost_statement",
+                "kalau penasaran",
+                "power bank capacity vs weight",
+            ],
+        ]
+        sheet = FakeShowSheet(values)
+        monkeypatch.setattr(sheets_client, "SheetClient", lambda settings, **kw: sheet)
+
+        code = show_metrics.main([])
+
+        assert code == 0
+        assert sheet.reads == ["Metrics!A1:N"]
+        out = capsys.readouterr().out
+        assert (
+            "Product 11 — 900 views · 30 likes · 4 replies · 10 clicks (7d) · checked 2026-09-29"
+            in out
+        )
+        assert (
+            "Product 12 — 1,240 views · 45 likes · 6 replies · 21 clicks (7d) · "
+            "checked 2026-10-06 · angle trade_off · hook cost_statement · "
+            "cta kalau penasaran · topic power bank capacity vs weight" in out
+        )
+
+    def test_json_carries_attribution_and_keeps_the_existing_keys(self, show_metrics, monkeypatch, capsys) -> None:  # noqa: ANN001
+        values = [
+            HEADER_ROW,
+            ["11", "m0", "2026-09-29T03:00:00+00:00", "900", "30", "4", "", "", "", "10"],
+            [
+                "12",
+                "m1",
+                "2026-10-06T03:00:00+00:00",
+                "1240",
+                "45",
+                "6",
+                "",
+                "",
+                "",
+                "21",
+                "trade_off",
+                "cost_statement",
+                "kalau penasaran",
+                "power bank capacity vs weight",
+            ],
+        ]
+        monkeypatch.setattr(
+            sheets_client, "SheetClient", lambda settings, **kw: FakeShowSheet(values)
+        )
+
+        show_metrics.main(["--format", "json"])
+
+        payload = json.loads(capsys.readouterr().out)
+        first, second = payload["products"]
+        assert first["views"] == 900
+        assert first["link_clicks"] == 10
+        assert first["angle_type"] == ""
+        assert first["topic"] == ""
+        assert second["angle_type"] == "trade_off"
+        assert second["hook_pattern"] == "cost_statement"
+        assert second["cta_shape"] == "kalau penasaran"
+        assert second["topic"] == "power bank capacity vs weight"

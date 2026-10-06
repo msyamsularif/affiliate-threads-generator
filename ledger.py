@@ -65,12 +65,22 @@ def record_published(
     posts_count: int,
     published_at: str,
     publish_mode: str = "single",
+    angle_type: str = "",
+    topic: str = "",
+    hook_pattern: str = "",
+    cta_shape: str = "",
+    topic_tag: str = "",
 ) -> dict[str, Any]:
     """Record a confirmed publish. ``sheet_synced`` starts false on purpose.
 
     ``publish_mode`` decides what the Sheet still has to be told: in ``single``
     mode the publish is finished once ``Status=Done`` lands, while a ``two_stage``
     thread is finished only after the deferred link reply.
+
+    The attribution fields are optional metadata — the content shape the writer
+    settled on. They exist for the weekly metrics fetch, which copies them into
+    the Metrics tab; a record written without them simply reads back as empty,
+    and so do records that predate them.
     """
     ledger = _load()
     record = {
@@ -80,6 +90,11 @@ def record_published(
         "posts_count": posts_count,
         "published_at": published_at,
         "publish_mode": publish_mode,
+        "angle_type": str(angle_type or ""),
+        "topic": str(topic or ""),
+        "hook_pattern": str(hook_pattern or ""),
+        "cta_shape": str(cta_shape or ""),
+        "topic_tag": str(topic_tag or ""),
         "sheet_synced": False,
         "sheet_synced_at": None,
     }
