@@ -13,7 +13,7 @@ description: >-
   audit, a targeted naturalization rewrite, the affiliate editorial and evidence
   reviews, a deterministic diversity review, then a Telegram preview that waits
   for a human decision. Never publishes on its own.
-version: 1.3.0
+version: 1.3.1
 author: Affiliate Threads
 license: MIT
 
