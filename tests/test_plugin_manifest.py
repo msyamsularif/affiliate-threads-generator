@@ -123,6 +123,15 @@ class TestManifest:
         assert schema["metrics_tab"]["default"] == config.DEFAULT_METRICS_TAB
         assert schema["metrics_window_days"]["default"] == config.DEFAULT_METRICS_WINDOW_DAYS
 
+    def test_the_thread_length_settings_match_the_plugin_defaults(self, manifest: dict) -> None:
+        """The manifest mirrors ``config.py`` — the two must not drift apart."""
+        from atg_plugin import config
+
+        schema = manifest["config_schema"]
+        defaults = config.Settings()
+        assert schema["min_posts"]["default"] == defaults.min_posts
+        assert schema["max_posts"]["default"] == defaults.max_posts
+
 
 class TestRegistration:
     def test_declared_tools_match_registered_tools(self, manifest: dict, registered) -> None:  # noqa: ANN001

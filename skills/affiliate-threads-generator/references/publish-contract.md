@@ -79,7 +79,7 @@ In this order. Any failure returns an error and **publishes nothing**.
 5. **`Status` is exactly the eligible value** — default `Ready To Generate`.
 6. **`Threads URL` is empty.**
 7. **Hard content guardrails:**
-   - post count between `min_posts` (3) and `max_posts` (10)
+   - post count between `min_posts` (2) and `max_posts` (10)
    - no empty posts
    - ≤ 500 characters per post, counting emoji as their UTF-8 byte length
    - ≤ 5 unique links per post

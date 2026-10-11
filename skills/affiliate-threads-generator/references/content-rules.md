@@ -225,7 +225,7 @@ the link reply that goes out later. So:
 
 ## 8. Post-by-post rules
 
-- **3-10 posts.** Dynamic. A 3-post thread that lands is better than a padded 10.
+- **2-10 posts.** Dynamic. A 2-post thread that lands is better than a padded 10.
 - **Post length varies.** One sentence in one post is fine. Uniform construction
   is a warning sign, not a standard.
 - **No post carries a hashtag.** None at all. The topic tag is metadata
@@ -233,7 +233,8 @@ the link reply that goes out later. So:
   stay.
 - **Post 1** earns the next post. No product mention.
 - **The product enters when the reader already has a reason to care.** Post 3-4
-  is the normal range, not a rule. Never post 1.
+  is the normal range, not a rule. Never post 1 — in the two-post minimum, post 1
+  is the hook and post 2 carries the product and its link.
 - **Every post creates a reason to continue**, and opens from the thought the
   previous post left behind — a reader who lands mid-thread can tell what
   conversation they joined (`references/category-playbook.md` §3). If a post

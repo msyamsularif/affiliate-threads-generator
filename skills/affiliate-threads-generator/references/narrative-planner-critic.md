@@ -133,7 +133,8 @@ works as the rhetorical version aimed at the category — nothing first-hand.
 The number is a consequence of the narrative, not a schedule. Record it together
 with the reason: "post 3 — the reader has just seen what the problem costs, and
 this is one answer to it." If the reason is "because the product usually enters at
-post 3", the plan is not ready.
+post 3", the plan is not ready. In the two-post minimum that entry lands at post 2
+for the same reason: the hook has already earned it.
 
 ### On `affiliate_intensity`
 

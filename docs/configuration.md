@@ -157,7 +157,7 @@ These are enforced by `threads_publish` in code. Nothing here is a suggestion.
 | `blocked_phrases`         | 11 regex patterns                  | Blocked in `none` mode — the fabricated-personal-experience ban. In `firsthand` mode provenance checks replace it. |
 | `amplifier_phrases`       | 9 regex patterns                   | Guarantee/absolute language refused in **both** modes                                                              |
 | `ask_experience`          | `true`                             | Ask about first-hand experience before research when the row is blank                                              |
-| `min_posts` / `max_posts` | `3` / `10`                         | Thread length bounds                                                                                               |
+| `min_posts` / `max_posts` | `2` / `10`                         | Thread length bounds                                                                                               |
 | `max_chars_per_post`      | `500`                              | Threads' own limit; emoji count as their UTF-8 byte length                                                         |
 | `max_links_per_post`      | `5`                                | Threads rejects more                                                                                               |
 | `container_wait_seconds`  | `5`                                | Pause between container creation and publishing                                                                    |
@@ -165,6 +165,11 @@ These are enforced by `threads_publish` in code. Nothing here is a suggestion.
 | `link_pending_status`     | `Link Pending`                     | Where a two-stage row parks between the two publishes                                                              |
 
 ### Hashtags and topic tags
+
+A two-post thread is legal but rare: the shortest useful shape is a hook post,
+then the product post carrying the link. An explicit `min_posts` in
+`~/.hermes/config.yaml` wins over the default, so set it to `2` to match this
+release.
 
 Threads gives a post exactly **one** clickable tag, calls it a _topic tag_, and
 reads it from the `topic_tag` publish argument rather than from the copy. When

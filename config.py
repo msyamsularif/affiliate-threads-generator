@@ -340,7 +340,8 @@ class Settings:
     #: before research (the pipeline's Step 1.5). Off keeps the legacy flow:
     #: no question, and every row validates in ``none`` mode.
     ask_experience: bool = True
-    min_posts: int = 3
+    #: Lower bound on thread length — a hook post and the product/link post.
+    min_posts: int = 2
     #: Upper bound on thread length. Long enough for the multi-sub-thread shape
     #: (a hook post, several short observations, a closing practical note), which
     #: a 6-post ceiling cut off mid-argument.
@@ -514,7 +515,7 @@ def resolve(overrides: dict[str, Any] | None = None) -> Settings:
             _lookup("amplifier_phrases", None), DEFAULT_AMPLIFIER_PHRASES
         ),
         ask_experience=_as_bool(_lookup("ask_experience", True), True),
-        min_posts=_as_int(_lookup("min_posts", 3), 3),
+        min_posts=_as_int(_lookup("min_posts", 2), 2),
         max_posts=_as_int(_lookup("max_posts", 10), 10),
         publish_mode=_publish_mode(_lookup("publish_mode", DEFAULT_PUBLISH_MODE)),
         link_pending_status=str(

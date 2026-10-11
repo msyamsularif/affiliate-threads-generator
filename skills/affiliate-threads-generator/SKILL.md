@@ -422,7 +422,8 @@ stop. That is an angle problem, not a wording problem — go back to Step 3.
 - the bridge between beats — what each hands to the next, so the thread reads as
   one thought moving forward
 - where the product becomes relevant, and why the narrative is ready for it
-  there (post 3-4 is the normal range, not a rule)
+  there (post 3-4 is the usual range, not a rule — in the two-post minimum, post
+  1 hooks and post 2 carries the product)
 - which post carries the CTA
 - the `topic_tag` — one topic for the root post, and the topic a reader would
   search for. It is metadata, never text (Step 5)
@@ -446,7 +447,7 @@ two are discarded.
 
 ### Step 5 — Thread generation
 
-Write **3-10 posts**. Dynamic — post length varies, and not every thread is the
+Write **2-10 posts**. Dynamic — post length varies, and not every thread is the
 same shape. Rotate the narrative structure across runs; never default to
 `Hook → 3 benefits → CTA`. The structures are in `references/content-rules.md`,
 the opening shapes in `references/hook-patterns.md`, the beats in

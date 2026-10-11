@@ -49,7 +49,7 @@ THREADS_PUBLISH: dict = {
                 "maxItems": 30,
                 "description": (
                     "The thread, in order. Post 1 is the root; each later post is published as "
-                    "a reply to the previous one. 3-10 posts is the target range — the "
+                    "a reply to the previous one. 2-10 posts is the target range — the "
                     "configured max_posts is the hard bound, and the tool refuses a longer "
                     "thread. The final post carries the affiliate link, "
                     "unless the link is deferred to a later reply (see stage)."

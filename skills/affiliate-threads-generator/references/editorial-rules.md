@@ -74,7 +74,8 @@ requires.
 The product enters when the reader already has a reason to care.
 
 Post 3-4 is the normal range, not a rule. The test is not "is this post 3?" but
-"would a reader who has not bought anything still want this here?".
+"would a reader who has not bought anything still want this here?". In a
+two-post thread the product arrives at post 2, once the hook has earned it.
 
 ## 6. The thread does not need to cover everything
 

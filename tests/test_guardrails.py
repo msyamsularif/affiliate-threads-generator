@@ -59,9 +59,13 @@ class TestHardViolations:
         assert [item.code for item in report.violations] == ["no_posts"]
 
     def test_too_few_posts(self, settings: config.Settings) -> None:
+        report = guardrails.validate_thread([{"text": "only one"}], settings)
+        assert "too_few_posts" in {item.code for item in report.violations}
+
+    def test_two_posts_meet_the_minimum(self, settings: config.Settings) -> None:
         posts = [{"text": "one"}, {"text": "two"}]
         report = guardrails.validate_thread(posts, settings)
-        assert "too_few_posts" in {item.code for item in report.violations}
+        assert "too_few_posts" not in {item.code for item in report.violations}
 
     def test_too_many_posts(self, settings: config.Settings) -> None:
         posts = [{"text": f"post {index}"} for index in range(12)]

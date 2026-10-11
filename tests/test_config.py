@@ -120,7 +120,7 @@ class TestResolve:
         assert resolved.sheet_tab == config.DEFAULT_TAB
         assert resolved.eligible_status == "Ready To Generate"
         assert resolved.done_status == "Done"
-        assert resolved.min_posts == 3
+        assert resolved.min_posts == 2
         assert resolved.max_posts == 10
         assert resolved.max_chars_per_post == 500
         assert resolved.credentials_configured is False

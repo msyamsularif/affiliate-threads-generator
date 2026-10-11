@@ -277,7 +277,12 @@ config_schema:
 
   min_posts:
     type: int
-    default: 3
+    default: 2
+    label: "Minimum posts per thread"
+    description: >-
+      Lower bound on thread length. Two posts is the shortest shape that still
+      reads as a thread rather than an ad: a hook post, then the product and its
+      link.
 
   max_chars_per_post:
     type: int

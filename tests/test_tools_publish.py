@@ -183,6 +183,19 @@ class TestGuardrails:
         assert "too_few_posts" in {item["code"] for item in result["violations"]}
         assert sheet.writes == []
 
+    def test_a_two_post_thread_publishes(self, publish_env) -> None:  # noqa: ANN001
+        transport = scripted_transport(happy_path_responses(posts=2))
+        publish_env(FakeSheet([make_row()]), transport)
+
+        posts = [
+            {"text": "Semua orang beli power bank berdasarkan angka mAh terbesar di kotaknya."},
+            {"text": f"Link afiliasi: saya dapat komisi kalau kamu beli. {AFFILIATE_URL}"},
+        ]
+        result = call({"product_id": "12", "posts": posts, "confirm_publish": True})
+
+        assert result["ok"] is True, result
+        assert result["posts_published"] == 2
+
     def test_fabricated_experience_blocks_publishing(self, publish_env) -> None:  # noqa: ANN001
         publish_env(FakeSheet([make_row()]))
         posts = [

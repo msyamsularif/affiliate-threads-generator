@@ -530,7 +530,7 @@ recorded in the content note.
 
 ### 10.6 Thread Generator
 
-3-10 posts, dynamic length. One narrative structure per Thread, rotated
+2-10 posts, dynamic length. One narrative structure per Thread, rotated
 across runs (observation→story→product, question→comparison→product,
 problem→evidence→trade-off→product, hot take→explanation→product,
 mistake→lesson→recommendation, checklist→example→product) — never

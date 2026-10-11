@@ -197,7 +197,7 @@ The error lists each violation with a code. The hard ones:
 | `topic_tag_invalid`                  | 1-50 characters, no `.` or `&`, no leading `#`, one line                                 |
 | `post_too_long`                      | Shorten it; emoji count as their UTF-8 byte length                                       |
 | `too_many_links`                     | Threads allows 5 unique links per post                                                   |
-| `too_few_posts` / `too_many_posts`   | 3-10 posts by default; `max_posts` raises the bound                                      |
+| `too_few_posts` / `too_many_posts`   | 2-10 posts by default; `max_posts` raises the bound                                      |
 | `affiliate_url_missing_from_row`     | The Sheet row has no affiliate URL                                                       |
 
 Then show a **new** preview and get a **new** approval — the previous approval was

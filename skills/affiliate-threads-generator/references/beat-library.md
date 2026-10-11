@@ -52,7 +52,7 @@ plan expected it to exist is the scaffolding this file is designed to remove.
 - Two beats may live in one post ("friction + contrast" is a normal first line).
 - One beat may take two posts (an `evidence` beat with a caveat usually does).
 - A beat list with six items is not a six-post thread; derive the post breaks
-  from the writing, then check the count is inside 3-10.
+  from the writing, then check the count is inside 2-10.
 
 ## Choosing beats
 
